@@ -1,0 +1,40 @@
+# Config file for SBT SDRDC build scripts
+# Copyright (C) 2014 Silver Bullet Technology
+
+
+# GIT REPOSITORY PATHS
+# By default these are public SBT repositories hosted on github.com.  You can change them
+# to point to local repositories or forks, which will be cloned into the build tree when
+# you give the command
+#   make setup
+# *_BRANCH may be omitted if you're using the "master" branch of the repository
+# *_USER and *_EMAIL will be applied to the cloned repositories' user.name and user.email
+# settings, and may be omitted if not needed
+
+# Linux kernel source
+SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
+SBT_KERNEL_GIT_BRANCH := xcomm_zynq_new_pcore_regmap
+#SBT_KERNEL_GIT_USER   := 
+#SBT_KERNEL_GIT_EMAIL  := 
+export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
+
+
+# PETALINUX SDK
+# Point this to a copy of the PetaLinux SDK; it will be extracted into the correct path
+# and patched for the SDRDC build.  Currently PetaLinux 2013.04 is supported.
+export SBT_PETALINUX_SDK := /DL/petalinux-v2013.04-final-full.tar.gz
+export SBT_PETALINUX_VER := 2013.04
+
+
+# You shouldn't need to modify anything beyond here
+SBT_TOOLS     := $(SBT_TOP)/sbt/tools
+SBT_FILES     := $(SBT_TOP)/sbt/files
+SBT_PATCHES   := $(SBT_TOP)/sbt/patches
+SBT_KERNEL    := $(SBT_TOP)/kernel
+SBT_PETALINUX := $(SBT_TOP)/petalinux
+export SBT_TOOLS SBT_FILES SBT_PATCHES SBT_KERNEL SBT_PETALINUX
+
+SBT_NOW := $(shell date +%Y%m%d-%H%M%S)
+SBT_LOG := $(SBT_TOP)/log/$(SBT_NOW)
+export SBT_NOW SBT_LOG
+

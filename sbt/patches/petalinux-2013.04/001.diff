@@ -1,0 +1,71 @@
+--- a/settings.sh	2013-04-19 19:21:25.000000000 -0700
++++ b/settings.sh	2014-01-07 10:46:00.000000000 -0800
+@@ -104,5 +104,9 @@
+     return $?
+   fi
+   
++  # XSDK workaround - XSDK puts its own copy of the toolchain first in the PATH,
++  # which Petalinux complains about, even though they're the same toolchain.
++  export EXTERN_COMPILER=1
++
+ fi
+ 
+--- a/software/petalinux-dist/vendors/PetaLogix/common/common.mak	2013-04-08 21:41:05.000000000 -0700
++++ b/software/petalinux-dist/vendors/PetaLogix/common/common.mak	2014-01-14 16:21:34.919477168 -0800
+@@ -10,18 +10,14 @@
+ BOOTDIR = $(ROOTDIR)/$(LINUXDIR)/arch/$(ARCH)/boot
+ DTSDIR = $(BOOTDIR)/dts
+ 
+-SIMPLETARGET = simpleImage.$(CONFIG_VENDOR)-$(CONFIG_PRODUCT)
++SIMPLETARGET = Image
+ VEND_PROD_DTB = $(BOOTDIR)/$(CONFIG_VENDOR)-$(CONFIG_PRODUCT).dtb
+ 
+ # In PPC/ARM-land, simpleImage.foo.elf is the ELF image, without .elf is binary
+-ifneq ($(ARCH),microblaze)
+-LINUX_EXT = .elf
+-else
+ LINUX_EXT =
+-endif
+ 
+ DTSFILE = $(DTSDIR)/$(CONFIG_VENDOR)-$(CONFIG_PRODUCT).dts
+-LINUXELF = $(BOOTDIR)/$(SIMPLETARGET)$(LINUX_EXT)
++LINUXELF = $(ROOTDIR)/$(LINUXDIR)/vmlinux
+ VMLINUX  = $(ROOTDIR)/$(LINUXDIR)/vmlinux
+ LINUXBIN = $(IMAGEDIR)/linux.bin
+ ifneq ($(BUILD_UBOOT),)
+@@ -153,7 +149,7 @@
+ 	@cp $(UBOOTDIR)/u-boot $(IMAGEDIR)/u-boot.elf
+ 
+ 	# Create UBImage - image.ub
+-	@petalinux-create-bootimage -i $(VMLINUX) -d $(DTSFILE) -o $@ -c $(CONFIG_CONFIG)
++	petalinux-create-bootimage -i $(VMLINUX) -d $(DTSFILE) -o $@ -c $(CONFIG_CONFIG)
+ 
+ $(BOOTDIR)/%.dtb: $(DTSDIR)/%.dts
+ 	@dtc -O dtb -o $@ -b 0 -p 1024 $<
+@@ -187,6 +183,8 @@
+ 
+ $(LINUXELF): $(DTSFILE) $(LINUX_CONFIG)
+ 	$(MAKEARCH_KERNEL) -j$(HOST_NCPU) -C $(ROOTDIR)/$(LINUXDIR) $(SIMPLETARGET)
++	$(MAKEARCH_KERNEL) -C $(ROOTDIR)/$(LINUXDIR) uImage LOADADDR=0x00100000
++	cp $(BOOTDIR)/uImage $(IMAGEDIR)
+ 
+ # $(LINUXELF) is a DTB-embedded bootable ELF image - this is just a simple copy
+ $(ELFIMAGE): $(LINUXELF)
+--- a/software/petalinux-dist/Makefile	(revision 484)
++++ b/software/petalinux-dist/Makefile	(working copy)
+@@ -556,12 +556,12 @@
+ 	esac
+ 
+ %_defconfig: conf
+-	@if [ ! -f "vendors/$(@:_default=)/config.device" ]; then \
+-		echo "vendors/$(@:_default=)/config.device must exist first"; \
++	@if [ ! -f "vendors/$(@:_defconfig=)/config.device" ]; then \
++		echo "vendors/$(@:_defconfig=)/config.device must exist first"; \
+ 		exit 1; \
+ 	 fi
+ 	-make $(MFLAGS) clean > /dev/null 2>&1
+-	cp vendors/$(@:_default=)/config.device .config
++	cp vendors/$(@:_defconfig=)/config.device .config
+ 	chmod u+x config/setconfig
+ 	yes "" | config/setconfig defaults
+ 	$(ACCEPT_DEFAULT) config/setconfig final
