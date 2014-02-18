@@ -91,6 +91,8 @@
 		#size-cells = <1>;
 		compatible = "xlnx,ps7-axi-interconnect-1.00.a", "simple-bus";
 		ranges ;
+/*
+		// Legacy DMA based on Xilinx AXI DMA IP core: one bidir controller per AD9361
 		axi_dma_0: axi-dma@40400000 {
 			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
 			interrupt-parent = <&ps7_scugic_0>;
@@ -119,13 +121,13 @@
 			xlnx,sg-use-stsapp-length = <0x1>;
 			dma-channel@40400000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 59 4 >; /* ??? -> IRQ 91 -> 59 */
+				interrupts = <0 59 4 >; // ??? -> IRQ 91 -> 59
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x0>;
 			};
 			dma-channel@40400030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 58 4 >; /* ??? -> IRQ 90 -> 58 */
+				interrupts = <0 58 4 >; // ??? -> IRQ 90 -> 58
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x0>;
 			};
@@ -158,35 +160,81 @@
 			xlnx,sg-use-stsapp-length = <0x1>;
 			dma-channel@40500000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 57 4 >; /* ??? -> IRQ 89 -> 57 */
+				interrupts = <0 57 4 >; // ??? -> IRQ 89 -> 57
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x1>;
 			};
 			dma-channel@40500030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 56 4 >; /* ??? -> IRQ 88 -> 56 */
+				interrupts = <0 56 4 >; // ??? -> IRQ 88 -> 56
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x1>;
 			};
 		} ;
-		gpio_sw: gpio@41220000 {
-			#gpio-cells = <2>;
-			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
-			gpio-controller ;
-			reg = < 0x41220000 0x10000 >;
-			xlnx,all-inputs = <0x1>;
-			xlnx,all-inputs-2 = <0x0>;
-			xlnx,dout-default = <0x0>;
-			xlnx,dout-default-2 = <0x0>;
-			xlnx,family = "zynq";
-			xlnx,gpio-width = <0x1>;
-			xlnx,gpio2-width = <0x20>;
-			xlnx,instance = "GPIO_SW";
-			xlnx,interrupt-present = <0x0>;
-			xlnx,is-dual = <0x0>;
-			xlnx,tri-default = <0xffffffff>;
-			xlnx,tri-default-2 = <0xffffffff>;
-		} ;
+*/
+
+		// New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git
+		dmac_0_rx: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 59 1>;
+			clock-names = "fclk0", "fclk1", "fclk2";
+			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
+
+			dma-channel {
+				adi,type = <0>;
+				sbt,buswidth = <64>;
+				sbt,device-id = <0x00100002>;
+			};
+		};
+		dma_0_tx: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 58 1>;
+			clock-names = "fclk0", "fclk1", "fclk2";
+			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
+
+			dma-channel {
+				adi,type = <1>;
+				sbt,buswidth = <64>;
+				sbt,device-id = <0x00100001>;
+			};
+		};
+		dmac_1_rx: dma@7c440000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c440000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 57 1>;
+			clock-names = "fclk0", "fclk1", "fclk2";
+			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
+
+			dma-channel {
+				adi,type = <0>;
+				sbt,buswidth = <64>;
+				sbt,device-id = <0x10100002>;
+			};
+		};
+		dma_1_tx: dma@7c460000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c460000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 56 1>;
+			clock-names = "fclk0", "fclk1", "fclk2";
+			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
+
+			dma-channel {
+				adi,type = <1>;
+				sbt,buswidth = <64>;
+				sbt,device-id = <0x10100001>;
+			};
+		};
+
 		leds_4bits: gpio@41200000 {
 			#gpio-cells = <2>;
 			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
@@ -514,24 +562,28 @@
 			num-chipselects = <2>;
 		}; */
 
-		spi1 {
-			compatible = "spi-gpio";
-			#address-cells = <0x1>;
-			ranges;
+		spi1: spi@e0006000 {
+			bus-num = <1>;
+			compatible = "xlnx,ps7-spi-1.00.a";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 26 4>;
+			clock-names = "ref_clk", "aper_clk";
+			clocks = <&clkc 25>, <&clkc 34>;
+			num-chip-select = <2>;
+			reg = <0xe0006000 0x1000>;
+			speed-hz = <166666666>;
+			xlnx,has-ss0 = <0x1>;
+			xlnx,has-ss1 = <0x1>;
+			xlnx,has-ss2 = <0x0>;
+			xlnx,spi-clk-freq-hz = <166666666>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-			gpio-sck  = < &ps7_gpio_0 96 0 >;
-			gpio-mosi = < &ps7_gpio_0 95 0 >;
-			gpio-miso = < &ps7_gpio_0 94 0 >;
-			cs-gpios  = <
-				&ps7_gpio_0 97 0
-				&ps7_gpio_0 98 0
-			>;
-			num-chipselects = <2>;
-
-			spii_shim_1_0: spi-shim@0 {
+			spi_shim_1_0: spi-shim@0 {
 				compatible = "sbt,spi-shim", "spi-shim", "spi_shim";
 				reg = <0>;
-				spi-max-frequency = <250000>;
+				spi-max-frequency = <5200000>;
+				sbt,mode = <1>;
 
 				/* Clients */
 				ad1: ad9361@0 {
@@ -543,8 +595,8 @@
 
 					/* SPI Setup */
 					reg = <0>;
-					spi-cpha;
-					spi-max-frequency = <250000>;
+					//spi-cpha;
+					spi-max-frequency = <5200000>;
 
 					/* Reset: 58 (AD1), 59 (AD2)  */
 					gpios = < &ps7_gpio_0 58 0 >;
@@ -742,13 +794,15 @@
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
 
-				};
-			};
+				}; // ad1
 
-			spii_shim_2_0: spi-shim@1 {
+			}; // spi_shim_1_0
+
+			spi_shim_2_0: spi-shim@1 {
 				compatible = "sbt,spi-shim", "spi-shim", "spi_shim";
 				reg = <1>;
-				spi-max-frequency = <250000>;
+				spi-max-frequency = <5200000>;
+				sbt,mode = <1>;
 
 				/* clients */
 				ad2: ad9361@0 {
@@ -761,7 +815,7 @@
 					/* SPI Setup */
 					reg = <0>;
 					spi-cpha;
-					spi-max-frequency = <250000>;
+					spi-max-frequency = <5200000>;
 
 					/* Reset: 58 (AD1), 59 (AD2)  */
 					gpios = < &ps7_gpio_0 59 0 >;
@@ -964,11 +1018,10 @@
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
 
-				};
+				}; // ad2
 
+			}; // spi_shim_2_0
 
-			};
-
-		};
+		}; // spi1
 	} ;
 } ;
