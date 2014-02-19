@@ -33,7 +33,7 @@ export SONAME := $(LDNAME).$(MAJOR_VERSION)
 export SHARED := $(SONAME).$(MINOR_VERSION).$(PATCH_VERSION)
 
 # basename of ADI legacy driver source - not redistributable
-export ADI := RC_06132013_Final
+#export ADI := RC_06132013_Final
 
 # location for output
 export BIN := bin
