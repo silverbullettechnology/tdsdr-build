@@ -1,0 +1,53 @@
+#!/usr/bin/ad9361
+# Init script for AD9361 tool using legacy ADI driver
+#
+# Copyright 2013,2014 Silver Bullet Technology
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+# file except in compliance with the License.  You may obtain a copy of the License at:
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the specific language governing
+# permissions and limitations under the License.
+
+# Start AD1
+device ad1
+reset
+readpartnumber
+# Setup default config: 4MHz sample rate, TX 2400MHz, RX 2400MHz
+bist_configureSystemParameters 2400 2400
+bist_startTransceiver
+bist_setChannelMask 1 1
+wait 100
+# Setup and tune LVDS bus
+w 0x012 0x12
+w 0x03C 0x03
+w 0x03B 0x00
+w 0x006 0xF0
+w 0x007 0x0F
+w 0x03D 0xFF
+w 0x03E 0x0F
+
+# Start AD2
+device ad2
+reset
+readpartnumber
+# Setup default config: 4MHz sample rate, TX 2400MHz, RX 2400MHz
+bist_configureSystemParameters 2400 2400
+bist_startTransceiver
+bist_setChannelMask 1 1
+wait 100
+# Setup and tune LVDS bus
+w 0x012 0x12
+w 0x03C 0x03
+w 0x03B 0x00
+w 0x006 0xF0
+w 0x007 0x0F
+w 0x03D 0xFF
+w 0x03E 0x0F
+
+# Tune XO 
+bist_ADI_Set_XO_DAC
+
