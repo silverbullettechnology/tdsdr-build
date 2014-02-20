@@ -126,11 +126,12 @@ static int sysfs_scan (void)
 	{
 		int err = errno;
 		globfree(&gl);
+		if ( err )
+			perror("glob(/sys/bus/iio/devices/iio:device*)");
 		errno = err;
 		return -1;
 	}
 
-	fprintf(stderr, "Scan for IIO driver:\n");
 	for ( i = 0; c < 2 && i < gl.gl_pathc; i++ )
 	{
 		snprintf(path, sizeof(path), "%s/name", gl.gl_pathv[i]);
@@ -141,7 +142,6 @@ static int sysfs_scan (void)
 			continue;
 
 		p = strstr(gl.gl_pathv[i], "iio:device");
-		fprintf(stderr, "  AD%d -> %s\n", c + 1, p);
 
 		dev_node_list[c].leaf = strdup(p);
 		c++;
@@ -191,11 +191,7 @@ int dev_reopen (int num, int reinit)
 	}
 
 	// GPIO failure is a soft-fail with IIO driver
-	if ( ad9361_hal_linux_gpio_init(opt_dev_gpio) )
-	{
-		fprintf(stderr, "ad9361_hal_linux_gpio_init(%d,%d,%d): %s\n",
-		        opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2], strerror(errno));
-	}
+	ad9361_hal_linux_gpio_init(opt_dev_gpio);
 	CMB_gpioWrite(GPIO_TXNRX_pin,  1);
 	CMB_gpioWrite(GPIO_Enable_pin, 1);
 

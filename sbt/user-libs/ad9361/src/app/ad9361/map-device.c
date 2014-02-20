@@ -124,13 +124,11 @@ static int map_pulse_emio (int argc, const char **argv)
 }
 MAP_CMD(pulseEMIO, map_pulse_emio, 3);
 
-static void Set_ASFE_Mode (UINT8 ADx, UINT8 TX_EN, UINT8 RX1_LNAB, UINT8 RX2_LNAB, UINT8 TR_N, UINT8 ASFE_RESET)
+static void Set_ASFE_Mode (UINT8 ADx, UINT8 RX1_LNAB, UINT8 RX2_LNAB, UINT8 TR_N)
 {
 	UINT8 lna_bypass;
 		
 	if(ADx == 1 || ADx == 3){			
-		//TX_EN setup		
-		set_gpio(63, TX_EN);
 		
 		//LNA Bypass Setup
 		lna_bypass = 0;		
@@ -145,14 +143,9 @@ static void Set_ASFE_Mode (UINT8 ADx, UINT8 TX_EN, UINT8 RX1_LNAB, UINT8 RX2_LNA
 		CMB_SPIWriteByte (0x020, 0x00);
 		CMB_SPIWriteByte (0x026, 0x90);
 		CMB_SPIWriteByte (0x027, 0x00);	
-		
-		//TX_EN setup
-		set_gpio(63,0);
 	}
 
 	if(ADx == 2 || ADx == 3){
-		//TX_EN Setup
-		set_gpio(68, TX_EN);
 		//LNA Bypass Setup
 		lna_bypass = 0;		
 		lna_bypass = (TR_N << 7) + (RX2_LNAB << 5) + (RX1_LNAB << 4);
@@ -162,34 +155,96 @@ static void Set_ASFE_Mode (UINT8 ADx, UINT8 TX_EN, UINT8 RX1_LNAB, UINT8 RX2_LNA
 		CMB_SPIWriteByte (0x027, lna_bypass);
 
 	} else{
-		//TX_En Setup
-		set_gpio(68,0);
-
 		//LNA Bypass Setup
 		dev_reopen(1, 1);		
 		CMB_SPIWriteByte (0x020, 0x00);
 		CMB_SPIWriteByte (0x026, 0x90);
 		CMB_SPIWriteByte (0x027, 0x00);	
 	}
-		
-	//ASFE Reset setup
-	set_gpio(62,ASFE_RESET);
 
-	printf("ASFE Mode Setup Complete\r\n");
+	printf("ADI ASFE Control Setup Complete\r\n");
 		
 }
 
 static int map_Set_ASFE_Mode (int argc, const char **argv)
 {
 	MAP_ARG(UINT8, ADx,      1, "Select ADI Chip, 1, 2, or 3 for both");
-	MAP_ARG(UINT8, TX_EN,    2, "Set TX_EN active (1) or inactive (0)");
-	MAP_ARG(UINT8, RX1_LNAB, 3, "Set RX1 LNA Bypass active (1) or inactive (0)");
-	MAP_ARG(UINT8, RX2_LNAB, 4, "Set RX2 LNA Bypass active (1) or inactive (0)");
-	MAP_ARG(UINT8, TR_N,     5, "Set ASFE_ADx_TR_N active (1) or inactive (0)");
-	MAP_ARG(UINT8, ASFE_RESET, 6, "Set ASFE Reset high (1) or low (0)");
+	MAP_ARG(UINT8, RX1_LNAB, 2, "Set RX1 LNA Bypass active (1) or inactive (0)");
+	MAP_ARG(UINT8, RX2_LNAB, 3, "Set RX2 LNA Bypass active (1) or inactive (0)");
+	MAP_ARG(UINT8, TR_N,     4, "Set ASFE_ADx_TR_N active (1) or inactive (0)");
 
-	Set_ASFE_Mode (ADx, TX_EN, RX1_LNAB, RX2_LNAB, TR_N, ASFE_RESET);
+	Set_ASFE_Mode (ADx, RX1_LNAB, RX2_LNAB, TR_N);
 
 	return 0;
 }
-MAP_CMD(Set_ASFE_Mode, map_Set_ASFE_Mode, 7);
+MAP_CMD(Set_ASFE_Mode, map_Set_ASFE_Mode, 5);
+
+
+static void ADI_Get_Voltage(void){
+
+	UINT8 temp1;
+	UINT8 temp2;
+	int adc1;
+	int adc2;
+
+	int delay;
+
+	dev_reopen(0, 1);
+
+	CMB_SPIWriteByte (0x00C, 0x00);
+	CMB_SPIWriteByte (0x00D, 0x00);
+	CMB_SPIWriteByte (0x00F, 0x04);
+	CMB_SPIWriteByte (0x01C, 0x63);
+	CMB_SPIWriteByte (0x01D, 0x00);
+	CMB_SPIWriteByte (0x035, 0x1E);
+	CMB_SPIWriteByte (0x036, 0xFF);
+
+	for (delay = 0; delay < 1000; delay ++){
+		if(delay == 50)
+			printf("");
+	}
+
+	CMB_SPIReadByte (0x01E, &temp1);
+	CMB_SPIReadByte (0x01F, &temp2);
+
+	//printf("temp1: 0x%2X temp2: 0x%2X\r\n",temp1,temp2);
+
+	adc1 = (temp1<<4)+temp2;
+	adc1 = ((adc1*147)/500)+26;
+
+	dev_reopen(1, 1);
+
+	CMB_SPIWriteByte (0x00C, 0x00);
+	CMB_SPIWriteByte (0x00D, 0x00);
+	CMB_SPIWriteByte (0x00F, 0x04);
+	CMB_SPIWriteByte (0x01C, 0x63);
+	CMB_SPIWriteByte (0x01D, 0x00);
+	CMB_SPIWriteByte (0x035, 0x1E);
+	CMB_SPIWriteByte (0x036, 0xFF);
+
+	for (delay = 0; delay < 1000; delay ++){
+		if(delay == 50)
+			printf("");
+	}
+
+	CMB_SPIReadByte (0x01E, &temp1);
+	CMB_SPIReadByte (0x01F, &temp2);
+
+	//printf("temp1: 0x%2X temp2: 0x%2X\r\n",temp1,temp2);
+
+	adc2 = (temp1<<4)+temp2;
+	adc2 = ((adc2*147)/500)+26;
+
+	printf("\r\nADC AD1_PWR_DET: %d mV\r\n", adc1);
+
+	printf("ADC AD2_PWR_DET: %d mV\r\n", adc2);
+}
+
+static int map_ADI_Get_Voltage (int argc, const char **argv)
+{
+
+	ADI_Get_Voltage ();
+
+	return 0;
+}
+MAP_CMD(ADI_Get_AuxADCVoltage, map_ADI_Get_Voltage, 1);

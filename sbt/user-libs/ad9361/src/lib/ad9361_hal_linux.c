@@ -88,7 +88,8 @@ static void ad9361_hal_linux_gpio_write (int pin, int val)
 
 	assert(pin >= 0);
 	assert(pin <= 2);
-	assert(gpio[pin].desc >= 0);
+	if ( gpio[pin].desc < 0 )
+		return;
 
 	lseek(gpio[pin].desc, 0, SEEK_SET);
 	write(gpio[pin].desc, val ? set : clr, 2);
