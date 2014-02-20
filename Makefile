@@ -14,15 +14,16 @@ build:
 	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist SilverBulletTech/SDRDC_defconfig
 	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist clean all
 	@mkdir -p $(SBT_TOP)/out/$(SBT_NOW)
-	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/uImage     out/$(SBT_NOW)/kernel.img
-	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/system.dtb out/$(SBT_NOW)/devtree.img
-	@cp -v $(SBT_TOP)/sbt/prebuilt/empty-ramdisk.img                  out/$(SBT_NOW)/ramdisk.img
-	@cp -v $(SBT_TOP)/sbt/prebuilt/boot.bin                           out/$(SBT_NOW)/boot.bin
+	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/kernel.img  out/$(SBT_NOW)/kernel.img
+	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/devtree.img out/$(SBT_NOW)/devtree.img
+	@cp -v $(SBT_TOP)/sbt/prebuilt/empty-ramdisk.img                   out/$(SBT_NOW)/ramdisk.img
+	@cp -v $(SBT_TOP)/sbt/prebuilt/boot.bin                            out/$(SBT_NOW)/boot.bin
 	@(cd $(SBT_TOP)/out/$(SBT_NOW) && zip -9 $(SBT_TOP)/out/SDRDC-$(SBT_NOW).zip *)
 
 setup: 
 	@$(SHELL) $(SBT_TOOLS)/setup-git.sh
 	@$(SHELL) $(SBT_TOOLS)/setup-petalinux.sh
+	@$(SHELL) $(SBT_TOOLS)/setup-vendors.sh
 	@$(SHELL) $(SBT_TOOLS)/setup-links.sh
 
 clean:

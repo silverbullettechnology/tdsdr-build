@@ -591,11 +591,10 @@
 					#size-cells = <0>;
 					#clock-cells = <1>;
 					compatible = "ad9361";
-					status = "disabled";
 
 					/* SPI Setup */
 					reg = <0>;
-					//spi-cpha;
+					spi-cpha;
 					spi-max-frequency = <5200000>;
 
 					/* Reset: 58 (AD1), 59 (AD2)  */
@@ -810,7 +809,6 @@
 					#size-cells = <0>;
 					#clock-cells = <1>;
 					compatible = "ad9361";
-					status = "disabled";
 
 					/* SPI Setup */
 					reg = <0>;

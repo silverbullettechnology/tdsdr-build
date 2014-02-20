@@ -52,7 +52,9 @@ fi
 
 /bin/sh "$SBT_TOOLS/setup-petalinux-${SBT_PETALINUX_VER}.sh" || exit 1
 
-(cd "$SBT_FILES/petalinux-$SBT_PETALINUX_VER" && cp -av * "$SBT_PETALINUX")
+if [ -d "$SBT_FILES/petalinux-$SBT_PETALINUX_VER" ]; then
+	(cd "$SBT_FILES/petalinux-$SBT_PETALINUX_VER" && cp -av * "$SBT_PETALINUX")
+fi
 
 ls -1 "$SBT_PATCHES/petalinux-$SBT_PETALINUX_VER" | while read p; do
 	if ! cat "$SBT_PATCHES/petalinux-$SBT_PETALINUX_VER/$p" | \

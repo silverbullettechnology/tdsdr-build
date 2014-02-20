@@ -33,21 +33,20 @@
  VMLINUX  = $(ROOTDIR)/$(LINUXDIR)/vmlinux
  LINUXBIN = $(IMAGEDIR)/linux.bin
  ifneq ($(BUILD_UBOOT),)
-@@ -153,7 +149,7 @@
- 	@cp $(UBOOTDIR)/u-boot $(IMAGEDIR)/u-boot.elf
- 
- 	# Create UBImage - image.ub
--	@petalinux-create-bootimage -i $(VMLINUX) -d $(DTSFILE) -o $@ -c $(CONFIG_CONFIG)
-+	petalinux-create-bootimage -i $(VMLINUX) -d $(DTSFILE) -o $@ -c $(CONFIG_CONFIG)
- 
- $(BOOTDIR)/%.dtb: $(DTSDIR)/%.dts
- 	@dtc -O dtb -o $@ -b 0 -p 1024 $<
+@@ -162,6 +158,7 @@
+ image: $(FSIMG) $(LINUXBIN) $(ELFIMAGE) $(VEND_PROD_DTB) $(RELOCATE_IMAGE) $(UBIMAGE)
+ 	# Copy DTB file to the images/ directory
+ 	@cp $(VEND_PROD_DTB) $(IMAGEDIR)/system.dtb
++	@cp $(VEND_PROD_DTB) $(IMAGEDIR)/devtree.img
+ 	# Copy image files into /tftpboot, if requested
+ 	@if [ "$(CONFIG_SYSTEM_COPY_TO_TFTPBOOT)" = "y" ] ; then \
+ 		if [ -w "$(CONFIG_SYSTEM_TFTPBOOT_DIR)" ]; then \
 @@ -187,6 +183,8 @@
  
  $(LINUXELF): $(DTSFILE) $(LINUX_CONFIG)
  	$(MAKEARCH_KERNEL) -j$(HOST_NCPU) -C $(ROOTDIR)/$(LINUXDIR) $(SIMPLETARGET)
 +	$(MAKEARCH_KERNEL) -C $(ROOTDIR)/$(LINUXDIR) uImage LOADADDR=0x00100000
-+	cp $(BOOTDIR)/uImage $(IMAGEDIR)
++	cp $(BOOTDIR)/uImage $(IMAGEDIR)/kernel.img
  
  # $(LINUXELF) is a DTB-embedded bootable ELF image - this is just a simple copy
  $(ELFIMAGE): $(LINUXELF)
