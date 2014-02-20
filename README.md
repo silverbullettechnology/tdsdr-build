@@ -32,32 +32,35 @@ recommended for use in Virtual Machines due to its relatively lightweight XFCE G
 
 PetaLinux and the SDRDC scripts require typical development software with a few specific
 packages.  Install these with *apt-get*:
-
-    sudo apt-get install build-essential git gawk dos2unix realpath
+```
+sudo apt-get install build-essential git gawk dos2unix realpath
+```
 
 64-bit installations of Ubuntu will require the 32-bit compatiblity versions of certain
 libraries installed.  The easiest way to accomplish this is with the *apt-get* tool:
-
-    sudo apt-get install lib32bz2-1.0 lib32ncurses5 lib32z1 libselinux1:i386
-    sudo apt-get install libstdc++6:i386 zlib1g-dev
+```
+sudo apt-get install lib32bz2-1.0 lib32ncurses5 lib32z1 libselinux1:i386
+sudo apt-get install libstdc++6:i386 zlib1g-dev
+```
 
 Ubuntu systems use the Debian Almquist shell (dash) by default, which does not support
 some syntax used in certain PetaLinux scripts.  You must switch to the GNU Bourne-again
 shell (bash) to use PetaLinux, both system-wide and for your user account.  To set the
 shell system-wide, run:
-
+```
     sudo dpkg-reconfigure dash
+```
 
 Select No with the left/right arrow keys and press Enter to switch the system-wide default
 to bash.  For your user account, run:
-
+```
     chsh
+```
 
 Enter your login password if prompted, set your Login Shell to "/bin/bash" and press
-Enter.  You will have to log out and back in for the change to take effect.
-
-These setup steps should be required only once per installation of Ubuntu, and the *chsh*
-step required once per user account.
+Enter.  You will have to log out and back in for the change to take effect.  These setup
+steps should be required only once per installation of Ubuntu, and the *chsh* step
+required once per user account.
 
 
 Setup Steps
@@ -75,21 +78,29 @@ Setup Steps
    [here](http://www.xilinx.com/getlicense).  
    These are node-locked licenses for which you'll need your Linux machine's ethernet MAC
    address as a Host ID.  You can get this by running at the command prompt:
-
-    ifconfig
+   ```
+   ifconfig
+   ```
    
    Once created, the license file should be emailed to you, and should be downloadable
    from the license management tool on the Xilinx website.  The resulting *Xilinx.lic*
-   file should be copied to a .Xilinx directory under your home directory:
-
-    mkdir -p $HOME/.Xilinx
-    cp -i /path/to/Xilinx.lic $HOME/.Xilinx
+   file should be copied to the *.Xilinx* directory under your home directory:
+   ```
+   mkdir -p $HOME/.Xilinx
+   cp -i /path/to/Xilinx.lic $HOME/.Xilinx
+   ```
 
 3. It is strongly recommended you unpack the PetaLinux tarball to a temporary directory,
    install the ZC702 BSP downloaded in step 1, and test your Xilinx license and software
    dependencies before continuing with the SDRDC build.  A Xilinx guide to the process is 
    [UG976](http://www.xilinx.com/support/documentation/sw_manuals/petalinux2013_04/ug976-petalinux-installation.pdf).
-   No special steps should be necessary if you have installed
+
+4. Clone a copy of the SDRDC build scripts from the SBT github repository and cd into the
+   resulting directory:
+   ```
+   git clone https://github.com/silverbullettechnology/sdrdc-build.git
+   cd sdrdc-build
+   ```
 
 
 Building Images
