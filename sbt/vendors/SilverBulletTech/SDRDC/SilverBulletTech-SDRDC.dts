@@ -91,95 +91,14 @@
 		#size-cells = <1>;
 		compatible = "xlnx,ps7-axi-interconnect-1.00.a", "simple-bus";
 		ranges ;
-/*
-		// Legacy DMA based on Xilinx AXI DMA IP core: one bidir controller per AD9361
-		axi_dma_0: axi-dma@40400000 {
-			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = < 0 59 4 0 58 4 >;
-			reg = < 0x40400000 0x10000 >;
-			xlnx,dlytmr-resolution = <0x7d>;
-			xlnx,enable-multi-channel = <0x0>;
-			xlnx,family = "zynq";
-			xlnx,generic = <0x0>;
-			xlnx,include-mm2s = <0x1>;
-			xlnx,include-mm2s-dre = <0x1>;
-			xlnx,include-mm2s-sf = <0x1>;
-			xlnx,include-s2mm = <0x1>;
-			xlnx,include-s2mm-dre = <0x1>;
-			xlnx,include-s2mm-sf = <0x1>;
-			xlnx,include-sg = <0x1>;
-			xlnx,instance = "axi_dma_0";
-			xlnx,mm2s-burst-size = <0x10>;
-			xlnx,num-mm2s-channels = <0x1>;
-			xlnx,num-s2mm-channels = <0x1>;
-			xlnx,prmry-is-aclk-async = <0x0>;
-			xlnx,s2mm-burst-size = <0x10>;
-			xlnx,sg-include-desc-queue = <0x0>;
-			xlnx,sg-include-stscntrl-strm = <0x1>;
-			xlnx,sg-length-width = <0xe>;
-			xlnx,sg-use-stsapp-length = <0x1>;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 59 4 >; // ??? -> IRQ 91 -> 59
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x0>;
-			};
-			dma-channel@40400030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 58 4 >; // ??? -> IRQ 90 -> 58
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x0>;
-			};
-		} ;
-		axi_dma_1: axi-dma@40500000 {
-			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = < 0 57 4 0 56 4 >;
-			reg = < 0x40500000 0x10000 >;
-			xlnx,dlytmr-resolution = <0x7d>;
-			xlnx,enable-multi-channel = <0x0>;
-			xlnx,family = "zynq";
-			xlnx,generic = <0x0>;
-			xlnx,include-mm2s = <0x1>;
-			xlnx,include-mm2s-dre = <0x1>;
-			xlnx,include-mm2s-sf = <0x1>;
-			xlnx,include-s2mm = <0x1>;
-			xlnx,include-s2mm-dre = <0x1>;
-			xlnx,include-s2mm-sf = <0x1>;
-			xlnx,include-sg = <0x1>;
-			xlnx,instance = "axi_dma_0";
-			xlnx,mm2s-burst-size = <0x10>;
-			xlnx,num-mm2s-channels = <0x1>;
-			xlnx,num-s2mm-channels = <0x1>;
-			xlnx,prmry-is-aclk-async = <0x0>;
-			xlnx,s2mm-burst-size = <0x10>;
-			xlnx,sg-include-desc-queue = <0x0>;
-			xlnx,sg-include-stscntrl-strm = <0x1>;
-			xlnx,sg-length-width = <0xe>;
-			xlnx,sg-use-stsapp-length = <0x1>;
-			dma-channel@40500000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 57 4 >; // ??? -> IRQ 89 -> 57
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x1>;
-			};
-			dma-channel@40500030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 56 4 >; // ??? -> IRQ 88 -> 56
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x1>;
-			};
-		} ;
-*/
 
-		// New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git
+		/* New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git */
 		dmac_0_rx: dma@7c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 59 1>;
+			interrupts = <0 59 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -194,7 +113,7 @@
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 58 1>;
+			interrupts = <0 58 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -209,7 +128,7 @@
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 57 1>;
+			interrupts = <0 57 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -224,7 +143,7 @@
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 56 1>;
+			interrupts = <0 56 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -547,21 +466,6 @@
 			reg = < 0xf8007100 0x20 >;
 		} ;
 
-/*		spi0 {
-			compatible = "spi-gpio";
-			#address-cells = <0x1>;
-			ranges;
-
-			gpio-sck  = < &ps7_gpio_0 91 0 >;
-			gpio-mosi = < &ps7_gpio_0 90 0 >;
-			gpio-miso = < &ps7_gpio_0 89 0 >;
-			cs-gpios  = <
-				&ps7_gpio_0 93 0
-				&ps7_gpio_0 92 0
-			>;
-			num-chipselects = <2>;
-		}; */
-
 		spi1: spi@e0006000 {
 			bus-num = <1>;
 			compatible = "xlnx,ps7-spi-1.00.a";
@@ -591,11 +495,10 @@
 					#size-cells = <0>;
 					#clock-cells = <1>;
 					compatible = "ad9361";
-					status = "disabled";
 
 					/* SPI Setup */
 					reg = <0>;
-					//spi-cpha;
+					spi-cpha;
 					spi-max-frequency = <5200000>;
 
 					/* Reset: 58 (AD1), 59 (AD2)  */
@@ -619,10 +522,10 @@
 					adi,lvds-mode-enable;
 					adi,lvds-bias-mV = <225>;
 					//adi,lvds-rx-onchip-termination-enable;
-					adi,rx-data-delay = <0>;
-					adi,tx-fb-clock-delay = <0>;
-					adi,rx-data-clock-delay = <15>;
-					adi,tx-data-delay = <15>;
+					adi,rx-data-delay = <11>;
+					adi,tx-fb-clock-delay = <8>;
+					adi,rx-data-clock-delay = <0>;
+					adi,tx-data-delay = <0>;
 					adi,full-port-enable;
 
 					//adi,fdd-rx-rate-2tx-enable;
@@ -810,7 +713,6 @@
 					#size-cells = <0>;
 					#clock-cells = <1>;
 					compatible = "ad9361";
-					status = "disabled";
 
 					/* SPI Setup */
 					reg = <0>;
@@ -838,16 +740,11 @@
 					adi,lvds-mode-enable;
 					adi,lvds-bias-mV = <225>;
 					//adi,lvds-rx-onchip-termination-enable;
-					adi,rx-data-delay = <0>;
-					adi,tx-fb-clock-delay = <0>;
-					adi,rx-data-clock-delay = <15>;
-					adi,tx-data-delay = <15>;
+					adi,rx-data-delay = <11>;
+					adi,tx-fb-clock-delay = <8>;
+					adi,rx-data-clock-delay = <0>;
+					adi,tx-data-delay = <0>;
 					adi,full-port-enable;
-
-					/* SDRDC Cut 2: LVDS pair P1[9:8] is inverted, use LVDS Invert Control
-					 * reg 0x03D to match.  Corrected on production boards.
-					 */
-					adi,lvds-invert1-control = <0xEF>;
 
 					//adi,fdd-rx-rate-2tx-enable;
 

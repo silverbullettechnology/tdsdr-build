@@ -1,0 +1,327 @@
+
+	Current
+	-----
+	The current DMA user tool dma_streamer_app is separate from the AD9361 tool used to
+	configure and control the ADI transceivers.  Each invocation of the tool sets up,
+	runs, and cleans up one DMA transfer. It is capable of transfers to and from either
+	transceiver, but not both.
+
+	Transfers can be TX-only, RX-only, or bidirectional up to the maximum size supported
+	by the kernelspace DMA driver, currently 1Mbyte.  Buffers are pre-allocated and locked
+	into DDR memory.  Source data to TX is loaded from a file and data received on RX is
+	written to a file; multiple file formats are supported including IQW.
+
+
+
+	Proposed
+	-----
+	The proposed changes address the limitations of the existing tool.  Discussed below in
+	more detail are:
+	- integration into the AD9361 control tool,
+	- a flexible naming scheme for transfers and data sources/sinks, and
+	- separation of the setup, transfer, and cleanup phases
+
+	
+	Integration with AD9361 Tool
+	-----
+	The AD9361 tool currently supports one AD9361 chip at a time.  To run operations on
+	both AD9361 chips one must run the tool, usually with a script, and specify which
+	device to use.  Typically one would use a sequence like the following:
+	"ad9361    -d1 profile profile-script.txt"
+	"ad9361 -i -d0 profile profile-script.txt"
+
+	The -i option in the second invocation leaves the ad9361 tool in "interactive" mode,
+	where the user can then run DMA commands.  A possible solution to this is to provide a
+	"device" or "switch" command which would select which AD9361 to use without leaving
+	the tool. 
+
+	Whether executing a script or interacting with the user, the DMA commands below should
+	expose the full flexibility of using both AD9361 chips, both channels, and both
+	directions simultaneously.
+
+
+
+	Channel Naming
+	-----
+	Several of the new DMA commands require the user to specify the DMA direction (TX or
+	RX) and which ADI device(s) and channel(s) to manipulate.  These are specified in a
+	particular order:
+		AD 12 T 12
+		^^ ^^ ^ ^^-- Channel: 1 or 2 for single, 12 or omit for both
+		|  |  `----- Direction: T for TX, R for RX, never both
+		|  `-------- ADI device: 1 or 2 for single, 12 or omit for both
+		`----------- "AD" prefix: required
+
+	Examples: spaces are not allowed, but any punctuation is allowed for clarity.  Case is
+	ignored, so these are all valid:
+	- "ad1:T1" - Transmit on TX1 on AD1
+	- "ad.2/R" - Receive on RX1 and RX2 of AD2
+	- "AD2R12" - Receive on RX1 and RX2 of AD2
+	- "ADR"    - Receive on RX1 and RX2 of AD1 and AD2
+	- "AD12-t" - Transmit on TX1 and TX2 on AD1 and AD2
+	- "ad:T12" - Transmit on TX1 and TX2 on AD1 and AD2
+	- "adt"    - Transmit on TX1 and TX2 on AD1 and AD2
+
+
+
+	Source/Sink Naming
+	-----
+	Several of the new DMA commands require the user to specify the source of data to TX,
+	or destination of data from RX.  Each of these consist of an optional format specifer,
+	required location, and optional extension.  Examples are:
+	- "iqw:/media/card/wimax" - a signal in IQW format
+	- "/media/card/wimax.iqw" - a signal in IQW format
+
+	The location may be a filesystem path, or the name of a special source/sink handler
+	which may be used to stream samples to/from a host, generate/evaluate patterns
+	locally, etc.  In future handlers for network paths and URLs may be added.
+
+	The format specifier is optional if the format may be reliably guessed from the
+	filename or (in future) file contents, or if a default format has been specified with
+	the -f option.
+
+	Locations may contain printf-style sequences which will be interpreted while loading
+	or saving the data and running transfers:
+	- "%a" gives the AD9361 number, "1" or "2"
+	- "%d" gives the direction, "r" for RX or "t" for TX
+	- "%c" gives the AD9361 channel, "1" or "2"
+	- "%r" gives the repetition number, starting at 1, for multiple transfers
+
+
+
+	Transfer Phases
+	-----
+	When run standalone, the dma_streamer_app tool will still run the three phases of
+	setup, transfer, and cleanup in sequence.  When integrated into the DA9361 tool, these
+	will be available as separate commands for use interactively or in a script.  The user
+	will be able to mix DMA commands with commands to control the AD9361 chip(s) for rapid
+	experimentation.
+
+	In the AD9361 tool, the DMA operations are implemented as commands with a common
+	prefix, for interactive tab-completion of their names:
+	- dmaOptions - Sets DMA options common to all channels
+	- dmaBuffer  - Sets up DMA buffers in one direction with optional pattern painting
+	- dmaSource  - Sets up DMA buffers in one direction and loads data from a source
+	- dmaDest    - Sets up DMA buffers in one direction and sets data destination
+	- dmaTrigger - Executes DMA transfers 
+	- dmaCleanup - Frees the DMA buffers allocated with dmaBuffer and/or dmaLoad
+
+	Note that these commands may take dash-style options; -h or -? will give usage hints,
+	as will skipping required arguments.  Each is described in more detail below.
+
+
+
+	dmaOptions
+	-----
+	This is used to set "global" options for the DMA code, and is equivalent to the dash-
+	style options given to the command-line of the dma_streamer_app before the first
+	buffer specifier.  Valid options are:
+	-q          Quiet messages
+	-v          Verbose messages
+	-l          Loopback test
+	-s bytes    Set buffer size in bytes, K (x1024) or M (x1048576) suffixes ok
+	-S samples  Set buffer size in samples, K (x1E3) or M (x1E6) suffixes ok
+	-r reps     Set number of repetitions, default 1
+	-c dir      Counting direction for data source/sink
+	-t timeout  Set timeout in jiffies, default 1000
+	-f format   Default data format 
+	-n node     Device node for kernelspace module, default: /dev/dma_streamer_mod
+
+	Examples:
+	- "dmaOptions -v -f iqw -S 120000" - sets verbose messages, IQW as the default format,
+	                                     and 120000 samples as the buffer size
+
+	Setting these options gives defaults for the commands which follow.  For example,
+	after setting the data format to IQW with -f subsequent data load/save commands will
+	use IQW unless otherwise specified.
+
+
+
+	dmaBuffer
+	-----
+	Setup DMA buffers for one or both ADI chips in one direction, without loading data
+	into them.  If the -z option is given it is filled with 0, otherwise it left
+	uninitialized and may contain garbage.  The size may be specified with -s or -S
+	options, with a default value of the global size specified with dmaOptions.  
+	-z          Zero memory after allocating
+	-s bytes    Set buffer size in bytes, K (x1024) or M (x1048576) suffixes ok
+	-S samples  Set buffer size in samples, K (x1E3) or M (x1E6) suffixes ok
+
+	Channels 1 and 2 for a given ADI chip must be the same size; DMA transfers one 64-bit
+	word per complex sample, containing the I and Q data for both channels on one chip.
+	Thus the channel indicator following the T or R is ignored, and the following are
+	equivalent:
+	- "dmaBuffer ad1r"
+	- "dmaBuffer ad1r1"
+	- "dmaBuffer ad1r2"
+	- "dmaBuffer ad1r12"
+
+	TX and RX transfers to/from the same ADI chip are separate and may differ in size:
+	- "dmaBuffer -S 5k   ad1t"
+	- "dmaBuffer -S 100k ad1r"
+
+	Transfers to/from different ADI chips may also may differ in size:
+	- "dmaBuffer -S 25k ad1r"
+	- "dmaBuffer -S 50k ad2r"
+
+
+
+	dmaSource
+	----
+	Setup DMA buffers and load with data from a source.  This is usually used for TX data,
+	but may be used to allocate RX buffers and paint with a test pattern to verify the DMA
+	transfer.
+
+	When loading data in a single-channel format (ie IQW) the default is to load both
+	channels.  The user may specify which channel to use explicitly:
+	- "dmaSource ad1t1 /media/card/ad1t1.iqw"
+	- "dmaSource ad1t2 /media/card/ad1t2.iqw"
+	or with printf-style substitutions on the source filenames:
+	- "dmaSource ad1t /media/card/ad1t%c.iqw"
+
+	When using printf-style substitutions, the filename is interpreted each time a
+	transfer is triggered, allowing %r to specify the repetition.  If the filename
+	changes, it is reloaded, which may lead to small delays, but allows for playing back
+	sequences of waveforms.  In this case, a "file not found" is treated as the end of the
+	sequence, and stops the loop.
+
+	If the data supplied is larger than the buffer, the extraneous samples are discarded.
+	If the data supplied is smaller, the result depends on the options given.  If the -z
+	option is given, the remaining buffer is filled with zeros.  If the -u option is
+	given, the remainder of the buffer is left uninitialized.  If no options are given,
+	the data is repeated until it fills the buffer.  
+
+	When streaming data from the host into DMA buffers, the host is responsible for
+	specifying the correct devices, directions, and channels, then supplying the correct
+	data to fill them.  The streaming protocol between DUT and host should unambiguously
+	describe device, channel, I/Q order, direction, and endian-ness.
+
+	In particular, when a streaming source is setup and multiple DMA transfers are in use,
+	the source handler will be called before each transfer to load fresh data from the
+	host into the DMA buffers.  The protocol between host and handler must allow the DUT
+	to request the correct data.
+
+
+
+	dmaDest
+	-----
+	Setup DMA buffers in one direction and specify a destination to save data to after
+	each transfer.  This is usually used for RX data, but may be used on TX buffers to
+	verify the DMA doesn't alter their contents.
+
+	When saving data to a single-channel format (ie IQW) the user must specify which
+	channel to use explicitly:
+	- "dmaDest ad1r1 /media/card/ad1r1.iqw"
+	- "dmaDest ad1r2 /media/card/ad1r2.iqw"
+	or with printf-style substitutions on the source filenames:
+	- "dmaDest ad1r /media/card/ad1r%c.iqw"
+
+	When using printf-style substitutions, the filename is interpreted each time a
+	transfer is triggered, allowing %r to specify the repetition.  If the filename does
+	not change, it is overwritten.  To avoid filling the disk the user should specify the
+	number of transfers to run; if a file write fails the transfer will stop with an
+	error.
+
+	When streaming data from the DMA buffers to the host, the host is responsible for
+	specifying the correct devices, directions, and channels, then accepting the data
+	supplied by the DUT.  The streaming protocol between DUT and host should unambiguously
+	describe I/Q order, channel, direction, and endian-ness.
+
+	In particular, when a streaming sink is setup and multiple DMA transfers are in use,
+	the sink handler will be called after each transfer to send the sampled data to the
+	host.  The protocol between host and handler must allow the DUT to identify the data
+	unambiguously.
+
+
+
+	dmaTrigger
+	-----
+	Execute DMA transfers.  Depending on the mode chosen and options set with dmaOptions,
+	this may run once, a fixed number of times, or continuously until a key is hit or an
+	error occurs.
+	
+	Future improvements may include scheduling with hardware/PL clock, or triggering on
+	some event such as IF power.
+
+	dmaTrigger takes the following dash-style options:
+	-v  Print the details of steps, values, and addresses used
+	-s  Print statistics after each transfer
+	-f  Do not stop on error conditions
+
+	dmaTrigger takes a single optional argument after the dash-style options.  If omitted,
+	this defaults to "once" to run a single transfer.  It may be a decimal number to run a
+	fixed number of repetitions, or "cont" to run continuously.
+
+	If a dmaSource or dmaDest setup a data source or sink, the source is evaluated before
+	the transfer is triggered, and the sink after it completes.  If a streaming protocol
+	is in use, any source protocol handler must run to completion before the DMA triggers,
+	and any sink protocol handler must run afterwards.
+
+	Alternatively the %r printf-style substitution allows the user to specify a series of
+	input and/or output files.  Transfers with "cont" repetitions generally stop
+	successfully at the first input file which is not found, and stop with an error on the
+	first error writing an output file (typically disk full)
+
+
+
+	dmaCleanup
+	----- 
+	Free the DMA buffers allocated with dmaBuffer, dmaSource, and dmaDest.  This is called
+	implicitly at shutdown if necessary.  If changing buffer sizes the user must free the
+	old buffers with dmaCleanup before changing the size or allocating new buffers.
+
+
+
+	Examples
+	-----
+	Allocate buffers for TX through both AD1 and AD2, load both TX1 and TX2 channels with
+	data from a WiMAX signal in IQW format, then play continuously until a key is hit.
+
+	In AD9361 tool:
+		ad9361:1> dmaLoad ad12t12 /media/card/wimax.iqw
+		Using infile size 14336 for size
+		ad9361:2> dmaTrigger cont
+		Starting continuous transfers, press any key to stop...
+		ad9361:3> dmaCleanup
+		ad9361:4> 
+
+	Standalone dma_streamer_app:
+		# dma_streamer_app ad12t12 /media/card/wimax.iqw cont
+		Using infile size 14336 for size
+		Starting continuous transfers, press any key to stop...
+		# 
+
+	Allocate buffers for RX on both AD1 and AD2, sample 1Mbyte once, and write out to
+	four separate files.
+
+	In AD9361 tool:
+		ad9361:1> dmaOptions -s 1M
+		ad9361:2> dmaBuffer ad12r12
+		ad9361:3> dmaDest ad1r1 /media/card/ad1r1.iqw
+		ad9361:4> dmaDest ad1r2 /media/card/ad1r2.iqw
+		ad9361:5> dmaDest ad2r1 /media/card/ad2r1.iqw
+		ad9361:6> dmaDest ad2r2 /media/card/ad2r2.iqw
+		ad9361:7> dmaTrigger once
+		ad9361:8> dmaCleanup
+
+	Standalone dma_streamer_app:
+		# dma_streamer_app -s 1M \
+		 ad1r1 /media/card/ad1r1.iqw \
+		 ad1r2 /media/card/ad1r2.iqw \
+		 ad2r1 /media/card/ad2r1.iqw \
+		 ad2r2 /media/card/ad2r2.iqw 
+		# 
+
+	Using printf-style substitutions as described under Source/Sink Naming, and letting
+	dmaDest allocate the buffers, the above could be shortened to:
+
+	In AD9361 tool:
+		ad9361:1> dmaOptions -s 1M
+		ad9361:2> dmaDest adr /media/card/ad%ar%c.iqw
+		ad9361:3> dmaTrigger 
+		ad9361:4> dmaCleanup
+
+	Standalone dma_streamer_app:
+		# dma_streamer_app -s 1M adr /media/card/ad%ar%c.iqw
+		#
+

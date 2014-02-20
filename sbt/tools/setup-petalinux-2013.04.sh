@@ -39,13 +39,5 @@ if ! [ -L "$SBT_PETALINUX/software/linux-2.6.x" ]; then
 	echo "PetaLinux kernel replaced with symlink to SBT kernel"
 fi
 
-# Copy SBT entry into PetaLinux vendors tree - symlink doesn't work since part of the
-# build process compares the realpath() to $PETALINUX and breaks the build
-dst="$SBT_PETALINUX/software/petalinux-dist/vendors/SilverBulletTech"
-src="$SBT_TOP/sbt/vendors/SilverBulletTech"
-rm -rf "$dst"
-cp -a "$src" "$dst"
-
-
 exit 0
 

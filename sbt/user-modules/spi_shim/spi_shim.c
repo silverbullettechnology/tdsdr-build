@@ -1,10 +1,21 @@
 /** \file       spi_shim.c
  *  \brief      SPI fanout shim - connects as a client to an upstream SPI master
  *              (connected to the real device) and provides a bindable downstream master
- *              (for WIP drivers to connect to) and a spidev for userspace access.  Next
- *              improvement will be a sniffer/cache for a shadow register map.
- *  \copyright  Copyright (C) 2014 Silver Bullet Tech
- *  \license    TBD, GPL v2 likely
+ *              (for WIP drivers to connect to) and a spidev for userspace access.
+ *
+ *  \copyright Copyright 2014 Silver Bullet Technologies
+ *
+ *             This program is free software; you can redistribute it and/or modify it
+ *             under the terms of the GNU General Public License as published by the Free
+ *             Software Foundation; either version 2 of the License, or (at your option)
+ *             any later version.
+ *
+ *             This program is distributed in the hope that it will be useful, but WITHOUT
+ *             ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ *             FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ *             more details.
+ *
+ * vim:ts=4:noexpandtab
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -170,7 +181,6 @@ static struct spi_driver spi_shim_spi_driver =
 module_spi_driver(spi_shim_spi_driver);
 
 
-//MODULE_ALIAS("spi:" DRIVER_NAME);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Morgan Hughes <morgan.hughes@silver-bullet-tech.com>");
 MODULE_DESCRIPTION("SPI shim module");

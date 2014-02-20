@@ -1,0 +1,9 @@
+if USER_MODULES_DMA_STREAMER_MOD
+ 	config USER_MODULES_DMA_STREAMER_MOD_BSP
+	string "Path to Xilinx-generated BSP containing xparameters.h"
+	default "$(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)"
+	help
+	  Enter a path to your hardware project's SDK BSP include path.  You can probably find
+	  it with something like:   find /path/to/hardware-project -name xparameters.h
+endif
+
