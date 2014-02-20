@@ -746,11 +746,6 @@
 					adi,tx-data-delay = <0>;
 					adi,full-port-enable;
 
-					/* SDRDC Cut 2: LVDS pair P1[9:8] is inverted, use LVDS Invert Control
-					 * reg 0x03D to match.  Corrected on production boards.
-					 */
-					adi,lvds-invert1-control = <0xEF>;
-
 					//adi,fdd-rx-rate-2tx-enable;
 
 					adi,dcxo-coarse-and-fine-tune = <8 5920>;
