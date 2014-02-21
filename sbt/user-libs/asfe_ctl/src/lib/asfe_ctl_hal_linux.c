@@ -27,11 +27,6 @@
 #include <assert.h>
 #include <errno.h>
 
-// quash a warning about using kernel headers in userspace
-#define __EXPORTED_HEADERS__
-#include <linux/types.h>
-#include <linux/spi/spidev.h>
-
 #include "lib.h"
 #include "util.h"
 #include "api_types.h"
@@ -168,59 +163,35 @@ static int asfe_ctl_hal_linux_spi_spd = 100000;
 
 static void asfe_ctl_hal_linux_spi_write_byte_array (UINT16 *data, UINT16 size)
 {
-	struct spi_ioc_transfer xfr;
-	UINT8                   txb[3];
-	int                     ret;
-	int			i;
+	UINT8  txb[3];
+	int    ret;
+	int    i;
 
 	assert(asfe_ctl_hal_linux_spi_fd > -1);
-	/*txb[0] = addr >> 8;
-	txb[1] = addr & 0xFF;
-	txb[2] = data & 0xFF;
-
-	txb[0] |= 0x80;*/
 
 	for(i = 0; i < size; i++){
 		txb[i] = data[i];
 	}		
 
-	memset(&xfr, 0, sizeof(xfr));
-	xfr.tx_buf = (unsigned long)txb;
-    xfr.len    = size;
-
-	xfr.speed_hz      = asfe_ctl_hal_linux_spi_spd;
-	xfr.bits_per_word = 8;
-	xfr.cs_change     = 0;
-	xfr.delay_usecs   = 0;
-
-	ret = ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_MESSAGE(1), &xfr);
+	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, size, txb, NULL,
+	                                    asfe_ctl_hal_linux_spi_spd);
 	assert(ret == size);
 }
 
 
 static void asfe_ctl_hal_linux_spi_read_byte (UINT16 addr, UINT16 *data)
 {
-	struct spi_ioc_transfer xfr;
-	UINT8                   txb[3];
-	UINT8                   rxb[3];
-	int                     ret;
+	UINT8  txb[3];
+	UINT8  rxb[3];
+	int    ret;
 
 	assert(asfe_ctl_hal_linux_spi_fd > -1);
 	txb[0] = addr >> 8;
 	txb[1] = addr & 0xFF;
 	txb[2] = 0;
 
-	memset(&xfr, 0, sizeof(xfr));
-	xfr.tx_buf = (unsigned long)txb;
-	xfr.rx_buf = (unsigned long)rxb;
-    xfr.len    = 3;
-
-	xfr.speed_hz      = asfe_ctl_hal_linux_spi_spd;
-	xfr.bits_per_word = 8;
-	xfr.cs_change     = 0;
-	xfr.delay_usecs   = 0;
-
-	ret = ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_MESSAGE(1), &xfr);
+	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, 3, txb, rxb,
+	                                    asfe_ctl_hal_linux_spi_spd);
 	assert(ret == 3);
 
 	*data = rxb[2];
@@ -229,29 +200,13 @@ static void asfe_ctl_hal_linux_spi_read_byte (UINT16 addr, UINT16 *data)
 
 int asfe_ctl_hal_linux_spi_init (const char *dev)
 {
-	UINT8   u8;
-	UINT32  u32;
-
 	asfe_ctl_hal_linux_spi_fd = open(dev, O_RDWR);
 	if ( asfe_ctl_hal_linux_spi_fd < 0 )
 		return asfe_ctl_hal_linux_spi_fd;
 	
 	// setup bus here with ioctl, if it fails abort.  Mode 0 (CPOL 0, CPHA 0), MSB first,
 	// 8-bit words, 250kHz max speed
-	u8 = 0;
-	if ( ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_WR_MODE, &u8) )
-		goto fail;
-
-	u8 = 0;
-	if ( ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_WR_LSB_FIRST, &u8) )
-		goto fail;
-
-	u8 = 8;
-	if ( ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_WR_BITS_PER_WORD, &u8) )
-		goto fail;
-
-	u32 = 250000;
-	if ( ioctl(asfe_ctl_hal_linux_spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &u32) )
+	if ( asfe_ctl_hal_linux_spidev_init(asfe_ctl_hal_linux_spi_fd) )
 		goto fail;
 
 	asfe_ctl_hal_linux_atexit_register();

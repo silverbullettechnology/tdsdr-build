@@ -24,6 +24,7 @@ LIBS :=
 OBJS := \
 	src/common/util.o \
 	src/lib/asfe_ctl_hal_linux.o \
+	src/lib/asfe_ctl_hal_linux_spidev.o \
 	src/lib/asfe_ctl_hal_sim.o \
 	src/lib/asfe_ctl_hal.o \
 	src/lib/common.o

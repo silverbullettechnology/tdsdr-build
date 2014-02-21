@@ -30,5 +30,8 @@ void asfe_ctl_hal_linux_spi_done  (void);
 int  asfe_ctl_hal_linux_uart_init (const char *dev, const char *speed);
 void asfe_ctl_hal_linux_uart_done (void);
 
+int  asfe_ctl_hal_linux_spidev_txn  (int fd, int len, void *txb, void *rxb, int spd);
+int  asfe_ctl_hal_linux_spidev_init (int fd);
+
 
 #endif /* _INCLUDE_LIB_ASFE_CTL_HAL_H_ */

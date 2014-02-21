@@ -25,11 +25,6 @@
 #include <assert.h>
 #include <errno.h>
 
-// quash a warning about using kernel headers in userspace
-#define __EXPORTED_HEADERS__
-#include <linux/types.h>
-#include <linux/spi/spidev.h>
-
 #include "api_types.h"
 #include "asfe_ctl_hal.h"
 #include "asfe_ctl_hal_sim.h"
