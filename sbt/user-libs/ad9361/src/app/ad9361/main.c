@@ -70,8 +70,8 @@ char  env_data_path[PATH_MAX];
 
 static struct dev_info dev_node_list[] = 
 {
-	{ "/dev/spidev32765.1", NULL, { 100,  99, 58 } },
-	{ "/dev/spidev32764.1", NULL, { 107, 106, 59 } },
+	{ "/dev/spidev3.1", NULL, { 100,  99, 58 } },
+	{ "/dev/spidev4.1", NULL, { 107, 106, 59 } },
 };
 struct dev_info *dev_info_curr = NULL;
 

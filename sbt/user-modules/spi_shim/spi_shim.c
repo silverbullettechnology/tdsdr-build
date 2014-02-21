@@ -80,6 +80,7 @@ static int spi_shim_spi_probe (struct spi_device *spi)
 {
 	struct spi_shim *priv;
 	u32              mode;
+	u32              bus_num;
 
 	pr_debug("%s(spi %p -> %s):\n", __func__, spi, dev_name(&spi->dev));
 
@@ -108,6 +109,9 @@ static int spi_shim_spi_probe (struct spi_device *spi)
     priv->ds_master->cleanup        = spi_shim_cleanup;
     priv->ds_master->dev.of_node    = spi->dev.of_node;
 	pr_debug("%s: ds_master %p\n", __func__, priv->ds_master);
+
+	if ( !of_property_read_u32(spi->dev.of_node, "bus-num", &bus_num) )
+		priv->ds_master->bus_num = bus_num & 0xFFFF;
 
 	spi_master_set_devdata(priv->ds_master, priv);
 	if ( spi_register_master(priv->ds_master) )

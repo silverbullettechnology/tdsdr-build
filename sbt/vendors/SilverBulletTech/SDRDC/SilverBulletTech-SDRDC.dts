@@ -466,8 +466,35 @@
 			reg = < 0xf8007100 0x20 >;
 		} ;
 
-		spi1: spi@e0006000 {
+		spi1 {
 			bus-num = <1>;
+			compatible = "spi-gpio";
+			#address-cells = <0x1>;
+			ranges;
+
+			gpio-sck  = < &ps7_gpio_0 91 0 >;
+			gpio-mosi = < &ps7_gpio_0 90 0 >;
+/*			gpio-miso = < &ps7_gpio_0 89 0 >; */
+			cs-gpios  = <
+				&ps7_gpio_0 92 0
+				&ps7_gpio_0 89 0
+			>;
+			num-chipselects = <2>;
+
+			spidev@0 {
+				compatible = "spidev";
+				spi-max-frequency = <250000>;
+				reg = <0>;
+			};
+			spidev@1 {
+				compatible = "spidev";
+				spi-max-frequency = <250000>;
+				reg = <1>;
+			};
+		};
+
+		spi2: spi@e0006000 {
+			bus-num = <2>;
 			compatible = "xlnx,ps7-spi-1.00.a";
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupts = <0 26 4>;
@@ -484,6 +511,7 @@
 			#size-cells = <0>;
 
 			spi_shim_1_0: spi-shim@0 {
+				bus-num = <3>;
 				compatible = "sbt,spi-shim", "spi-shim", "spi_shim";
 				reg = <0>;
 				spi-max-frequency = <5200000>;
@@ -702,6 +730,7 @@
 			}; // spi_shim_1_0
 
 			spi_shim_2_0: spi-shim@1 {
+				bus-num = <4>;
 				compatible = "sbt,spi-shim", "spi-shim", "spi_shim";
 				reg = <1>;
 				spi-max-frequency = <5200000>;
@@ -919,6 +948,6 @@
 
 			}; // spi_shim_2_0
 
-		}; // spi1
+		}; // spi2
 	} ;
 } ;
