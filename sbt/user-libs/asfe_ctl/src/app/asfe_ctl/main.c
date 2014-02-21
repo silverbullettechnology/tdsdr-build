@@ -27,15 +27,14 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <errno.h>
-#include <glob.h>
 
-#ifdef AD9361_USE_READLINE 
+//#ifdef ASFE_CTL_USE_READLINE 
 #include <curses.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#endif
+//#endif
 
-#include <ad9361.h>
+#include <asfe_ctl.h>
 #include <config.h>
 
 #include "map.h"
@@ -45,7 +44,7 @@
 #define MAX_ARGS    32
 #define SEP_CHARS   " \t\n\r"
 #define DEF_DEV_NUM 0
-#define EXPORT_FILE "/tmp/.ad9361.channels"
+#define EXPORT_FILE "/tmp/.asfe_ctl.channels"
 
 #if defined(BOARD_REV_CUT1)
 #define BOARD_REV "cut1"
@@ -64,16 +63,18 @@ int   opt_soft_fail = 0;
 int   opt_interact  = 0;
 char *opt_lib_dir   = NULL;
 
-char  env_profile_path[PATH_MAX];
 char  env_script_path[PATH_MAX];
-char  env_data_path[PATH_MAX];
 
-static struct dev_info dev_node_list[] = 
+static struct 
 {
-	{ "/dev/spidev3.1", NULL, { 100,  99, 58 } },
-	{ "/dev/spidev4.1", NULL, { 107, 106, 59 } },
+	char *node;
+	int   gpio[3];
+}
+dev_node_list[] = 
+{
+	{ "/dev/spidev1.0", { -1, -1, -1 } },
+	{ "/dev/spidev1.1", { -1, -1, -1 } },
 };
-struct dev_info *dev_info_curr = NULL;
 
 static void export_active_channels (void)
 {
@@ -97,9 +98,9 @@ static void export_active_channels (void)
 
 	for ( adr = 0x002; adr <= 0x003; adr++ )
 	{
-		if ( (reg = ad9361_hal_spi_reg_get(adr)) > -1 )
-			*fp = reg & 0xC0;
-		fp++;
+		if ( (reg = asfe_ctl_hal_spi_reg_get(adr)) < 0 )
+			reg = 0;
+		*fp++ = reg & 0xC0;
 	}
 
 	if ( lseek(fd, 0, SEEK_SET) )
@@ -112,51 +113,10 @@ static void export_active_channels (void)
 		stop(EXPORT_FILE);
 }
 
-static int sysfs_scan (void)
-{
-	char    path[PATH_MAX];
-	char    buff[256];
-	char   *p;
-	glob_t  gl;
-	int     i;
-	int     c = 0;
-
-	memset(&gl, 0, sizeof(gl));
-	if ( glob("/sys/bus/iio/devices/iio:device*", 0, NULL, &gl) )
-	{
-		int err = errno;
-		globfree(&gl);
-		if ( err )
-			perror("glob(/sys/bus/iio/devices/iio:device*)");
-		errno = err;
-		return -1;
-	}
-
-	for ( i = 0; c < 2 && i < gl.gl_pathc; i++ )
-	{
-		snprintf(path, sizeof(path), "%s/name", gl.gl_pathv[i]);
-		if ( proc_read(path, buff, sizeof(buff)) < 0 )
-			stop("read(%s)", path);
-
-		if ( strstr(buff, "ad9361-phy") != buff )
-			continue;
-
-		p = strstr(gl.gl_pathv[i], "iio:device");
-
-		dev_node_list[c].leaf = strdup(p);
-		c++;
-	}
-
-	globfree(&gl);
-	return 2 - c;
-}
-
-
-
 int dev_reopen (int num, int reinit)
 {
 	int   i;
-	UINT8 v;
+	//UINT8 v;
 
 #ifdef SIM_HAL
 	return 0;
@@ -171,32 +131,33 @@ int dev_reopen (int num, int reinit)
 	if ( reinit )
 		export_active_channels();
 	if ( reinit && (opt_dev_num != num) )
-		ad9361_hal_spi_reg_clr();
+		asfe_ctl_hal_spi_reg_clr();
 
-	ad9361_hal_linux_spi_done();
-	ad9361_hal_linux_gpio_done();
+	asfe_ctl_hal_linux_spi_done();
+	asfe_ctl_hal_linux_gpio_done();
 
 	opt_dev_num  = num;
 	opt_dev_node = dev_node_list[num].node;
-	dev_info_curr = &dev_node_list[num];
 	for ( i = 0; i < 3; i++ )
 		opt_dev_gpio[i] = dev_node_list[opt_dev_num].gpio[i];
 
 	// TODO: UART
-	if ( ad9361_hal_linux_spi_init(opt_dev_node) )
+	if ( asfe_ctl_hal_linux_spi_init(opt_dev_node) )
 	{
-		fprintf(stderr, "ad9361_hal_linux_spi_init(%s): %s\n",
+		fprintf(stderr, "asfe_ctl_hal_linux_spi_init(%s): %s\n",
 		        opt_dev_node, strerror(errno));
 		return -1;
 	}
 
-	// GPIO failure is a soft-fail with IIO driver
-	ad9361_hal_linux_gpio_init(opt_dev_gpio);
-	CMB_gpioWrite(GPIO_TXNRX_pin,  1);
-	CMB_gpioWrite(GPIO_Enable_pin, 1);
+	if ( asfe_ctl_hal_linux_gpio_init(opt_dev_gpio) )
+	{
+		fprintf(stderr, "asfe_ctl_hal_linux_gpio_init(%d,%d,%d): %s\n",
+		        opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2], strerror(errno));
+		return -1;
+	}
 
-	CMB_SPIReadByte(0x002, &v);
-	CMB_SPIReadByte(0x003, &v);
+	//CMB_SPIReadByte(0x002, &v);
+	//CMB_SPIReadByte(0x003, &v);
 
 	errno = 0;
 	return 0;
@@ -218,16 +179,16 @@ void stop (const char *fmt, ...)
 
 void usage (void)
 {
-	printf("Run command: ad9361 [options] command [args...]\n"
-	       "Run script : ad9361 [options] script\n"
-	       "Interactive: ad9361 [options]\n\n"
-	       "Options: ad9361 [-ei] [-g gpio] [-d num] [-D node] [-l dir]\n"
+	printf("Run command: asfe_ctl [options] command [args...]\n"
+	       "Run script : asfe_ctl [options] script\n"
+	       "Interactive: asfe_ctl [options]\n\n"
+	       "Options: asfe_ctl [-ei] [-g gpio] [-d num] [-D node] [-l dir]\n"
 	       "Where:\n"
 	       "-e      As for /bin/sh, tolerate command failures\n"
 	       "-i      Enter interactive mode after running command or script\n"
 	       "-g gpio GPIO pins for TXNRX,ENABLE,RESETN (default %d,%d,%d)\n"
-	       "-d num  Specify AD9361 device number (0-1, default %d)\n"
-	       "-D node Specify AD9361 device node (default %s)\n"
+	       "-d num  Specify ASFE_CTL device number (0-1, default %d)\n"
+	       "-D node Specify ASFE_CTL device node (default %s)\n"
 	       "-l dir  Specify library dir (default %s)\n",
 	       opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2],
 	       DEF_DEV_NUM, dev_node_list[DEF_DEV_NUM].node, LIB_DIR);
@@ -237,11 +198,11 @@ void usage (void)
 
 int command (int argc, char **argv)
 {
-	struct ad9361_map_cmd_t *map;
+	struct asfe_ctl_map_cmd_t *map;
 	int                      ret;
 
 	// check for a script file here, open and run with interact()
-	if ( !(map = ad9361_map_find(argv[0])) )
+	if ( !(map = asfe_ctl_map_find(argv[0])) )
 	{
 		char  buff[PATH_MAX];
 		char *path = argv[0];
@@ -272,12 +233,12 @@ int command (int argc, char **argv)
 	{
 		fprintf(stderr, "%s: %d arguments given, %d required:\n",
 		        map->arg0, argc - 1, map->argc - 1);
-		ad9361_map_help(map->name);
+		asfe_ctl_map_help(map->name);
 		return opt_soft_fail ? 0 : -1;
 	}
 
 	// errors in the actual library/middleware layers are >0
-	ret = ad9361_map_call(map, argc, (const char **)argv);
+	ret = asfe_ctl_map_call(map, argc, (const char **)argv);
 
 	// soft-fail ignores warnings
 	return opt_soft_fail ? 0 : ret;
@@ -386,7 +347,7 @@ int script (FILE *fp, script_hint_f hint_func)
 extern int _rl_completion_case_fold;
 int interact (FILE *fp)
 {
-#ifdef AD9361_USE_READLINE 
+#ifdef ASFE_CTL_USE_READLINE 
 	char        prompt[32];
 	int         count = 1;
 	char       *t;
@@ -396,7 +357,7 @@ int interact (FILE *fp)
 	char       *buff;
 
 	rl_readline_name                 = argv0;
-	rl_attempted_completion_function = ad9361_map_completion;
+	rl_attempted_completion_function = asfe_ctl_map_completion;
 	_rl_completion_case_fold         = 1;
 
 	while ( ret >= 0 )
@@ -461,8 +422,6 @@ int main (int argc, char **argv)
 	else
 		argv0 = argv[0];
 
-	sysfs_scan();
-
 	while ( (opt = getopt(argc, argv, "eig:d:D:")) > -1 )
 		switch ( opt )
 		{
@@ -476,7 +435,7 @@ int main (int argc, char **argv)
 					usage();
 				break;
 
-			case 'd': // Specify AD9361 device number
+			case 'd': // Specify ASFE_CTL device number
 				errno = 0;
 				opt_dev_num = strtol(optarg, NULL, 0);
 				if ( errno || opt_dev_num < 0 ||
@@ -498,27 +457,17 @@ int main (int argc, char **argv)
 
 	char *p;
 	if ( ! opt_lib_dir )
-		opt_lib_dir = (p = getenv("AD9361_LIB_DIR")) ? p : LIB_DIR;
+		opt_lib_dir = (p = getenv("ASFE_CTL_LIB_DIR")) ? p : LIB_DIR;
 
-	if ( (p = getenv("AD9361_PROFILE_PATH")) )
-		snprintf(env_profile_path, sizeof(env_profile_path), "%s", p);
-	else
-		path_setup(env_profile_path, sizeof(env_profile_path), "profile");
-
-	if ( (p = getenv("AD9361_SCRIPT_PATH")) )
+	if ( (p = getenv("ASFE_CTL_SCRIPT_PATH")) )
 		snprintf(env_script_path, sizeof(env_script_path), "%s", p);
 	else
 		path_setup(env_script_path, sizeof(env_script_path), "script");
 
-	if ( (p = getenv("AD9361_DATA_PATH")) )
-		snprintf(env_data_path, sizeof(env_data_path), "%s", p);
-	else
-		path_setup(env_data_path, sizeof(env_data_path), "data");
-
 #ifdef SIM_HAL
-	ad9361_hal_sim_attach();
+	asfe_ctl_hal_sim_attach();
 #else
-	ad9361_hal_linux_attach();
+	asfe_ctl_hal_linux_attach();
 	dev_reopen(opt_dev_num, 0);
 #endif
 
@@ -531,7 +480,11 @@ int main (int argc, char **argv)
 	{
 		opt_soft_fail = 1;
 		setbuf(stdout, NULL);
+#ifdef ASFE_CTL_USE_READLINE
+		fprintf(stderr, "Entering Readline interactive mode\n");
+#else
 		fprintf(stderr, "Entering interactive mode\n");
+#endif
 		ret = interact(stdin);
 		fprintf(stderr, "\nLeaving interactive mode\n");
 	}

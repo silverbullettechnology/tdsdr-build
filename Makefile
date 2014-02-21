@@ -19,6 +19,8 @@ build:
 	@cp -v $(SBT_TOP)/sbt/prebuilt/empty-ramdisk.img                   out/$(SBT_NOW)/ramdisk.img
 	@cp -v $(SBT_TOP)/sbt/prebuilt/boot.bin                            out/$(SBT_NOW)/boot.bin
 	@(cd $(SBT_TOP)/out/$(SBT_NOW) && zip -9 $(SBT_TOP)/out/SDRDC-$(SBT_NOW).zip *)
+	@rm -f $(SBT_TOP)/out/current
+	@ln -sf $(SBT_NOW) $(SBT_TOP)/out/current
 
 setup: 
 	@$(SHELL) $(SBT_TOOLS)/setup-git.sh

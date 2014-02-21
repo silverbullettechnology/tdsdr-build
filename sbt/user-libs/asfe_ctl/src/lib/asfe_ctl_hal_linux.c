@@ -1,4 +1,4 @@
-/** \file      src/lib/ad9361_hal_linux.c
+/** \file      src/lib/asfe_ctl_hal_linux.c
  *  \brief     Linux/POSIX HAL implementation
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -30,36 +30,36 @@
 #include "lib.h"
 #include "util.h"
 #include "api_types.h"
-#include "ad9361_hal.h"
-#include "ad9361_hal_linux.h"
+#include "asfe_ctl_hal.h"
+#include "asfe_ctl_hal_linux.h"
 
 
-static int ad9361_hal_linux_atexit_armed = 0;
-static void ad9361_hal_linux_atexit_register (void)
+static int asfe_ctl_hal_linux_atexit_armed = 0;
+static void asfe_ctl_hal_linux_atexit_register (void)
 {
-	if ( ad9361_hal_linux_atexit_armed )
+	if ( asfe_ctl_hal_linux_atexit_armed )
 		return;
 
-	ad9361_hal_linux_atexit_armed = 1;
-	atexit(ad9361_hal_linux_cleanup);
+	asfe_ctl_hal_linux_atexit_armed = 1;
+	atexit(asfe_ctl_hal_linux_cleanup);
 }
 
-void ad9361_hal_linux_cleanup (void)
+void asfe_ctl_hal_linux_cleanup (void)
 {
-	if ( !ad9361_hal_linux_atexit_armed )
+	if ( !asfe_ctl_hal_linux_atexit_armed )
 		return;
 
-	ad9361_hal_linux_atexit_armed = 0;
-	ad9361_hal_linux_gpio_done();
-	ad9361_hal_linux_spi_done();
-	ad9361_hal_linux_uart_done();
+	asfe_ctl_hal_linux_atexit_armed = 0;
+	asfe_ctl_hal_linux_gpio_done();
+	asfe_ctl_hal_linux_spi_done();
+	asfe_ctl_hal_linux_uart_done();
 }
 
 
 /******** Delay timer via usleep(), may add librt support in future ********/
 
 
-static void ad9361_hal_linux_timer_wait (int usec)
+static void asfe_ctl_hal_linux_timer_wait (int usec)
 {
 	usleep(usec);
 }
@@ -81,22 +81,21 @@ gpio[3] =
 };
 
 
-static void ad9361_hal_linux_gpio_write (int pin, int val)
+static void asfe_ctl_hal_linux_gpio_write (int pin, int val)
 {
 	char clr[2] = { '0', '\n' };
 	char set[2] = { '1', '\n' };
 
 	assert(pin >= 0);
 	assert(pin <= 2);
-	if ( gpio[pin].desc < 0 )
-		return;
+	assert(gpio[pin].desc >= 0);
 
 	lseek(gpio[pin].desc, 0, SEEK_SET);
 	write(gpio[pin].desc, val ? set : clr, 2);
 }
 
 
-int ad9361_hal_linux_gpio_init (const int pins[3])
+int asfe_ctl_hal_linux_gpio_init (const int pins[3])
 {
 	int pin;
 	for ( pin = 0; pin < 3; pin++ )
@@ -123,7 +122,7 @@ int ad9361_hal_linux_gpio_init (const int pins[3])
 		if ( gpio[pin].desc < 0 )
 			return -1;
 
-		ad9361_hal_linux_atexit_register();
+		asfe_ctl_hal_linux_atexit_register();
 
 		// check direction, if already correct then move on
 		char buff[16];
@@ -134,7 +133,7 @@ int ad9361_hal_linux_gpio_init (const int pins[3])
 			continue;
 
 		// set output value first using already-opened descriptor, then set direction
-		ad9361_hal_linux_gpio_write(pin, gpio[pin].init);
+		asfe_ctl_hal_linux_gpio_write(pin, gpio[pin].init);
 		proc_printf(path, "out\n");
 	}
 
@@ -143,7 +142,7 @@ int ad9361_hal_linux_gpio_init (const int pins[3])
 }
 
 
-void ad9361_hal_linux_gpio_done (void)
+void asfe_ctl_hal_linux_gpio_done (void)
 {
 	int pin;
 	for ( pin = 0; pin < 3; pin++ )
@@ -158,124 +157,124 @@ void ad9361_hal_linux_gpio_done (void)
 /******** UART emulated through stdin/stdout by default ********/
 
 
-static int ad9361_hal_linux_spi_fd = -1;
-static int ad9361_hal_linux_spi_spd = 100000;
+static int asfe_ctl_hal_linux_spi_fd = -1;
+static int asfe_ctl_hal_linux_spi_spd = 100000;
 
 
-static void ad9361_hal_linux_spi_write_byte (UINT16 addr, UINT16 data)
+static void asfe_ctl_hal_linux_spi_write_byte_array (UINT16 *data, UINT16 size)
 {
 	UINT8  txb[3];
 	int    ret;
+	int    i;
 
-	assert(ad9361_hal_linux_spi_fd > -1);
-	txb[0] = addr >> 8;
-	txb[1] = addr & 0xFF;
-	txb[2] = data & 0xFF;
+	assert(asfe_ctl_hal_linux_spi_fd > -1);
 
-	txb[0] |= 0x80;
+	for(i = 0; i < size; i++){
+		txb[i] = data[i];
+	}		
 
-	ret = ad9361_hal_linux_spidev_txn(ad9361_hal_linux_spi_fd, 3, txb, NULL,
-	                                  ad9361_hal_linux_spi_spd);
-	assert(ret == 3);
+	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, size, txb, NULL,
+	                                    asfe_ctl_hal_linux_spi_spd);
+	assert(ret == size);
 }
 
 
-static void ad9361_hal_linux_spi_read_byte (UINT16 addr, UINT16 *data)
+static void asfe_ctl_hal_linux_spi_read_byte (UINT16 addr, UINT16 *data)
 {
 	UINT8  txb[3];
 	UINT8  rxb[3];
 	int    ret;
 
-	assert(ad9361_hal_linux_spi_fd > -1);
+	assert(asfe_ctl_hal_linux_spi_fd > -1);
 	txb[0] = addr >> 8;
 	txb[1] = addr & 0xFF;
 	txb[2] = 0;
 
-	ret = ad9361_hal_linux_spidev_txn(ad9361_hal_linux_spi_fd, 3, txb, rxb,
-	                                  ad9361_hal_linux_spi_spd);
+	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, 3, txb, rxb,
+	                                    asfe_ctl_hal_linux_spi_spd);
 	assert(ret == 3);
 
 	*data = rxb[2];
 }
 
 
-int ad9361_hal_linux_spi_init (const char *dev)
+int asfe_ctl_hal_linux_spi_init (const char *dev)
 {
-	ad9361_hal_linux_spi_fd = open(dev, O_RDWR);
-	if ( ad9361_hal_linux_spi_fd < 0 )
-		return ad9361_hal_linux_spi_fd;
-
+	asfe_ctl_hal_linux_spi_fd = open(dev, O_RDWR);
+	if ( asfe_ctl_hal_linux_spi_fd < 0 )
+		return asfe_ctl_hal_linux_spi_fd;
+	
 	// setup bus here with ioctl, if it fails abort.  Mode 0 (CPOL 0, CPHA 0), MSB first,
 	// 8-bit words, 250kHz max speed
-	if ( ad9361_hal_linux_spidev_init(ad9361_hal_linux_spi_fd) )
+	if ( asfe_ctl_hal_linux_spidev_init(asfe_ctl_hal_linux_spi_fd) )
 		goto fail;
 
-	ad9361_hal_linux_atexit_register();
+	asfe_ctl_hal_linux_atexit_register();
 	return 0;
 
 fail:
-	close(ad9361_hal_linux_spi_fd);
-	ad9361_hal_linux_spi_fd = -1;
+	close(asfe_ctl_hal_linux_spi_fd);
+	asfe_ctl_hal_linux_spi_fd = -1;
 	return 1;
 }
 
 
-void ad9361_hal_linux_spi_done (void)
+void asfe_ctl_hal_linux_spi_done (void)
 {
-	if ( ad9361_hal_linux_spi_fd > -1 )
-		close(ad9361_hal_linux_spi_fd);
-	ad9361_hal_linux_spi_fd = -1;
+	if ( asfe_ctl_hal_linux_spi_fd > -1 )
+		close(asfe_ctl_hal_linux_spi_fd);
+	asfe_ctl_hal_linux_spi_fd = -1;
 }
 
 
 /******** UART emulated through stdin/stdout by default ********/
 
 
-static int  ad9361_hal_linux_uart_fd_tx = 0;
-static int  ad9361_hal_linux_uart_fd_rx = 1;
+static int  asfe_ctl_hal_linux_uart_fd_tx = 0;
+static int  asfe_ctl_hal_linux_uart_fd_rx = 1;
 
 
-static void ad9361_hal_linux_uart_send_byte (UINT8 val)
+static void asfe_ctl_hal_linux_uart_send_byte (UINT8 val)
 {
-	int ret = write(ad9361_hal_linux_uart_fd_tx, &val, sizeof(UINT8));
+	int ret = write(asfe_ctl_hal_linux_uart_fd_tx, &val, sizeof(UINT8));
 	assert(ret >= 0);
 }
 
 
-static BOOL ad9361_hal_linux_uart_receive_byte (UINT8 *val)
+static BOOL asfe_ctl_hal_linux_uart_receive_byte (UINT8 *val)
 {
-	int ret = read(ad9361_hal_linux_uart_fd_rx, val, sizeof(UINT8));
+	int ret = read(asfe_ctl_hal_linux_uart_fd_rx, val, sizeof(UINT8));
 	assert(ret >= 0);
 	return 1;
 }
 
 
-int ad9361_hal_linux_uart_init (const char *dev, const char *speed)
+int asfe_ctl_hal_linux_uart_init (const char *dev, const char *speed)
 {
-//	ad9361_hal_linux_atexit_register();
+//	asfe_ctl_hal_linux_atexit_register();
 	errno = ENOSYS;
 	return -1;
 }
 
 
-void ad9361_hal_linux_uart_done (void)
+void asfe_ctl_hal_linux_uart_done (void)
 {
 }
 
 
-static struct ad9361_hal ad9361_hal_linux = 
+static struct asfe_ctl_hal asfe_ctl_hal_linux = 
 {
-	.HAL_gpioWrite          = ad9361_hal_linux_gpio_write,
-	.HAL_SPIWriteByte       = ad9361_hal_linux_spi_write_byte,
-	.HAL_SPIReadByte        = ad9361_hal_linux_spi_read_byte,
-	.Timer_Wait             = ad9361_hal_linux_timer_wait,
-	.HAL_uartSendByte       = ad9361_hal_linux_uart_send_byte,
-	.HAL_uartReceiveByte    = ad9361_hal_linux_uart_receive_byte,
+	.HAL_gpioWrite          = asfe_ctl_hal_linux_gpio_write,
+	.HAL_SPIWriteByteArray  = asfe_ctl_hal_linux_spi_write_byte_array,
+	.HAL_SPIReadByte        = asfe_ctl_hal_linux_spi_read_byte,
+	.Timer_Wait             = asfe_ctl_hal_linux_timer_wait,
+	.HAL_uartSendByte       = asfe_ctl_hal_linux_uart_send_byte,
+	.HAL_uartReceiveByte    = asfe_ctl_hal_linux_uart_receive_byte,
 };
 
 
-int ad9361_hal_linux_attach (void)
+int asfe_ctl_hal_linux_attach (void)
 {
-	return ad9361_hal_attach(&ad9361_hal_linux);
+	return asfe_ctl_hal_attach(&asfe_ctl_hal_linux);
 }
 
