@@ -66,6 +66,7 @@ char *opt_lib_dir   = NULL;
 
 char  env_profile_path[PATH_MAX];
 char  env_script_path[PATH_MAX];
+char  env_filter_path[PATH_MAX];
 char  env_data_path[PATH_MAX];
 
 static struct dev_info dev_node_list[] = 
@@ -509,6 +510,11 @@ int main (int argc, char **argv)
 		snprintf(env_script_path, sizeof(env_script_path), "%s", p);
 	else
 		path_setup(env_script_path, sizeof(env_script_path), "script");
+
+	if ( (p = getenv("AD9361_FILTER_PATH")) )
+		snprintf(env_filter_path, sizeof(env_filter_path), "%s", p);
+	else
+		path_setup(env_filter_path, sizeof(env_filter_path), "filter");
 
 	if ( (p = getenv("AD9361_DATA_PATH")) )
 		snprintf(env_data_path, sizeof(env_data_path), "%s", p);

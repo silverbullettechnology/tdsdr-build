@@ -187,8 +187,6 @@ static void ADI_Get_Voltage(void){
 	int adc1;
 	int adc2;
 
-	int delay;
-
 	dev_reopen(0, 1);
 
 	CMB_SPIWriteByte (0x00C, 0x00);
@@ -199,10 +197,7 @@ static void ADI_Get_Voltage(void){
 	CMB_SPIWriteByte (0x035, 0x1E);
 	CMB_SPIWriteByte (0x036, 0xFF);
 
-	for (delay = 0; delay < 1000; delay ++){
-		if(delay == 50)
-			printf("");
-	}
+	CMB_DelayU(1000);
 
 	CMB_SPIReadByte (0x01E, &temp1);
 	CMB_SPIReadByte (0x01F, &temp2);
@@ -222,10 +217,7 @@ static void ADI_Get_Voltage(void){
 	CMB_SPIWriteByte (0x035, 0x1E);
 	CMB_SPIWriteByte (0x036, 0xFF);
 
-	for (delay = 0; delay < 1000; delay ++){
-		if(delay == 50)
-			printf("");
-	}
+	CMB_DelayU(1000);
 
 	CMB_SPIReadByte (0x01E, &temp1);
 	CMB_SPIReadByte (0x01F, &temp2);

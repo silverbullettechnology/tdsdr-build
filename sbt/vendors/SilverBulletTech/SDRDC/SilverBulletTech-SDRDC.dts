@@ -725,6 +725,11 @@
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
 
+/* FIXME: Match Aux DAC on AD2, remove once synchronized */
+adi,aux-dac-manual-mode-enable;
+adi,aux-dac1-default-value-mV = <1430>;
+adi,aux-dac2-default-value-mV = <1430>;
+
 				}; // ad1
 
 			}; // spi_shim_1_0
@@ -943,6 +948,11 @@
 					adi,temp-sense-measurement-interval-ms = <1000>;
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
+
+					/* Aux DAC is used for XO tuning on SDRDC */
+					adi,aux-dac-manual-mode-enable;
+					adi,aux-dac1-default-value-mV = <1430>;
+					adi,aux-dac2-default-value-mV = <1430>;
 
 				}; // ad2
 

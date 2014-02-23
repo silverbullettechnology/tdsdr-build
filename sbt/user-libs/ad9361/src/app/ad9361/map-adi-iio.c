@@ -44,7 +44,6 @@ static int map_iio_common_get (const char *root, const char *leaf, const char *n
 	}
 
 	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	fprintf(stderr, "path: %s\n", path);
 	if ( proc_read(path, buff, sizeof(buff)) < 0 )
 	{
 		perror(path);
@@ -72,7 +71,6 @@ static int map_iio_common_set (const char *root, const char *leaf, const char *v
 	}
 
 	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	fprintf(stderr, "path: %s\n", path);
 	if ( proc_printf(path, "%s\n", value) < 0 )
 	{
 		perror(path);
@@ -157,6 +155,40 @@ MAP_CMD(set_out_voltage_filter_fir_en,            map_iio_normal_set, 2);
 MAP_CMD(set_out_voltage_rf_bandwidth,             map_iio_normal_set, 2);
 MAP_CMD(set_out_voltage_sampling_frequency,       map_iio_normal_set, 2);
 MAP_CMD(set_subsystem,                            map_iio_normal_set, 2);
+
+static int map_iio_filter_set (int argc, const char **argv)
+{
+	if ( argc < 2 || !argv[1] )
+		return -1;
+
+	char  b[4096];
+	FILE *f = fopen(argv[1], "r");
+	if ( !f )
+	{
+		char *p;
+		if ( !(p = path_match(b, sizeof(b), env_filter_path, argv[1])) )
+		{
+			fprintf(stderr, "%s: unknown filter\n", argv[1]);
+			return -1;
+		}
+		f = fopen(p, "r");
+	}
+	if ( !f )
+	{
+		fprintf(stderr, "%s: %s\n", argv[1], strerror(errno));
+		return -1;
+	}
+
+	char *p = b;
+	char *e = b + sizeof(b);
+	while ( p < e && fgets(p, e - p, f) )
+		while ( *p )
+			p++;
+	fclose(f);
+
+	return map_iio_common_set("/sys/bus/iio/devices", argv[0] + 4, b);
+}
+MAP_CMD(set_filter_fir_config,  map_iio_filter_set, 2);
 
 
 /******* Debug operations attributes in /sys/kernsl/debug/iio/ *******/
