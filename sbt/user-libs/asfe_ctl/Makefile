@@ -39,6 +39,7 @@ SUBMAKE := lib app
 
 .PHONY: all install romfs clean image
 all install romfs clean image:
+	mkdir -p $(BIN)
 	set -e; \
 	for s in $(SUBMAKE); do \
 		$(MAKE) -f $$s.mk $@; \
