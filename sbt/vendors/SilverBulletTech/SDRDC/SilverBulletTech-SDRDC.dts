@@ -562,9 +562,14 @@
 					//adi,xo-disable-use-ext-refclk-enable;
 
 					/* Mode Setup */
-
 					adi,2rx-2tx-mode-enable;
 					//adi,split-gain-table-mode-enable;
+
+					/* Note: SDRDC DMA stack currently supports T2R2 mode only, regardless
+					 * of how many channels are enabled.  leave this setting enabled if
+					 * disabling adi,2rx-2tx-mode-enable above
+					 */
+					adi,2t2r-timing-enable;
 
 					/* ENSM Mode */
 					adi,frequency-division-duplex-mode-enable;
@@ -725,11 +730,6 @@
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
 
-/* FIXME: Match Aux DAC on AD2, remove once synchronized */
-adi,aux-dac-manual-mode-enable;
-adi,aux-dac1-default-value-mV = <1430>;
-adi,aux-dac2-default-value-mV = <1430>;
-
 				}; // ad1
 
 			}; // spi_shim_1_0
@@ -786,9 +786,14 @@ adi,aux-dac2-default-value-mV = <1430>;
 					//adi,xo-disable-use-ext-refclk-enable;
 
 					/* Mode Setup */
-
 					adi,2rx-2tx-mode-enable;
 					//adi,split-gain-table-mode-enable;
+
+					/* Note: SDRDC DMA stack currently supports T2R2 mode only, regardless
+					 * of how many channels are enabled.  leave this setting enabled if
+					 * disabling adi,2rx-2tx-mode-enable above
+					 */
+					adi,2t2r-timing-enable;
 
 					/* ENSM Mode */
 					adi,frequency-division-duplex-mode-enable;
