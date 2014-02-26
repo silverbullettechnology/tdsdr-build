@@ -201,7 +201,6 @@ struct iio_debug_map
 };
 static struct iio_debug_map iio_debug_map[] =
 {
-	{ "adi_2rx_2tx_mode_enable",                                  "adi,2rx-2tx-mode-enable"                                  },
 	{ "adi_agc_adc_large_overload_exceed_counter",                "adi,agc-adc-large-overload-exceed-counter"                },
 	{ "adi_agc_adc_large_overload_inc_steps",                     "adi,agc-adc-large-overload-inc-steps"                     },
 	{ "adi_agc_adc_lmt_small_overload_prevent_gain_inc_enable",   "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable"   },
@@ -469,7 +468,6 @@ static int map_iio_debug_set (int argc, const char **argv)
 
 	return map_iio_common_set("/sys/kernel/debug/iio", leaf, argv[1]);
 }
-MAP_CMD(set_adi_2rx_2tx_mode_enable,                                  map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_large_overload_exceed_counter,                map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_large_overload_inc_steps,                     map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_lmt_small_overload_prevent_gain_inc_enable,   map_iio_debug_set, 2);
@@ -584,3 +582,10 @@ MAP_CMD(set_initialize,                                               map_iio_de
 MAP_CMD(set_loopback,                                                 map_iio_debug_set, 2);
 
 
+static int map_iio_illegal (int argc, const char **argv)
+{
+	const char *arg0 = argv[0] + 4;
+	fprintf(stderr, "%s: cannot set at runtime\n", arg0);
+	return -1;
+}
+MAP_CMD(set_adi_2rx_2tx_mode_enable,                                  map_iio_illegal, 2);
