@@ -615,8 +615,8 @@
 					 * 3 = RF_GAIN_HYBRID_AGC
 					 */
 
-					adi,gc-rx1-mode = <2>;
-					adi,gc-rx2-mode = <2>;
+					adi,gc-rx1-mode = <1>;
+					adi,gc-rx2-mode = <1>;
 					adi,gc-adc-ovr-sample-size = <4>; /* sum 4 samples */
 					adi,gc-adc-small-overload-thresh = <47>; /* sum of squares */
 					adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
@@ -839,8 +839,8 @@ adi,aux-dac2-default-value-mV = <1430>;
 					 * 3 = RF_GAIN_HYBRID_AGC
 					 */
 
-					adi,gc-rx1-mode = <2>;
-					adi,gc-rx2-mode = <2>;
+					adi,gc-rx1-mode = <1>;
+					adi,gc-rx2-mode = <1>;
 					adi,gc-adc-ovr-sample-size = <4>; /* sum 4 samples */
 					adi,gc-adc-small-overload-thresh = <47>; /* sum of squares */
 					adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
