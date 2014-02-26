@@ -474,62 +474,34 @@ for ( ret = 0; ret <= argc; ret++ )
 		if ( dsa_adi_new )
 			for ( dev = 0; dev < 2; dev++ ) 
 			{ 
-				// this is a bit of a hack: dev here is 0 for AD1, 1 for AD2, but 
-				// dsa_channel_ctrl()'s dev param is a bitmap of DC_DEV_AD1 (=1) and
-				// DC_DEV_AD2 (=2).  this should be replaced by a conversion macro
-				unsigned long  mask = dsa_channel_ctrl(&dsa_evt, dev + 1, 0);
 				unsigned long  reg;
 
 				// RX channel 1 parameters - minimal setup for now
-				reg = ADI_NEW_RX_FORMAT_ENABLE;
-				if ( mask & DSM_NEW_CTRL_RX1 )
-					reg |= ADI_NEW_RX_ENABLE;
+				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
 
 				// RX channel 2 parameters - minimal setup for now
-				reg = ADI_NEW_RX_FORMAT_ENABLE;
-				if ( mask & DSM_NEW_CTRL_RX2 )
-					reg |= ADI_NEW_RX_ENABLE;
+				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
 
-				// RX control of T1R1 vs T2R2 - maybe this should always be T2R2...
+				// Always using T2R2 for now - discard the extra samples
 				dsa_ioctl_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
-				switch ( mask & (DSM_NEW_CTRL_RX1 | DSM_NEW_CTRL_RX2) )
-				{
-					case DSM_NEW_CTRL_RX1:
-					case DSM_NEW_CTRL_RX2:
-						reg |= ADI_NEW_RX_R1_MODE;
-						break;
-
-					default:
-					case DSM_NEW_CTRL_RX1 | DSM_NEW_CTRL_RX2:
-						reg &= !ADI_NEW_RX_R1_MODE;
-						break;
-				}
+				reg &= ~ADI_NEW_RX_R1_MODE;
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
 
-				// TX channel parameters - minimal setup for now
+				// TX channel parameters - Always using T2R2
 				if ( dsa_evt.tx[dev] )
 				{
+					// Select DMA source, enable format, disable T1R1 mode
 					reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);
 					reg |= ADI_NEW_TX_DATA_FORMAT;
 					reg &= ~ADI_NEW_TX_R1_MODE;
 					dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
 
-					switch ( mask & (DSM_NEW_CTRL_TX1 | DSM_NEW_CTRL_TX2) )
-					{
-						case DSM_NEW_CTRL_TX1:
-						case DSM_NEW_CTRL_TX2:
-							reg = ADI_NEW_TX_TO_RATE(1);
-							break;
-
-						default:
-						case DSM_NEW_CTRL_TX1 | DSM_NEW_CTRL_TX2:
-							reg = ADI_NEW_TX_TO_RATE(3);
-							break;
-					}
+					// Rate 3 for T2R2 mode
+					reg = ADI_NEW_TX_TO_RATE(3);
 					dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 				}
 			} 

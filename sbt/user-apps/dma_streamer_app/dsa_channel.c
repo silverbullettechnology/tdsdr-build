@@ -743,7 +743,11 @@ int dsa_channel_check_active (int ident)
 			if ( ident & DC_CHAN_1 )  need |= 0x40;
 			if ( ident & DC_CHAN_2 )  need |= 0x80;
 
-			if ( need ^ (dsa_active_channels[idx] & 0xC0) )
+			// revised check: error if need has a bit set which is not set in the active 
+			// channels list - the user is requesting a channel which is not active.  the
+			// other direction isn't as bad, the user's ignoring an active channel.  on TX
+			// we'll send 0 paint, on RX we'll discard the samples
+			if ( need & ~(dsa_active_channels[idx] & 0xC0) )
 			{
 				if ( ! msg++ )
 					LOG_ERROR("DMA transfer doesn't match channels configured in "
