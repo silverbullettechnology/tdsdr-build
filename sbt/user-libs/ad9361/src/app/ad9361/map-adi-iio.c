@@ -44,7 +44,6 @@ static int map_iio_common_get (const char *root, const char *leaf, const char *n
 	}
 
 	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	fprintf(stderr, "path: %s\n", path);
 	if ( proc_read(path, buff, sizeof(buff)) < 0 )
 	{
 		perror(path);
@@ -72,7 +71,6 @@ static int map_iio_common_set (const char *root, const char *leaf, const char *v
 	}
 
 	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	fprintf(stderr, "path: %s\n", path);
 	if ( proc_printf(path, "%s\n", value) < 0 )
 	{
 		perror(path);
@@ -158,6 +156,40 @@ MAP_CMD(set_out_voltage_rf_bandwidth,             map_iio_normal_set, 2);
 MAP_CMD(set_out_voltage_sampling_frequency,       map_iio_normal_set, 2);
 MAP_CMD(set_subsystem,                            map_iio_normal_set, 2);
 
+static int map_iio_filter_set (int argc, const char **argv)
+{
+	if ( argc < 2 || !argv[1] )
+		return -1;
+
+	char  b[4096];
+	FILE *f = fopen(argv[1], "r");
+	if ( !f )
+	{
+		char *p;
+		if ( !(p = path_match(b, sizeof(b), env_filter_path, argv[1])) )
+		{
+			fprintf(stderr, "%s: unknown filter\n", argv[1]);
+			return -1;
+		}
+		f = fopen(p, "r");
+	}
+	if ( !f )
+	{
+		fprintf(stderr, "%s: %s\n", argv[1], strerror(errno));
+		return -1;
+	}
+
+	char *p = b;
+	char *e = b + sizeof(b);
+	while ( p < e && fgets(p, e - p, f) )
+		while ( *p )
+			p++;
+	fclose(f);
+
+	return map_iio_common_set("/sys/bus/iio/devices", argv[0] + 4, b);
+}
+MAP_CMD(set_filter_fir_config,  map_iio_filter_set, 2);
+
 
 /******* Debug operations attributes in /sys/kernsl/debug/iio/ *******/
 
@@ -169,7 +201,6 @@ struct iio_debug_map
 };
 static struct iio_debug_map iio_debug_map[] =
 {
-	{ "adi_2rx_2tx_mode_enable",                                  "adi,2rx-2tx-mode-enable"                                  },
 	{ "adi_agc_adc_large_overload_exceed_counter",                "adi,agc-adc-large-overload-exceed-counter"                },
 	{ "adi_agc_adc_large_overload_inc_steps",                     "adi,agc-adc-large-overload-inc-steps"                     },
 	{ "adi_agc_adc_lmt_small_overload_prevent_gain_inc_enable",   "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable"   },
@@ -437,7 +468,6 @@ static int map_iio_debug_set (int argc, const char **argv)
 
 	return map_iio_common_set("/sys/kernel/debug/iio", leaf, argv[1]);
 }
-MAP_CMD(set_adi_2rx_2tx_mode_enable,                                  map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_large_overload_exceed_counter,                map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_large_overload_inc_steps,                     map_iio_debug_set, 2);
 MAP_CMD(set_adi_agc_adc_lmt_small_overload_prevent_gain_inc_enable,   map_iio_debug_set, 2);
@@ -552,3 +582,10 @@ MAP_CMD(set_initialize,                                               map_iio_de
 MAP_CMD(set_loopback,                                                 map_iio_debug_set, 2);
 
 
+static int map_iio_illegal (int argc, const char **argv)
+{
+	const char *arg0 = argv[0] + 4;
+	fprintf(stderr, "%s: cannot set at runtime\n", arg0);
+	return -1;
+}
+MAP_CMD(set_adi_2rx_2tx_mode_enable,                                  map_iio_illegal, 2);

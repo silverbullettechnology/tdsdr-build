@@ -562,9 +562,14 @@
 					//adi,xo-disable-use-ext-refclk-enable;
 
 					/* Mode Setup */
-
 					adi,2rx-2tx-mode-enable;
 					//adi,split-gain-table-mode-enable;
+
+					/* Note: SDRDC DMA stack currently supports T2R2 mode only, regardless
+					 * of how many channels are enabled.  leave this setting enabled if
+					 * disabling adi,2rx-2tx-mode-enable above
+					 */
+					adi,2t2r-timing-enable;
 
 					/* ENSM Mode */
 					adi,frequency-division-duplex-mode-enable;
@@ -615,8 +620,8 @@
 					 * 3 = RF_GAIN_HYBRID_AGC
 					 */
 
-					adi,gc-rx1-mode = <2>;
-					adi,gc-rx2-mode = <2>;
+					adi,gc-rx1-mode = <1>;
+					adi,gc-rx2-mode = <1>;
 					adi,gc-adc-ovr-sample-size = <4>; /* sum 4 samples */
 					adi,gc-adc-small-overload-thresh = <47>; /* sum of squares */
 					adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
@@ -781,9 +786,14 @@
 					//adi,xo-disable-use-ext-refclk-enable;
 
 					/* Mode Setup */
-
 					adi,2rx-2tx-mode-enable;
 					//adi,split-gain-table-mode-enable;
+
+					/* Note: SDRDC DMA stack currently supports T2R2 mode only, regardless
+					 * of how many channels are enabled.  leave this setting enabled if
+					 * disabling adi,2rx-2tx-mode-enable above
+					 */
+					adi,2t2r-timing-enable;
 
 					/* ENSM Mode */
 					adi,frequency-division-duplex-mode-enable;
@@ -834,8 +844,8 @@
 					 * 3 = RF_GAIN_HYBRID_AGC
 					 */
 
-					adi,gc-rx1-mode = <2>;
-					adi,gc-rx2-mode = <2>;
+					adi,gc-rx1-mode = <1>;
+					adi,gc-rx2-mode = <1>;
 					adi,gc-adc-ovr-sample-size = <4>; /* sum 4 samples */
 					adi,gc-adc-small-overload-thresh = <47>; /* sum of squares */
 					adi,gc-adc-large-overload-thresh = <58>; /* sum of squares */
@@ -943,6 +953,11 @@
 					adi,temp-sense-measurement-interval-ms = <1000>;
 					adi,temp-sense-offset-signed = <0xCE>;
 					adi,temp-sense-periodic-measurement-enable;
+
+					/* Aux DAC is used for XO tuning on SDRDC */
+					adi,aux-dac-manual-mode-enable;
+					adi,aux-dac1-default-value-mV = <1430>;
+					adi,aux-dac2-default-value-mV = <1430>;
 
 				}; // ad2
 

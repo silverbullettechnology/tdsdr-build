@@ -32,6 +32,9 @@
 #define DC_CHAN_1   0x10
 #define DC_CHAN_2   0x20
 
+#define DC_DEV_IDX_TO_MASK(i)  (DC_DEV_AD1 << (i))
+#define DC_CHAN_IDX_TO_MASK(i) (DC_CHAN_1  << (i))
+
 
 // describes the data source / sink for a single channel within a transfer
 struct dsa_channel_sxx

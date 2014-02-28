@@ -27,6 +27,7 @@ extern char *opt_lib_dir;
 
 extern char  env_profile_path[];
 extern char  env_script_path[];
+extern char  env_filter_path[];
 extern char  env_data_path[];
 
 struct dev_info

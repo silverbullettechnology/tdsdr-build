@@ -289,13 +289,13 @@ int script (FILE *fp, script_hint_f hint_func)
 		}
 
 		// match comments and keep as a "hint"
-		if ( (hint = strstr(line_buff.buff, "//")) )
+		if ( (hint = strstr(line_buff.buff, "#")) )
+			*hint++ = '\0';
+		else if ( (hint = strstr(line_buff.buff, "//")) )
 		{
 			*hint = '\0';
 			hint += 2;
 		}
-		else if ( (hint = strstr(line_buff.buff, "#")) )
-			*hint++ = '\0';
 
 		// if a hint was found, strip leading space
 		if ( hint )
