@@ -25,7 +25,7 @@ LIBS :=
 OBJS := \
 	src/common/util.o \
 	src/lib/ad9361_hal_linux_spidev.o \
-	src/lib/ad9361_hal_linux.o \
+	src/lib/ad9361_hal_linux_legacy.o \
 	src/lib/ad9361_hal_sim.o \
 	src/lib/ad9361_hal.o \
 	src/lib/common.o
