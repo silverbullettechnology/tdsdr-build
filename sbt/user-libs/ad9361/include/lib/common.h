@@ -27,8 +27,6 @@ void CMB_SPIWriteField (UINT16 addr, UINT8 field_val, UINT8 mask, UINT8 start_bi
 void CMB_SPIWriteByte (UINT16 addr, UINT16 data);
 void CMB_SPIReadByte (UINT16 addr, UINT8 *readdata);
 
-void CMB_uartSendHex (UINT32 hexValue);
-void CMB_uartSendString (const char *dataString);
 UINT8 CMB_uartReceiveString (UINT8 *RxString, int maxSize);
 void CMB_hostTxPacket (UINT8 *dataString, int maxSize);
 UINT8 CMB_hostRxPacket (UINT8 *RxString, int maxSize);

@@ -32,6 +32,17 @@
 int proc_printf (const char *path, const char *fmt, ...);
 
 
+/** Write a string into a /proc or /sys entry from the caller's buffer
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param dst  Buffer to write from
+ *  \param len  Number of bytes to write
+ *
+ *  \return <0 on error, number of bytes read on success
+ */
+int proc_write (const char *path, const void *src, size_t len);
+
+
 /** Read a string from a /proc or /sys entry into the caller's buffer
  *
  *  At most max-1 bytes will be read, and the buffer will be zeroed before reading.

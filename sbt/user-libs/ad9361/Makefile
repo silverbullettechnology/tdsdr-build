@@ -22,7 +22,7 @@ endif
 
 # version numbers
 export MAJOR_VERSION := 0
-export MINOR_VERSION := 1
+export MINOR_VERSION := 2
 export PATCH_VERSION := 0
 
 # output names

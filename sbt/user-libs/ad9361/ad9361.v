@@ -22,9 +22,7 @@ ad9361_0.1 {
 		CMB_SPIWriteField;
 		CMB_SPIWriteByte;
 		CMB_SPIReadByte;
-		CMB_uartSendHex;
 		CMB_uartSendString;
-		CMB_uartReceiveString;
 		CMB_hostTxPacket;
 		CMB_hostRxPacket;
 		CMB_DelayU;
@@ -37,8 +35,9 @@ ad9361_0.1 {
 		ad9361_hal_detach;
 		ad9361_hal_spi_reg_get;
 		ad9361_hal_spi_reg_clr;
-		/* src/lib/ad9361_hal_linux.c */
+		/* src/lib/ad9361_hal_linux_dev.c */
 		ad9361_hal_linux_attach;
+		/* src/lib/ad9361_hal_linux_legacy.c */
 		ad9361_hal_linux_cleanup;
 		ad9361_hal_linux_gpio_init;
 		ad9361_hal_linux_gpio_done;
@@ -48,6 +47,32 @@ ad9361_0.1 {
 		ad9361_hal_linux_uart_done;
 		/* src/lib/ad9361_hal_sim.c */
 		ad9361_hal_sim_attach;
+	local:
+		*;
+};
+
+ad9361_0.2 {
+	global:
+		/* src/lib/common.c */
+		ad9361_legacy_dev;
+		/* src/lib/ad9361_hal.c */
+		ad9361_hal;
+		ad9361_spi_write_byte;
+		ad9361_spi_read_byte;
+		ad9361_gpio_write;
+		ad9361_sysfs_read;
+		ad9361_sysfs_write;
+		/* src/lib/ad9361_hal_linux_dev.c */
+		ad9361_hal_linux_init;
+		ad9361_hal_linux_done;
+		ad9361_hal_linux_dev_gpio_init;
+		ad9361_hal_linux_dev_gpio_done;
+		ad9361_hal_linux_dev_spi_init;
+		ad9361_hal_linux_dev_spi_done;
+		ad9361_hal_linux_dev_sysfs_init;
+		ad9361_hal_linux_dev_sysfs_done;
+		ad9361_hal_linux_dev_defaults_set_spidev;
+		ad9361_hal_linux_dev_defaults_set_gpio;
 	local:
 		*;
 };

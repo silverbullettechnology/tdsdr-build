@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <limits.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -52,12 +53,8 @@ static int map_device (int argc, const char **argv)
 	else
 		num = strtoul(arg, NULL, 10);
 
-	if ( dev_reopen(num, 1) )
-	{
-		fprintf(stderr, "dev_reopen(%d): %s\n", num, strerror(errno));
-		return -1;
-	}
-	
+	ad9361_legacy_dev = num;
+
 	errno = 0;
 	return 0;
 }
@@ -118,7 +115,7 @@ static int map_pulse_emio (int argc, const char **argv)
 	if ( set_gpio(pin, val ? 1 : 0) < 0 )
 		return -1;
 	
-	CMB_DelayU(dly * 1000);
+	usleep(dly * 1000);
 
 	return set_gpio(pin, val ? 0 : 1);
 }
@@ -133,33 +130,29 @@ static void Set_ASFE_Mode (UINT8 ADx, UINT8 RX1_LNAB, UINT8 RX2_LNAB, UINT8 TR_N
 		//LNA Bypass Setup
 		lna_bypass = 0;		
 		lna_bypass = (TR_N << 7) + (RX2_LNAB << 5) + (RX1_LNAB << 4);		
-		dev_reopen(0, 1);		
-		CMB_SPIWriteByte (0x020, 0x00);
-		CMB_SPIWriteByte (0x026, 0x90);
-		CMB_SPIWriteByte (0x027, lna_bypass);
+		ad9361_spi_write_byte(0, 0x020, 0x00);
+		ad9361_spi_write_byte(0, 0x026, 0x90);
+		ad9361_spi_write_byte(0, 0x027, lna_bypass);
 	} else{
 		//LNA Bypass Setup
-		dev_reopen(0, 1);		
-		CMB_SPIWriteByte (0x020, 0x00);
-		CMB_SPIWriteByte (0x026, 0x90);
-		CMB_SPIWriteByte (0x027, 0x00);	
+		ad9361_spi_write_byte(0, 0x020, 0x00);
+		ad9361_spi_write_byte(0, 0x026, 0x90);
+		ad9361_spi_write_byte(0, 0x027, 0x00);	
 	}
 
 	if(ADx == 2 || ADx == 3){
 		//LNA Bypass Setup
 		lna_bypass = 0;		
 		lna_bypass = (TR_N << 7) + (RX2_LNAB << 5) + (RX1_LNAB << 4);
-		dev_reopen(1, 1);		
-		CMB_SPIWriteByte (0x020, 0x00);
-		CMB_SPIWriteByte (0x026, 0x90);
-		CMB_SPIWriteByte (0x027, lna_bypass);
+		ad9361_spi_write_byte(1, 0x020, 0x00);
+		ad9361_spi_write_byte(1, 0x026, 0x90);
+		ad9361_spi_write_byte(1, 0x027, lna_bypass);
 
 	} else{
 		//LNA Bypass Setup
-		dev_reopen(1, 1);		
-		CMB_SPIWriteByte (0x020, 0x00);
-		CMB_SPIWriteByte (0x026, 0x90);
-		CMB_SPIWriteByte (0x027, 0x00);	
+		ad9361_spi_write_byte(1, 0x020, 0x00);
+		ad9361_spi_write_byte(1, 0x026, 0x90);
+		ad9361_spi_write_byte(1, 0x027, 0x00);	
 	}
 
 	printf("ADI ASFE Control Setup Complete\r\n");
@@ -187,40 +180,36 @@ static void ADI_Get_Voltage(void){
 	int adc1;
 	int adc2;
 
-	dev_reopen(0, 1);
+	ad9361_spi_write_byte(0, 0x00C, 0x00);
+	ad9361_spi_write_byte(0, 0x00D, 0x00);
+	ad9361_spi_write_byte(0, 0x00F, 0x04);
+	ad9361_spi_write_byte(0, 0x01C, 0x63);
+	ad9361_spi_write_byte(0, 0x01D, 0x00);
+	ad9361_spi_write_byte(0, 0x035, 0x1E);
+	ad9361_spi_write_byte(0, 0x036, 0xFF);
 
-	CMB_SPIWriteByte (0x00C, 0x00);
-	CMB_SPIWriteByte (0x00D, 0x00);
-	CMB_SPIWriteByte (0x00F, 0x04);
-	CMB_SPIWriteByte (0x01C, 0x63);
-	CMB_SPIWriteByte (0x01D, 0x00);
-	CMB_SPIWriteByte (0x035, 0x1E);
-	CMB_SPIWriteByte (0x036, 0xFF);
+	usleep(1000);
 
-	CMB_DelayU(1000);
-
-	CMB_SPIReadByte (0x01E, &temp1);
-	CMB_SPIReadByte (0x01F, &temp2);
+	ad9361_spi_read_byte(0, 0x01E, &temp1);
+	ad9361_spi_read_byte(0, 0x01F, &temp2);
 
 	//printf("temp1: 0x%2X temp2: 0x%2X\r\n",temp1,temp2);
 
 	adc1 = (temp1<<4)+temp2;
 	adc1 = ((adc1*147)/500)+26;
 
-	dev_reopen(1, 1);
+	ad9361_spi_write_byte(1, 0x00C, 0x00);
+	ad9361_spi_write_byte(1, 0x00D, 0x00);
+	ad9361_spi_write_byte(1, 0x00F, 0x04);
+	ad9361_spi_write_byte(1, 0x01C, 0x63);
+	ad9361_spi_write_byte(1, 0x01D, 0x00);
+	ad9361_spi_write_byte(1, 0x035, 0x1E);
+	ad9361_spi_write_byte(1, 0x036, 0xFF);
 
-	CMB_SPIWriteByte (0x00C, 0x00);
-	CMB_SPIWriteByte (0x00D, 0x00);
-	CMB_SPIWriteByte (0x00F, 0x04);
-	CMB_SPIWriteByte (0x01C, 0x63);
-	CMB_SPIWriteByte (0x01D, 0x00);
-	CMB_SPIWriteByte (0x035, 0x1E);
-	CMB_SPIWriteByte (0x036, 0xFF);
+	usleep(1000);
 
-	CMB_DelayU(1000);
-
-	CMB_SPIReadByte (0x01E, &temp1);
-	CMB_SPIReadByte (0x01F, &temp2);
+	ad9361_spi_read_byte(1, 0x01E, &temp1);
+	ad9361_spi_read_byte(1, 0x01F, &temp2);
 
 	//printf("temp1: 0x%2X temp2: 0x%2X\r\n",temp1,temp2);
 

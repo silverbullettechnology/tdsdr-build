@@ -26,6 +26,7 @@
 #include "map.h"
 #include "main.h"
 #include "util.h"
+#include "ad9361_hal.h"
 
 
 /******* Generic get/set for sysfs tree *******/
@@ -33,20 +34,12 @@
 
 static int map_iio_common_get (const char *root, const char *leaf, const char *name)
 {
-	char  path[PATH_MAX];
 	char  buff[256];
 	char *p, *q;
 
-	if ( !dev_info_curr || !dev_info_curr->leaf )
+	if ( ad9361_sysfs_read(ad9361_legacy_dev, root, leaf, buff, sizeof(buff)) < 0 )
 	{
-		fprintf(stderr, "No devfs paths set, stop.\n");
-		return -1;
-	}
-
-	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	if ( proc_read(path, buff, sizeof(buff)) < 0 )
-	{
-		perror(path);
+		perror(leaf);
 		return -1;
 	}
 
@@ -62,18 +55,9 @@ static int map_iio_common_get (const char *root, const char *leaf, const char *n
 
 static int map_iio_common_set (const char *root, const char *leaf, const char *value)
 {
-	char path[PATH_MAX];
-
-	if ( !dev_info_curr || !dev_info_curr->leaf )
+	if ( ad9361_sysfs_write(ad9361_legacy_dev, root, leaf, value, strlen(value)) < 0 )
 	{
-		fprintf(stderr, "No devfs paths set, stop.\n");
-		return -1;
-	}
-
-	snprintf(path, sizeof(path), "%s/%s/%s", root, dev_info_curr->leaf, leaf);
-	if ( proc_printf(path, "%s\n", value) < 0 )
-	{
-		perror(path);
+		perror(leaf);
 		return -1;
 	}
 	

@@ -1,5 +1,5 @@
-/** \file      include/post/lib.h
- *  \brief     Stub wrapper
+/** \file      src/lib/ad9361_hal_linux_private.h
+ *  \brief     HAL internals
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,15 +15,20 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_POST_LIB_H_
-#define _INCLUDE_POST_LIB_H_
-
-#define GPIO_TXNRX_pin   0
-#define GPIO_Enable_pin  1
-#define GPIO_Resetn_pin  2
+#ifndef _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_
+#define _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_
 
 
-extern unsigned ad9361_legacy_dev;
+void ad9361_hal_linux_atexit_register (void);
+int  ad9361_hal_linux_dev_attach      (void);
+
+int  ad9361_hal_linux_dev_gpio_init  (unsigned dev, const int pins[3]);
+void ad9361_hal_linux_dev_gpio_done  (void);
+int  ad9361_hal_linux_dev_spi_init   (unsigned dev, const char *path);
+void ad9361_hal_linux_dev_spi_done   (void);
+int  ad9361_hal_linux_dev_sysfs_init (void);
+void ad9361_hal_linux_dev_sysfs_done (void);
 
 
-#endif /* _INCLUDE_POST_LIB_H_ */
+#endif /* _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_ */
+

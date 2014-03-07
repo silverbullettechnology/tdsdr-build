@@ -30,59 +30,47 @@
 #include "ad9361_hal_sim.h"
 
 
-static void ad9361_hal_sim_timer_wait (int usec)
-{
-//	fprintf(stderr, "ad9361_hal_sim_timer_wait(%d)\n", usec);
-	usleep(usec);
-}
-
-
-static void ad9361_hal_sim_gpio_write (int pin, int val)
+static void ad9361_hal_sim_gpio_write (unsigned dev, unsigned pin, unsigned val)
 {
 //	fprintf(stderr, "ad9361_hal_sim_gpio_write(pin %d, val %d)\n", pin, val);
 }
 
 
-static void ad9361_hal_sim_spi_write_byte (UINT16 addr, UINT16 data)
+static void ad9361_hal_sim_spi_write_byte (unsigned dev, uint16_t addr, uint8_t data)
 {
 	fprintf(stderr, "SPIWrite\t%03X,%02X\n", addr, data);
 }
 
 
-static void ad9361_hal_sim_spi_read_byte (UINT16 addr, UINT16 *data)
+static void ad9361_hal_sim_spi_read_byte (unsigned dev, uint16_t addr, uint8_t *data)
 {
 	fprintf(stderr, "SPIRead \t%03X\n", addr);
 
 	*data = 0xFF;
 }
 
-
-/******** UART emulated through stdin/stdout by default ********/
-
-
-static void ad9361_hal_sim_uart_send_byte (UINT8 val)
+static int ad9361_hal_sim_sysfs_read (unsigned dev, const char *root, const char *leaf,
+                                      void *dst, int max)
 {
-	int ret = write(1, &val, sizeof(UINT8));
-	assert(ret >= 0);
+	errno = ENOSYS;
+	return -1;
 }
 
-
-static BOOL ad9361_hal_sim_uart_receive_byte (UINT8 *val)
+static int ad9361_hal_sim_sysfs_write (unsigned dev, const char *root, const char *leaf,
+                                       const void *src, int len)
 {
-	int ret = read(0, val, sizeof(UINT8));
-	assert(ret >= 0);
-	return 1;
+	errno = ENOSYS;
+	return -1;
 }
 
 
 static struct ad9361_hal ad9361_hal_sim = 
 {
-	.HAL_gpioWrite          = ad9361_hal_sim_gpio_write,
-	.HAL_SPIWriteByte       = ad9361_hal_sim_spi_write_byte,
-	.HAL_SPIReadByte        = ad9361_hal_sim_spi_read_byte,
-	.Timer_Wait             = ad9361_hal_sim_timer_wait,
-	.HAL_uartSendByte       = ad9361_hal_sim_uart_send_byte,
-	.HAL_uartReceiveByte    = ad9361_hal_sim_uart_receive_byte,
+	.gpio_write     = ad9361_hal_sim_gpio_write,
+	.spi_write_byte = ad9361_hal_sim_spi_write_byte,
+	.spi_read_byte  = ad9361_hal_sim_spi_read_byte,
+	.sysfs_read     = ad9361_hal_sim_sysfs_read,
+	.sysfs_write    = ad9361_hal_sim_sysfs_write,
 };
 
 
