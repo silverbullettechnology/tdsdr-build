@@ -24,6 +24,7 @@ LIBS :=
 # in-tree objs - cleaned
 OBJS := \
 	src/common/util.o \
+	src/lib/ad9361_debugfs.o \
 	src/lib/ad9361_hal_linux_spidev.o \
 	src/lib/ad9361_hal_linux_legacy.o \
 	src/lib/ad9361_hal_linux_dev.o \
@@ -79,7 +80,7 @@ ifdef ADI
 else
 	cp -a $(NAME).h                         $(STAGEDIR)/usr/include/$(NAME).h
 	cp -a include/post/*                    $(STAGEDIR)/usr/include/$(NAME)
-	cp -a include/lib/common.h              $(STAGEDIR)/usr/include/$(NAME)
+	cp -a include/lib/*                     $(STAGEDIR)/usr/include/$(NAME)
 endif
 	cp -a include/lib/ad9361_hal*.h         $(STAGEDIR)/usr/include/$(NAME)
 
