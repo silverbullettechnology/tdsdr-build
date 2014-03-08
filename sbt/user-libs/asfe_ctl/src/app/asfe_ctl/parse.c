@@ -169,6 +169,7 @@ int parse_UINT16 (UINT16 *val, size_t size,
 	const char    *arg, *nxt;
 	UINT16        *end = (UINT16 *)((char *)val + size);
 	unsigned long  tmp = 0;
+	unsigned char  invalid = 0;
 
 	if ( idx >= argc )
 		return -1;
@@ -178,8 +179,25 @@ int parse_UINT16 (UINT16 *val, size_t size,
 	while ( val < end )
 	{
 		errno = 0;
+		//check arg for validity
+		// Trim leading space
+		while(isspace(*arg)) arg++;
+
+		if ((strstr(arg, "0X") == 0) &&
+		    (strstr(arg, "0x") == 0)){
+			if (strspn(arg, "0123456789") > 0)
+			    invalid = 0;
+			else
+			    invalid = 1;
+		}else{
+		    if (strspn(arg, "0123456789abcdefABCDEFxX") > 0)
+			invalid = 0;
+		    else
+			invalid = 1;
+		}
+		
 		tmp = strtoul(arg, NULL, 0);
-		if ( errno )
+		if ( errno || invalid )
 		{
 			fprintf(stderr, "%s: '%s' is not a valid UINT16\n", argv[0], arg);
 			return -1;
