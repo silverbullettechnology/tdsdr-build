@@ -723,8 +723,8 @@ int ad9361_set_temp_sense_measurement_interval_ms (unsigned dev, uint32_t  val);
 /* Path: adi,temp-sense-offset-signed
  * Var : auxadc_ctrl.offset
  */
-int ad9361_get_temp_sense_offset_signed (unsigned dev, uint32_t *val);
-int ad9361_set_temp_sense_offset_signed (unsigned dev, uint32_t  val);
+int ad9361_get_temp_sense_offset_signed (unsigned dev, int *val);
+int ad9361_set_temp_sense_offset_signed (unsigned dev, int val);
 
 /* Path: adi,temp-sense-periodic-measurement-enable
  * Var : auxadc_ctrl.periodic_temp_measuremnt

@@ -25,6 +25,17 @@
  *
  *  \param path Full path to /proc or /sys entry
  *  \param fmt  Format string for vfprintf()
+ *  \param ap   va_list object
+ *
+ *  \return <0 on error, number of characters written on success
+ */
+int proc_vprintf (const char *path, const char *fmt, va_list ap);
+
+
+/** Format and write a string to a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vfprintf()
  *  \param ...  Variable argument list
  *
  *  \return <0 on error, number of characters written on success
@@ -54,6 +65,17 @@ int proc_write (const char *path, const void *src, size_t len);
  *  \return <0 on error, number of bytes read on success
  */
 int proc_read (const char *path, void *dst, size_t max);
+
+
+/** Read and parse a string from a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vscanf()
+ *  \param ap   va_list object
+ *
+ *  \return <0 on error, number of fields parsed on success
+ */
+int proc_vscanf (const char *path, const char *fmt, va_list ap);
 
 
 /** Read and parse a string from a /proc or /sys entry

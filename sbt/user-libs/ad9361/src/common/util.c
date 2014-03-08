@@ -29,24 +29,41 @@
  *
  *  \param path Full path to /proc or /sys entry
  *  \param fmt  Format string for vfprintf()
+ *  \param ap   va_list object
+ *
+ *  \return <0 on error, number of characters written on success
+ */
+int proc_vprintf (const char *path, const char *fmt, va_list ap)
+{
+	FILE *fp = fopen(path, "w");
+	if ( !fp )
+		return -1;
+
+	int ret = vfprintf(fp, fmt, ap);
+	int err = errno;
+
+	fclose(fp);
+
+	errno = err;
+	return ret;
+}
+
+
+/** Format and write a string to a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vfprintf()
  *  \param ...  Variable argument list
  *
  *  \return <0 on error, number of characters written on success
  */
 int proc_printf (const char *path, const char *fmt, ...)
 {
-	FILE *fp = fopen(path, "w");
-	if ( !fp )
-		return -1;
-
 	va_list ap;
 	va_start(ap, fmt);
-	errno = 0;
-	int ret = vfprintf(fp, fmt, ap);
+	int ret = proc_vprintf(path, fmt, ap);
 	int err = errno;
 	va_end(ap);
-
-	fclose(fp);
 
 	errno = err;
 	return ret;
@@ -120,20 +137,39 @@ int proc_read (const char *path, void *dst, size_t max)
  *
  *  \return <0 on error, number of fields parsed on success
  */
-int proc_scanf (const char *path, const char *fmt, ...)
+int proc_vscanf (const char *path, const char *fmt, va_list ap)
 {
 	FILE *fp = fopen(path, "r");
 	if ( !fp )
 		return -1;
 
-	va_list ap;
-	va_start(ap, fmt);
 	errno = 0;
 	int ret = vfscanf(fp, fmt, ap);
 	int err = errno;
-	va_end(ap);
 
 	fclose(fp);
+
+	errno = err;
+	return ret;
+}
+
+
+/** Read and parse a string from a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vscanf()
+ *  \param ...  Variable argument list
+ *
+ *  \return <0 on error, number of fields parsed on success
+ */
+int proc_scanf (const char *path, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	errno = 0;
+	int ret = proc_vscanf(path, fmt, ap);
+	int err = errno;
+	va_end(ap);
 
 	errno = err;
 	return ret;

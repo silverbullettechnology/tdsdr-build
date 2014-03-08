@@ -18,7 +18,7 @@
 #ifndef _INCLUDE_LIB_HAL_H_
 #define _INCLUDE_LIB_HAL_H_
 #include <stdint.h>
-#include <assert.h>
+#include <stdarg.h>
 
 #include "api_types.h"
 
@@ -30,6 +30,10 @@ typedef int   (* sysfs_read_fn)      (unsigned dev, const char *root, const char
                                       void *dst, int max);
 typedef int   (* sysfs_write_fn)     (unsigned dev, const char *root, const char *leaf,
                                       const void *src, int len);
+typedef int   (* sysfs_vscanf_fn)    (unsigned dev, const char *root, const char *leaf,
+                                      const char *fmt, va_list ap);
+typedef int   (* sysfs_vprintf_fn)   (unsigned dev, const char *root, const char *leaf,
+                                      const char *fmt, va_list ap);
 
 
 struct ad9361_hal
@@ -39,6 +43,8 @@ struct ad9361_hal
 	gpio_write_fn            gpio_write;
 	sysfs_read_fn            sysfs_read;
 	sysfs_write_fn           sysfs_write;
+	sysfs_vscanf_fn          sysfs_vscanf;
+	sysfs_vprintf_fn         sysfs_vprintf;
 };
 
 
@@ -49,6 +55,14 @@ int  ad9361_sysfs_read     (unsigned dev, const char *root, const char *leaf,
                             void *dst, int max);
 int  ad9361_sysfs_write    (unsigned dev, const char *root, const char *leaf,
                             const void *src, int len);
+int ad9361_sysfs_vscanf    (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, va_list ap);
+int ad9361_sysfs_vprintf   (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, va_list ap);
+int ad9361_sysfs_scanf     (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, ...);
+int ad9361_sysfs_printf    (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, ...);
 
 
 int ad9361_hal_attach (const struct ad9361_hal *hal);

@@ -289,6 +289,47 @@ static int ad9361_hal_linux_dev_sysfs_write (unsigned dev, const char *root,
 }
 
 
+static int ad9361_hal_linux_dev_sysfs_vscanf (unsigned dev,
+                                              const char *root, const char *leaf,
+                                              const char *fmt, va_list ap)
+{
+	assert(dev < 2);
+	if ( !inst[dev].sysfs )
+		return -1;
+
+	char path[PATH_MAX];
+	snprintf(path, sizeof(path), "%s/%s/%s", root, inst[dev].sysfs, leaf);
+	int ret = proc_vscanf(path, fmt, ap);
+	if ( ret < 0 )
+	{
+		perror(path);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int ad9361_hal_linux_dev_sysfs_vprintf (unsigned dev,
+                                               const char *root, const char *leaf,
+                                               const char *fmt, va_list ap)
+{
+	assert(dev < 2);
+	if ( !inst[dev].sysfs )
+		return -1;
+
+	char path[PATH_MAX];
+	snprintf(path, sizeof(path), "%s/%s/%s", root, inst[dev].sysfs, leaf);
+	int ret = proc_vprintf(path, fmt, ap);
+	if ( ret < 0 )
+	{
+		perror(path);
+		return ret;
+	}
+
+	return ret;
+}
+
+
 int ad9361_hal_linux_dev_sysfs_init (void)
 {
 	char    path[PATH_MAX];
@@ -409,6 +450,8 @@ static struct ad9361_hal ad9361_hal_linux_dev =
 	.spi_read_byte    = ad9361_hal_linux_dev_spi_read_byte,
 	.sysfs_read       = ad9361_hal_linux_dev_sysfs_read,
 	.sysfs_write      = ad9361_hal_linux_dev_sysfs_write,
+	.sysfs_vscanf     = ad9361_hal_linux_dev_sysfs_vscanf,
+	.sysfs_vprintf    = ad9361_hal_linux_dev_sysfs_vprintf,
 };
 
 int ad9361_hal_linux_attach (void)

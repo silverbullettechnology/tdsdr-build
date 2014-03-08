@@ -17,6 +17,8 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <assert.h>
 #include <errno.h>
 
 #include "api_types.h"
@@ -120,3 +122,44 @@ int ad9361_sysfs_write (unsigned dev, const char *root, const char *leaf,
 	return ad9361_hal->sysfs_write(dev, root, leaf, src, len);
 }
 
+int ad9361_sysfs_vscanf (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, va_list ap)
+{
+	assert(ad9361_hal);
+	assert(ad9361_hal->sysfs_vscanf);
+	return ad9361_hal->sysfs_vscanf(dev, root, leaf, fmt, ap);
+}
+
+int ad9361_sysfs_vprintf (unsigned dev, const char *root, const char *leaf,
+                          const char *fmt, va_list ap)
+{
+	assert(ad9361_hal);
+	assert(ad9361_hal->sysfs_vprintf);
+	return ad9361_hal->sysfs_vprintf(dev, root, leaf, fmt, ap);
+}
+
+int ad9361_sysfs_scanf (unsigned dev, const char *root, const char *leaf,
+                        const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int ret = ad9361_sysfs_vscanf(dev, root, leaf, fmt, ap);
+	int err = errno;
+	va_end(ap);
+
+	errno = err;
+	return ret;
+}
+
+int ad9361_sysfs_printf (unsigned dev, const char *root, const char *leaf,
+                         const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int ret = ad9361_sysfs_vprintf(dev, root, leaf, fmt, ap);
+	int err = errno;
+	va_end(ap);
+
+	errno = err;
+	return ret;
+}
