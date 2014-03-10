@@ -110,4 +110,31 @@ int proc_scanf (const char *path, const char *fmt, ...);
 char *path_match (char *dst, size_t max, const char *search, const char *leaf);
 
 
+/** Convert an unsigned decimal to a fixed-point long
+ *
+ *  The d param gives the integer/decimal separator and the e param the number of decimal
+ *  digits to convert.  Rounding is performed if more digits are available.  Examples:
+ *    dec_to_u_fix("12.345", '.', 3) = 12345  ((12 * 10**3) + 345)
+ *    dec_to_u_fix("12.345", '.', 2) = 1235   ((12 * 10**2) + 34 + 1)
+ *    dec_to_u_fix("12.345", '.', 1) = 123    ((12 * 10**1) + 3)
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+unsigned long dec_to_u_fix (const char *s, char d, unsigned e);
+
+/** Convert a signed decimal to a fixed-point long
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+signed long dec_to_s_fix (const char *s, char d, unsigned e);
+
+
 #endif // _INCLUDE_COMMON_UTIL_H_

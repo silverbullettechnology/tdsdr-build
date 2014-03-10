@@ -17,6 +17,8 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -240,3 +242,67 @@ char *path_match (char *dst, size_t max, const char *search, const char *leaf)
 	errno = ENOENT;
 	return NULL;
 }
+
+
+/** Convert an unsigned decimal to a fixed-point long
+ *
+ *  The d param gives the integer/decimal separator and the e param the number of decimal
+ *  digits to convert.  Rounding is performed if more digits are available.  Examples:
+ *    dec_to_u_fix("12.345", '.', 3) = 12345  ((12 * 10**3) + 345)
+ *    dec_to_u_fix("12.345", '.', 2) = 1235   ((12 * 10**2) + 34 + 1)
+ *    dec_to_u_fix("12.345", '.', 1) = 123    ((12 * 10**1) + 3)
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+unsigned long dec_to_u_fix (const char *s, char d, unsigned e)
+{
+	while ( *s && isspace(*s) )
+		s++;
+
+	// convert integer part first, stop if no decimal char
+	unsigned long v = strtoul(s, (char **)&s, 10);
+	if ( *s == d )
+		s++;
+
+	// we want a fixed and have decimals
+	while ( e-- )
+	{
+		// avoid integer multiply by 10 for speed - from NAPL
+		if ( v )
+			v = (v << 3) + (v << 1);
+		// use more decimals if available
+		if ( isdigit(*s) )
+			v += *s++ - '0';
+	}
+
+	// more digits than wanted: round
+	if ( isdigit(*s) && *s >= '5' )
+		v++ ;
+
+	return v;
+}
+
+
+/** Convert a signed decimal to a fixed-point long
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+signed long dec_to_s_fix (const char *s, char d, unsigned e)
+{
+	while ( *s && isspace(*s) )
+		s++;
+
+	if ( *s == '-' )
+		return 0 - dec_to_u_fix(s + 1, d, e);
+	
+	return dec_to_u_fix(s, d, e);
+}
+

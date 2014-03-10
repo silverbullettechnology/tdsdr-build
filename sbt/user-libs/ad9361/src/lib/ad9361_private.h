@@ -20,9 +20,9 @@
 
 
 int ad9361_sysfs_get_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **list, int *val);
+                           const char **word_list, size_t list_size, int *val);
 int ad9361_sysfs_set_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **list, int val);
+                           const char **word_list, size_t list_size, int val);
 
 int ad9361_sysfs_get_int (unsigned dev, const char *root, const char *leaf, int      *val);
 int ad9361_sysfs_get_u32 (unsigned dev, const char *root, const char *leaf, uint32_t *val);

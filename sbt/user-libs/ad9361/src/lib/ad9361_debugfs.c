@@ -22,12 +22,14 @@
 #include <errno.h>
 
 #include "ad9361_hal.h"
-#include "ad9361_sysfs.h"
+#include "ad9361_private.h"
 
 
 #define ROOT "/sys/kernel/debug/iio"
-#define get_enum(dev,leaf,list,val)  ad9361_sysfs_get_enum(dev,ROOT,leaf,list,val) 
-#define set_enum(dev,leaf,list,val)  ad9361_sysfs_set_enum(dev,ROOT,leaf,list,val) 
+#define get_enum(dev,leaf,list,val) \
+	ad9361_sysfs_get_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
+#define set_enum(dev,leaf,list,val) \
+	ad9361_sysfs_set_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
 #define get_int(dev,leaf,val)        ad9361_sysfs_get_int(dev,ROOT,leaf,val) 
 #define set_int(dev,leaf,val)        ad9361_sysfs_set_int(dev,ROOT,leaf,val) 
 #define get_u32(dev,leaf,val)        ad9361_sysfs_get_u32(dev,ROOT,leaf,val) 
