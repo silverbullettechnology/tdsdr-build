@@ -60,11 +60,11 @@ char **ad9361_map_completion (const char *text, int start, int end);
 
 /* Call, Check-Return macro: call library function func with 0 or more args.  If the
  * return is not ADIERR_OK, print an error message and return -1 */
-#define MAP_LIB_CALL(func, ...) do{              \
-	ADI_ERR ret = func(__VA_ARGS__);             \
-	if ( ret != ADIERR_OK ) {                    \
-		printf("%s: ADIERR_%s\n", argv[0], ad9361_err_desc(ret)); \
-		return ret;                              \
+#define MAP_LIB_CALL(func, ...) do{ \
+	int ret = func(__VA_ARGS__);    \
+	if ( ret < 0 ) {                \
+		printf("%s: %s\n", argv[0], strerror(errno)); \
+		return ret;                                   \
 	} }while(0)
 
 /* Define an ad9361_map_arg_t entry for the argument, used to auto-generate a help entry */

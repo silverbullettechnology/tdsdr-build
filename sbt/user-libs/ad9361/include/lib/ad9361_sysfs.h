@@ -176,12 +176,12 @@ int ad9361_set_out_altvoltage1_TX_LO_frequency (unsigned dev, uint64_t  val);
 
 /* Path: out_voltage0_hardwaregain / out_voltage1_hardwaregain
  */
-int ad9361_get_out_voltage_hardwaregain  (unsigned dev, int channel, uint32_t *val);
-int ad9361_set_out_voltage_hardwaregain  (unsigned dev, int channel, uint32_t  val);
-int ad9361_get_out_voltage0_hardwaregain (unsigned dev, uint32_t *val);
-int ad9361_set_out_voltage0_hardwaregain (unsigned dev, uint32_t  val);
-int ad9361_get_out_voltage1_hardwaregain (unsigned dev, uint32_t *val);
-int ad9361_set_out_voltage1_hardwaregain (unsigned dev, uint32_t  val);
+int ad9361_get_out_voltage_hardwaregain  (unsigned dev, int channel, int *val);
+int ad9361_set_out_voltage_hardwaregain  (unsigned dev, int channel, int  val);
+int ad9361_get_out_voltage0_hardwaregain (unsigned dev, int *val);
+int ad9361_set_out_voltage0_hardwaregain (unsigned dev, int  val);
+int ad9361_get_out_voltage1_hardwaregain (unsigned dev, int *val);
+int ad9361_set_out_voltage1_hardwaregain (unsigned dev, int  val);
 
 /* Path: out_voltage0_rf_port_select / out_voltage1_rf_port_select
  */
@@ -228,24 +228,23 @@ int ad9361_set_out_voltage_rf_bandwidth (unsigned dev, uint32_t  val);
 int ad9361_get_out_voltage_sampling_frequency (unsigned dev, uint32_t *val);
 int ad9361_set_out_voltage_sampling_frequency (unsigned dev, uint32_t  val);
 
-/* Path: out_rx_path_rates
+/* Path: trx_rate_governor
  */
-int ad9361_get_out_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
-                                  uint32_t *r2, uint32_t *r1,    uint32_t *rf,
-                                  uint32_t *rxsamp);
+#define AD9361_TRX_RATE_GOVERNOR_HIGHEST_OSR  0
+#define AD9361_TRX_RATE_GOVERNOR_NOMINAL      1
+int ad9361_get_trx_rate_governor (unsigned dev, int *val);
+int ad9361_set_trx_rate_governor (unsigned dev, int  val);
 
-/* Path: out_trx_rate_governor
+/* Path: rx_path_rates
  */
-#define AD9361_OUT_TRX_RATE_GOVERNOR_HIGHEST_OSR  0
-#define AD9361_OUT_TRX_RATE_GOVERNOR_NOMINAL      1
-int ad9361_get_out_trx_rate_governor (unsigned dev, int *val);
-int ad9361_set_out_trx_rate_governor (unsigned dev, int  val);
+int ad9361_get_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
+                              uint32_t *r2, uint32_t *r1,    uint32_t *rf,
+                              uint32_t *rxsamp);
 
-/* Path: out_tx_path_rates
+/* Path: tx_path_rates
  */
-int ad9361_get_out_tx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *dac,
-                                  uint32_t *t2, uint32_t *t1,    uint32_t *tf,
-                                  uint32_t *txsamp);
-
+int ad9361_get_tx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *dac,
+                              uint32_t *t2, uint32_t *t1,    uint32_t *tf,
+                              uint32_t *txsamp);
 
 #endif /* _INCLUDE_LIB_AD9361_SYSFS_H_ */

@@ -95,8 +95,8 @@ static int set_gpio (int pin, int val)
 
 static int map_set_emio (int argc, const char **argv)
 {
-	MAP_ARG(UINT8, pin, 1, "EMIO pin number");
-	MAP_ARG(UINT8, val, 2, "Value to set");
+	MAP_ARG(uint8_t, pin, 1, "EMIO pin number");
+	MAP_ARG(uint8_t, val, 2, "Value to set");
 
 	pin += 54; // EMIO -> GPIO offset, MIO are GPIO 0..53
 
@@ -106,9 +106,9 @@ MAP_CMD(setEMIO, map_set_emio, 3);
 
 static int map_pulse_emio (int argc, const char **argv)
 {
-	MAP_ARG(UINT8, pin, 1, "EMIO pin number");
-	MAP_ARG(UINT8, val, 2, "Active value (0 for active low), opposite will be written to de-assert");
-	MAP_ARG(int,   dly, 3, "Time to pulse in milliseconds");
+	MAP_ARG(uint8_t, pin, 1, "EMIO pin number");
+	MAP_ARG(uint8_t, val, 2, "Active value (0 for active low), opposite will be written to de-assert");
+	MAP_ARG(int,     dly, 3, "Time to pulse in milliseconds");
 
 	pin += 54; // EMIO -> GPIO offset, MIO are GPIO 0..53
 
@@ -121,9 +121,13 @@ static int map_pulse_emio (int argc, const char **argv)
 }
 MAP_CMD(pulseEMIO, map_pulse_emio, 3);
 
-static void Set_ASFE_Mode (UINT8 ADx, UINT8 RX1_LNAB, UINT8 RX2_LNAB, UINT8 TR_N)
+static int map_Set_ASFE_Mode (int argc, const char **argv)
 {
-	UINT8 lna_bypass;
+	MAP_ARG(uint8_t, ADx,      1, "Select ADI Chip, 1, 2, or 3 for both");
+	MAP_ARG(uint8_t, RX1_LNAB, 2, "Set RX1 LNA Bypass active (1) or inactive (0)");
+	MAP_ARG(uint8_t, RX2_LNAB, 3, "Set RX2 LNA Bypass active (1) or inactive (0)");
+	MAP_ARG(uint8_t, TR_N,     4, "Set ASFE_ADx_TR_N active (1) or inactive (0)");
+	uint8_t lna_bypass;
 		
 	if(ADx == 1 || ADx == 3){			
 		
@@ -156,17 +160,6 @@ static void Set_ASFE_Mode (UINT8 ADx, UINT8 RX1_LNAB, UINT8 RX2_LNAB, UINT8 TR_N
 	}
 
 	printf("ADI ASFE Control Setup Complete\r\n");
-		
-}
-
-static int map_Set_ASFE_Mode (int argc, const char **argv)
-{
-	MAP_ARG(UINT8, ADx,      1, "Select ADI Chip, 1, 2, or 3 for both");
-	MAP_ARG(UINT8, RX1_LNAB, 2, "Set RX1 LNA Bypass active (1) or inactive (0)");
-	MAP_ARG(UINT8, RX2_LNAB, 3, "Set RX2 LNA Bypass active (1) or inactive (0)");
-	MAP_ARG(UINT8, TR_N,     4, "Set ASFE_ADx_TR_N active (1) or inactive (0)");
-
-	Set_ASFE_Mode (ADx, RX1_LNAB, RX2_LNAB, TR_N);
 
 	return 0;
 }
@@ -175,8 +168,8 @@ MAP_CMD(Set_ASFE_Mode, map_Set_ASFE_Mode, 5);
 
 static void ADI_Get_Voltage(void){
 
-	UINT8 temp1;
-	UINT8 temp2;
+	uint8_t temp1;
+	uint8_t temp2;
 	int adc1;
 	int adc2;
 

@@ -171,8 +171,8 @@ void ad9361_hal_linux_dev_gpio_done (void)
 
 static void ad9361_hal_linux_dev_spi_write_byte (unsigned dev, uint16_t addr, uint8_t data)
 {
-	UINT8  txb[3];
-	int    ret;
+	uint8_t  txb[3];
+	int      ret;
 
 	assert(dev < 2);
 
@@ -190,9 +190,9 @@ static void ad9361_hal_linux_dev_spi_write_byte (unsigned dev, uint16_t addr, ui
 
 static void ad9361_hal_linux_dev_spi_read_byte (unsigned dev, uint16_t addr, uint8_t *data)
 {
-	UINT8  txb[3];
-	UINT8  rxb[3];
-	int    ret;
+	uint8_t  txb[3];
+	uint8_t  rxb[3];
+	int      ret;
 
 	assert(dev < 2);
 

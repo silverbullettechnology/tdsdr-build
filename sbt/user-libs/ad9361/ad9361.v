@@ -55,6 +55,7 @@ ad9361_0.2 {
 	global:
 		ad9361_get_calib_mode;
 		ad9361_set_calib_mode;
+		ad9361_start_calib;
 		ad9361_get_dcxo_tune_coarse;
 		ad9361_set_dcxo_tune_coarse;
 		ad9361_get_dcxo_tune_fine;
@@ -63,6 +64,9 @@ ad9361_0.2 {
 		ad9361_set_ensm_mode;
 		ad9361_get_in_out_voltage_filter_fir_en;
 		ad9361_set_in_out_voltage_filter_fir_en;
+		ad9361_get_filter_fir_config;
+		ad9361_set_filter_fir_config;
+		ad9361_load_filter_fir_config;
 		ad9361_get_in_temp0_input;
 		ad9361_get_in_voltage_gain_control_mode;
 		ad9361_set_in_voltage_gain_control_mode;
@@ -140,12 +144,10 @@ ad9361_0.2 {
 		ad9361_set_out_voltage_rf_bandwidth;
 		ad9361_get_out_voltage_sampling_frequency;
 		ad9361_set_out_voltage_sampling_frequency;
-		ad9361_get_out_rx_path_rates;
-		ad9361_set_out_rx_path_rates;
-		ad9361_get_out_trx_rate_governor;
-		ad9361_set_out_trx_rate_governor;
-		ad9361_get_out_tx_path_rates;
-		ad9361_set_out_tx_path_rates;
+		ad9361_get_rx_path_rates;
+		ad9361_get_trx_rate_governor;
+		ad9361_set_trx_rate_governor;
+		ad9361_get_tx_path_rates;
 		/* src/lib/ad9361_debugfs.c */
 		ad9361_get_bist_prbs;
 		ad9361_set_bist_prbs;

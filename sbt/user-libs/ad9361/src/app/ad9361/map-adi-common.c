@@ -31,10 +31,10 @@
 
 static int map_CMB_SPIWriteField (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr,      1, "");
-	MAP_ARG(UINT8,  field_val, 2, "");
-	MAP_ARG(UINT8,  mask,      3, "");
-	MAP_ARG(UINT8,  start_bit, 4, "");
+	MAP_ARG(uint16_t, addr,      1, "");
+	MAP_ARG(uint8_t,  field_val, 2, "");
+	MAP_ARG(uint8_t,  mask,      3, "");
+	MAP_ARG(uint8_t,  start_bit, 4, "");
 
 	CMB_SPIWriteField(addr, field_val, mask, start_bit);
 
@@ -46,8 +46,8 @@ MAP_CMD(SPIWriteField, map_CMB_SPIWriteField, 5);
 
 static int map_CMB_SPIWriteByte (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr, 1, "");
-	MAP_ARG(UINT16, data, 2, "");
+	MAP_ARG(uint16_t, addr, 1, "");
+	MAP_ARG(uint16_t, data, 2, "");
 
 	ad9361_spi_write_byte(ad9361_legacy_dev, addr, data);
 
@@ -59,13 +59,13 @@ MAP_CMD(W,            map_CMB_SPIWriteByte, 3);
 
 static int map_CMB_SPIReadByte (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr, 1, "");
+	MAP_ARG(uint16_t, addr, 1, "");
 
-	UINT8  readdata;
+	uint8_t readdata;
 
 	ad9361_spi_read_byte(ad9361_legacy_dev, addr, &readdata);
 
-	MAP_RESULT(UINT8, readdata, 1);
+	MAP_RESULT(uint8_t, readdata, 1);
 	return 0;
 }
 MAP_CMD(SPIReadByte, map_CMB_SPIReadByte, 2);

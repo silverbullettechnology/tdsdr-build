@@ -31,7 +31,8 @@ OBJS := \
 	src/app/$(NAME)/format-gen.o \
 	src/app/$(NAME)/parse-gen.o \
 	src/app/$(NAME)/map-adi-common.o \
-	src/app/$(NAME)/map-adi-iio.o \
+	src/app/$(NAME)/map-adi-iio-sysfs.o \
+	src/app/$(NAME)/map-adi-iio-debugfs.o \
 	src/app/$(NAME)/map.o \
 	src/app/$(NAME)/map-debug.o \
 	src/app/$(NAME)/map-device.o \

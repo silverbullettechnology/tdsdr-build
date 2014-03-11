@@ -28,8 +28,8 @@
 
 static int map_ext_reg_dump (int argc, const char **argv)
 {
-	UINT16  r;
-	UINT8   v;
+	uint16_t  r;
+	uint8_t   v;
 
 	for ( r = 0; r < 0x400; r++ )
 	{
@@ -43,8 +43,8 @@ MAP_CMD(RegDump, map_ext_reg_dump, 1);
 
 static int map_ext_reg_grid (int argc, const char **argv)
 {
-	int    x,y;
-	UINT8  v;
+	int      x,y;
+	uint8_t  v;
 
 	printf("     ");
 	for ( x = 0; x < 0x10; x++ )

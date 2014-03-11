@@ -98,7 +98,7 @@ int ad9361_sysfs_set_u64 (unsigned dev, const char *root, const char *leaf, uint
 }
 
 
-#define ROOT "/sys/kernel/debug/iio"
+#define ROOT "/sys/bus/iio/devices"
 #define get_enum(dev,leaf,list,val) \
 	ad9361_sysfs_get_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
 #define set_enum(dev,leaf,list,val) \
@@ -125,7 +125,7 @@ int ad9361_set_calib_mode (unsigned dev, int mode)
 {
 	return set_enum(dev, "calib_mode", ad9361_enum_calib_mode, mode);
 }
-int ad9361_start_calib_mode (unsigned dev, int mode, int arg)
+int ad9361_start_calib (unsigned dev, int mode, int arg)
 {
 	if ( mode >= (sizeof(ad9361_enum_calib_mode)/sizeof(ad9361_enum_calib_mode[0])) ||
 	     !ad9361_enum_calib_mode[mode] )
@@ -490,7 +490,7 @@ int ad9361_set_out_altvoltage1_TX_LO_frequency (unsigned dev, uint64_t val)
 
 /* Path: out_voltage0_hardwaregain / out_voltage1_hardwaregain
  */
-int ad9361_get_out_voltage_hardwaregain (unsigned dev, int channel, uint32_t *val)
+int ad9361_get_out_voltage_hardwaregain (unsigned dev, int channel, int *val)
 {
 	char leaf[64];
 	snprintf(leaf, sizeof(leaf), "out_voltage%d_hardwaregain", channel);
@@ -500,28 +500,28 @@ int ad9361_get_out_voltage_hardwaregain (unsigned dev, int channel, uint32_t *va
 	if ( ad9361_sysfs_read(dev, ROOT, leaf, buff, sizeof(buff) - 1) < 0 )
 		return -1;
 	
-	*val = dec_to_u_fix(buff, '.', 3);
+	*val = dec_to_s_fix(buff, '.', 3);
 	return 0;
 }
-int ad9361_set_out_voltage_hardwaregain (unsigned dev, int channel, uint32_t val)
+int ad9361_set_out_voltage_hardwaregain (unsigned dev, int channel, int val)
 {
 	char leaf[64];
 	snprintf(leaf, sizeof(leaf), "out_voltage%d_hardwaregain", channel);
-	return ad9361_sysfs_printf(dev, ROOT, leaf, "-%u.%03u", val / 1000, val % 1000);
+	return ad9361_sysfs_printf(dev, ROOT, leaf, "%d.%03d", val / 1000, abs(val) % 1000);
 }
-int ad9361_get_out_voltage0_hardwaregain (unsigned dev, uint32_t *val)
+int ad9361_get_out_voltage0_hardwaregain (unsigned dev, int *val)
 {
 	return ad9361_get_out_voltage_hardwaregain(dev, 0, val);
 }
-int ad9361_set_out_voltage0_hardwaregain (unsigned dev, uint32_t val)
+int ad9361_set_out_voltage0_hardwaregain (unsigned dev, int val)
 {
 	return ad9361_set_out_voltage_hardwaregain(dev, 0, val);
 }
-int ad9361_get_out_voltage1_hardwaregain (unsigned dev, uint32_t *val)
+int ad9361_get_out_voltage1_hardwaregain (unsigned dev, int *val)
 {
 	return ad9361_get_out_voltage_hardwaregain(dev, 1, val);
 }
-int ad9361_set_out_voltage1_hardwaregain (unsigned dev, uint32_t val)
+int ad9361_set_out_voltage1_hardwaregain (unsigned dev, int val)
 {
 	return ad9361_set_out_voltage_hardwaregain(dev, 1, val);
 }
@@ -654,11 +654,11 @@ int ad9361_set_out_voltage_sampling_frequency (unsigned dev, uint32_t val)
 	return set_u32(dev, "out_voltage_sampling_frequency", val);
 }
 
-/* Path: out_rx_path_rates
+/* Path: rx_path_rates
  */
-int ad9361_get_out_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
-                                  uint32_t *r2, uint32_t *r1,    uint32_t *rf,
-                                  uint32_t *rxsamp)
+int ad9361_get_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
+                              uint32_t *r2, uint32_t *r1,    uint32_t *rf,
+                              uint32_t *rxsamp)
 {
 	uint32_t  u32;
 
@@ -669,30 +669,30 @@ int ad9361_get_out_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
 	if ( !rf     ) rf     = &u32;
 	if ( !rxsamp ) rxsamp = &u32;
 
-	int ret = ad9361_sysfs_scanf(dev, ROOT, "out_rx_path_rates",
+	int ret = ad9361_sysfs_scanf(dev, ROOT, "rx_path_rates",
 	                             "BBPLL:%lu ADC:%lu R2:%lu R1:%lu RF:%lu RXSAMP:%lu",
 	                             bbpll, adc, r2, r1, rf, rxsamp);
 
 	return ret < 0 ? ret : 6 - ret;
 }
 
-/* Path: out_trx_rate_governor
+/* Path: trx_rate_governor
  */
 static const char *ad9361_enum_rate_governor[] = { "highest_osr", "nominal" };
-int ad9361_get_out_trx_rate_governor (unsigned dev, int *val)
+int ad9361_get_trx_rate_governor (unsigned dev, int *val)
 {
-	return get_enum(dev, "out_trx_rate_governor", ad9361_enum_rate_governor, val);
+	return get_enum(dev, "trx_rate_governor", ad9361_enum_rate_governor, val);
 }
-int ad9361_set_out_trx_rate_governor (unsigned dev, int val)
+int ad9361_set_trx_rate_governor (unsigned dev, int val)
 {
-	return set_enum(dev, "out_trx_rate_governor", ad9361_enum_rate_governor, val);
+	return set_enum(dev, "trx_rate_governor", ad9361_enum_rate_governor, val);
 }
 
-/* Path: out_tx_path_rates
+/* Path: tx_path_rates
  */
-int ad9361_get_out_tx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *dac,
-                                  uint32_t *t2, uint32_t *t1,    uint32_t *tf,
-                                  uint32_t *txsamp)
+int ad9361_get_tx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *dac,
+                              uint32_t *t2, uint32_t *t1,    uint32_t *tf,
+                              uint32_t *txsamp)
 {
 	uint32_t  u32;
 
@@ -703,7 +703,7 @@ int ad9361_get_out_tx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *dac,
 	if ( !tf     ) tf     = &u32;
 	if ( !txsamp ) txsamp = &u32;
 
-	int ret = ad9361_sysfs_scanf(dev, ROOT, "out_tx_path_rates",
+	int ret = ad9361_sysfs_scanf(dev, ROOT, "tx_path_rates",
 	                             "BBPLL:%lu DAC:%lu T2:%lu T1:%lu TF:%lu TXSAMP:%lu",
 	                             bbpll, dac, t2, t1, tf, txsamp);
 
