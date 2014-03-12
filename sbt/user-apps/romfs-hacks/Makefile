@@ -42,6 +42,7 @@ endif
 ifdef CONFIG_DEFAULTS_SILVERBULLETTECH_SDRDC
 	$(SHELL) add-path-entry.sh
 endif
+	install -m755 switch.sh $(ROMFSDIR)/switch
 
 
 image: 

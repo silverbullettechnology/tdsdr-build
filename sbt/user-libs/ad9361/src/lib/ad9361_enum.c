@@ -1,5 +1,5 @@
-/** \file      include/app/ad9361/scalar.h
- *  \brief     
+/** \file      src/lib/ad9361_enum.c
+ *  \brief     Enum lookup code
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,26 +15,36 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_APP_AD9361_SCALAR_H_
-#define _INCLUDE_APP_AD9361_SCALAR_H_
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <assert.h>
+#include <errno.h>
+
+#include "lib.h"
+#include "ad9361_hal.h"
+#include "ad9361_hal_linux.h"
 
 
-typedef enum
+const char *ad9361_enum_get_string (const struct ad9361_enum_map *map, int value)
 {
-	ST_INT,
-	ST_BOOL,
-	ST_UINT8,
-	ST_UINT16,
-	ST_UINT32,
-	ST_UINT64,
-	ST_MAX
+	for ( ; map->string; map++ )
+		if ( map->value == value )
+			return map->string;
+
+	errno = ENOENT;
+	return NULL;
 }
-scalar_type_t;
 
-struct scalar_type
+
+int ad9361_enum_get_value (const struct ad9361_enum_map *map, const char *string)
 {
-	const char *name;
-};
+	for ( ; map->string; map++ )
+		if ( !strcasecmp(map->string, string) )
+			return map->value;
+
+	errno = ENOENT;
+	return -1;
+}
 
 
-#endif /* _INCLUDE_APP_AD9361_SCALAR_H_ */

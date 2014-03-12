@@ -17,81 +17,58 @@
  */
 #ifndef _INCLUDE_LIB_HAL_H_
 #define _INCLUDE_LIB_HAL_H_
-#include <assert.h>
+#include <stdint.h>
+#include <stdarg.h>
 
 #include "api_types.h"
 
 
-typedef void  (* HAL_SPIWriteByte_fn)     (UINT16 addr, UINT16 data);
-typedef void  (* HAL_SPIReadByte_fn)      (UINT16 addr, UINT16 *readdata);
-typedef void  (* HAL_uartSendByte_fn)     (UINT8 sendByte);
-typedef BOOL  (* HAL_uartReceiveByte_fn)  (UINT8 *RxByte);
-typedef void  (* Timer_Wait_fn)           (int WaitTime);
-typedef void  (* HAL_gpioWrite_fn)        (int gpio_num, int gpio_value);
+typedef void  (* spi_write_byte_fn)  (unsigned dev, uint16_t addr, uint8_t  data);
+typedef void  (* spi_read_byte_fn)   (unsigned dev, uint16_t addr, uint8_t *data);
+typedef void  (* gpio_write_fn)      (unsigned dev, unsigned num,  unsigned value);
+typedef int   (* sysfs_read_fn)      (unsigned dev, const char *root, const char *leaf,
+                                      void *dst, int max);
+typedef int   (* sysfs_write_fn)     (unsigned dev, const char *root, const char *leaf,
+                                      const void *src, int len);
+typedef int   (* sysfs_vscanf_fn)    (unsigned dev, const char *root, const char *leaf,
+                                      const char *fmt, va_list ap);
+typedef int   (* sysfs_vprintf_fn)   (unsigned dev, const char *root, const char *leaf,
+                                      const char *fmt, va_list ap);
 
 
 struct ad9361_hal
 {
-	HAL_SPIWriteByte_fn        HAL_SPIWriteByte;
-	HAL_SPIReadByte_fn         HAL_SPIReadByte;
-	HAL_uartSendByte_fn        HAL_uartSendByte;
-	HAL_uartReceiveByte_fn     HAL_uartReceiveByte;
-	Timer_Wait_fn              Timer_Wait;
-	HAL_gpioWrite_fn           HAL_gpioWrite;
+	spi_write_byte_fn        spi_write_byte;
+	spi_read_byte_fn         spi_read_byte;
+	gpio_write_fn            gpio_write;
+	sysfs_read_fn            sysfs_read;
+	sysfs_write_fn           sysfs_write;
+	sysfs_vscanf_fn          sysfs_vscanf;
+	sysfs_vprintf_fn         sysfs_vprintf;
 };
-extern const struct ad9361_hal *ad9361_hal;
 
-void ad9361_hal_spi_reg_set (UINT16 addr, UINT8 data);
 
-static inline void HAL_SPIWriteByte (UINT16 addr, UINT16 data)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->HAL_SPIWriteByte);
-	ad9361_hal->HAL_SPIWriteByte(addr, data);
-	ad9361_hal_spi_reg_set(addr, data);
-}
-
-static inline void HAL_SPIReadByte (UINT16 addr, UINT16 *readdata)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->HAL_SPIReadByte);
-	ad9361_hal->HAL_SPIReadByte(addr, readdata);
-	ad9361_hal_spi_reg_set(addr, *readdata);
-}
-
-static inline void HAL_uartSendByte (UINT8 sendByte)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->HAL_uartSendByte);
-	ad9361_hal->HAL_uartSendByte(sendByte);
-}
-
-static inline BOOL HAL_uartReceiveByte (UINT8 *RxByte)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->HAL_uartReceiveByte);
-	return ad9361_hal->HAL_uartReceiveByte(RxByte);
-}
-
-static inline void Timer_Wait (int WaitTime)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->Timer_Wait);
-	ad9361_hal->Timer_Wait(WaitTime);
-}
-
-static inline void HAL_gpioWrite (int gpio_num, int gpio_value)
-{
-	assert(ad9361_hal);
-	assert(ad9361_hal->HAL_gpioWrite);
-	ad9361_hal->HAL_gpioWrite(gpio_num, gpio_value);
-}
+void ad9361_spi_write_byte (unsigned dev, uint16_t addr, uint8_t data);
+void ad9361_spi_read_byte  (unsigned dev, uint16_t addr, uint8_t *data);
+void ad9361_gpio_write     (unsigned dev, unsigned num, unsigned value);
+int  ad9361_sysfs_read     (unsigned dev, const char *root, const char *leaf,
+                            void *dst, int max);
+int  ad9361_sysfs_write    (unsigned dev, const char *root, const char *leaf,
+                            const void *src, int len);
+int ad9361_sysfs_vscanf    (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, va_list ap);
+int ad9361_sysfs_vprintf   (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, va_list ap);
+int ad9361_sysfs_scanf     (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, ...);
+int ad9361_sysfs_printf    (unsigned dev, const char *root, const char *leaf,
+                            const char *fmt, ...);
 
 
 int ad9361_hal_attach (const struct ad9361_hal *hal);
 int ad9361_hal_detach (void);
 
-int  ad9361_hal_spi_reg_get (UINT16 addr);
+int  ad9361_hal_spi_reg_get (unsigned dev, uint16_t addr);
 void ad9361_hal_spi_reg_clr (void);
 
 

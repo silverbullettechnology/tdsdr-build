@@ -440,7 +440,7 @@
 		ps7_usb_0: ps7-usb@e0002000 {
 			clocks = <&clkc 28>;
 			compatible = "xlnx,ps7-usb-1.00.a";
-			dr_mode = "otg";
+			dr_mode = "host";
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupts = < 0 21 4 >;
 			phy_type = "ulpi";
@@ -599,7 +599,7 @@
 
 					adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
 					//adi,update-tx-gain-in-alert-enable;
-					adi,tx-attenuation-mdB = <8750>;
+					adi,tx-attenuation-mdB = <10000>;
 
 					adi,rf-rx-bandwidth-hz = <3500000>;
 					adi,rf-tx-bandwidth-hz = <3500000>;
@@ -823,7 +823,7 @@
 
 					adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
 					//adi,update-tx-gain-in-alert-enable;
-					adi,tx-attenuation-mdB = <8750>;
+					adi,tx-attenuation-mdB = <10000>;
 
 					adi,rf-rx-bandwidth-hz = <3500000>;
 					adi,rf-tx-bandwidth-hz = <3500000>;

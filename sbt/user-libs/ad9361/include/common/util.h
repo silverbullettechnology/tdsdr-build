@@ -25,11 +25,33 @@
  *
  *  \param path Full path to /proc or /sys entry
  *  \param fmt  Format string for vfprintf()
+ *  \param ap   va_list object
+ *
+ *  \return <0 on error, number of characters written on success
+ */
+int proc_vprintf (const char *path, const char *fmt, va_list ap);
+
+
+/** Format and write a string to a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vfprintf()
  *  \param ...  Variable argument list
  *
  *  \return <0 on error, number of characters written on success
  */
 int proc_printf (const char *path, const char *fmt, ...);
+
+
+/** Write a string into a /proc or /sys entry from the caller's buffer
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param dst  Buffer to write from
+ *  \param len  Number of bytes to write
+ *
+ *  \return <0 on error, number of bytes read on success
+ */
+int proc_write (const char *path, const void *src, size_t len);
 
 
 /** Read a string from a /proc or /sys entry into the caller's buffer
@@ -43,6 +65,17 @@ int proc_printf (const char *path, const char *fmt, ...);
  *  \return <0 on error, number of bytes read on success
  */
 int proc_read (const char *path, void *dst, size_t max);
+
+
+/** Read and parse a string from a /proc or /sys entry
+ *
+ *  \param path Full path to /proc or /sys entry
+ *  \param fmt  Format string for vscanf()
+ *  \param ap   va_list object
+ *
+ *  \return <0 on error, number of fields parsed on success
+ */
+int proc_vscanf (const char *path, const char *fmt, va_list ap);
 
 
 /** Read and parse a string from a /proc or /sys entry
@@ -75,6 +108,65 @@ int proc_scanf (const char *path, const char *fmt, ...);
  *  \return Full pathname to existing file, or NULL if not matched.
  */
 char *path_match (char *dst, size_t max, const char *search, const char *leaf);
+
+
+/** Convert an unsigned decimal to a fixed-point long
+ *
+ *  The d param gives the integer/decimal separator and the e param the number of decimal
+ *  digits to convert.  Rounding is performed if more digits are available.  Examples:
+ *    dec_to_u_fix("12.345", '.', 3) = 12345  ((12 * 10**3) + 345)
+ *    dec_to_u_fix("12.345", '.', 2) = 1235   ((12 * 10**2) + 34 + 1)
+ *    dec_to_u_fix("12.345", '.', 1) = 123    ((12 * 10**1) + 3)
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+unsigned long dec_to_u_fix (const char *s, char d, unsigned e);
+
+/** Convert a signed decimal to a fixed-point long
+ *
+ *  \param  s  Source string
+ *  \param  d  Decimal character
+ *  \param  e  Decimal digits
+ *
+ *  \return value of s * 10**e
+ */
+signed long dec_to_s_fix (const char *s, char d, unsigned e);
+
+
+/** Trim whitespace from both ends of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *trim  (char *s);
+
+/** Trim whitespace from left end of a string
+ *
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *ltrim (char *s);
+
+/** Trim whitespace from right end of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Trimmed s
+ */
+char *rtrim (char *s);
 
 
 #endif // _INCLUDE_COMMON_UTIL_H_

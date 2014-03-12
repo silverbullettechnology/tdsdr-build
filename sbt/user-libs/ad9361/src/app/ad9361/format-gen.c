@@ -28,6 +28,17 @@
 /******** Scalars ********/
 
 
+void format_int (const int *val, const char *name, int num)
+{
+	printf("%s=\"%d", name, *val++);
+
+	for ( num--; num > 0; num-- )
+		printf(",%d", *val++);
+
+	printf("\"\n");
+}
+
+
 void format_BOOL (const BOOL *val, const char *name, int num)
 {
 	printf("%s=\"%d", name, *val++ ? 1 : 0);
@@ -39,58 +50,67 @@ void format_BOOL (const BOOL *val, const char *name, int num)
 }
 
 
-void format_UINT8 (const UINT8 *val, const char *name, int num)
+void format_uint8_t (const uint8_t *val, const char *name, int num)
 {
-	printf("%s=\"0x%02x", name, *val++);
+	printf("%s=\"%u", name, *val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",0x%02x", *val++);
+		printf(",%u", *val++);
 
 	printf("\"\n");
 }
 
 
-void format_UINT16 (const UINT16 *val, const char *name, int num)
+void format_uint16_t (const uint16_t *val, const char *name, int num)
 {
-	printf("%s=\"0x%04x", name, *val++);
+	printf("%s=\"%u", name, *val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",0x%04x", *val++);
+		printf(",%u", *val++);
 
 	printf("\"\n");
 }
 
 
-void format_UINT32 (const UINT32 *val, const char *name, int num)
+void format_int32_t (const int32_t *val, const char *name, int num)
 {
-	printf("%s=\"0x%08lx", name, *val++);
+	printf("%s=\"%ld", name, (long)*val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",0x%08lx", *val++);
+		printf(",%ld", (long)*val++);
 
 	printf("\"\n");
 }
 
 
-void format_FLOAT (const FLOAT *val, const char *name, int num)
+void format_uint32_t (const uint32_t *val, const char *name, int num)
 {
-	printf("%s=\"%6G", name, *val++);
+	printf("%s=\"%lu", name, (unsigned long)*val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",0x%6G", *val++);
+		printf(",%lu", (unsigned long)*val++);
 
 	printf("\"\n");
 }
 
 
-void format_DOUBLE (const DOUBLE *val, const char *name, int num)
+void format_uint64_t (const uint64_t *val, const char *name, int num)
 {
-	printf("%s=\"%6G", name, *val++);
+	printf("%s=\"%llu", name, (unsigned long long)*val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",%6G", *val++);
+		printf(",%llu", (unsigned long long)*val++);
 
 	printf("\"\n");
+}
+
+
+void format_enum (const int *val, const char *name, const struct ad9361_enum_map *map)
+{
+	printf("%s=\"%d\"\n", name, *val);
+
+	const char *word = ad9361_enum_get_string(map, *val);
+	printf("%s_enum=\"%s\"\n", name, word ? word : "???");
 }
 
 
@@ -111,24 +131,28 @@ void format_struct (const struct struct_map *map, const void *val, const char *n
 
 		switch ( map->type )
 		{
+			case ST_INT:
+				format_int((const int *)dat, buf, 1);
+				break;
+
 			case ST_BOOL:
 				format_BOOL((const BOOL *)dat, buf, 1);
 				break;
 
 			case ST_UINT8:
-				format_UINT8((const UINT8 *)dat, buf, 1);
+				format_uint8_t((const uint8_t *)dat, buf, 1);
 				break;
 
 			case ST_UINT16:
-				format_UINT16((const UINT16 *)dat, buf, 1);
+				format_uint16_t((const uint16_t *)dat, buf, 1);
 				break;
 
 			case ST_UINT32:
-				format_UINT32((const UINT32 *)dat, buf, 1);
+				format_uint32_t((const uint32_t *)dat, buf, 1);
 				break;
 
-			case ST_DOUBLE:
-				format_DOUBLE((const DOUBLE *)dat, buf, 1);
+			case ST_UINT64:
+				format_uint64_t((const uint64_t *)dat, buf, 1);
 				break;
 
 			default:

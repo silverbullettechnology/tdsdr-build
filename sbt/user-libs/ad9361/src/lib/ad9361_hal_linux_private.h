@@ -1,5 +1,5 @@
-/** \file      include/app/ad9361/scalar.h
- *  \brief     
+/** \file      src/lib/ad9361_hal_linux_private.h
+ *  \brief     HAL internals
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,26 +15,20 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_APP_AD9361_SCALAR_H_
-#define _INCLUDE_APP_AD9361_SCALAR_H_
+#ifndef _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_
+#define _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_
 
 
-typedef enum
-{
-	ST_INT,
-	ST_BOOL,
-	ST_UINT8,
-	ST_UINT16,
-	ST_UINT32,
-	ST_UINT64,
-	ST_MAX
-}
-scalar_type_t;
+void ad9361_hal_linux_atexit_register (void);
+int  ad9361_hal_linux_dev_attach      (void);
 
-struct scalar_type
-{
-	const char *name;
-};
+int  ad9361_hal_linux_dev_gpio_init  (unsigned dev, const int pins[3]);
+void ad9361_hal_linux_dev_gpio_done  (void);
+int  ad9361_hal_linux_dev_spi_init   (unsigned dev, const char *path);
+void ad9361_hal_linux_dev_spi_done   (void);
+int  ad9361_hal_linux_dev_sysfs_init (void);
+void ad9361_hal_linux_dev_sysfs_done (void);
 
 
-#endif /* _INCLUDE_APP_AD9361_SCALAR_H_ */
+#endif /* _SRC_LIB_AD9361_HAL_LINUX_PRIVATE_H_ */
+
