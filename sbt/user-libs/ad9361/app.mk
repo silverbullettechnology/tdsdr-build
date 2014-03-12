@@ -30,6 +30,7 @@ OBJS := \
 	src/app/config/config_parse.o \
 	src/app/$(NAME)/format-gen.o \
 	src/app/$(NAME)/parse-gen.o \
+	src/app/$(NAME)/map-compatible.o \
 	src/app/$(NAME)/map-adi-common.o \
 	src/app/$(NAME)/map-adi-iio-sysfs.o \
 	src/app/$(NAME)/map-adi-iio-debugfs.o \
