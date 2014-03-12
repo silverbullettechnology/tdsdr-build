@@ -53,6 +53,7 @@ ad9361_0.1 {
 
 ad9361_0.2 {
 	global:
+		/* src/lib/ad9361_sysfs.c */
 		ad9361_get_calib_mode;
 		ad9361_set_calib_mode;
 		ad9361_start_calib;
@@ -148,6 +149,12 @@ ad9361_0.2 {
 		ad9361_get_trx_rate_governor;
 		ad9361_set_trx_rate_governor;
 		ad9361_get_tx_path_rates;
+		ad9361_enum_calib_mode;
+		ad9361_enum_ensm_mode;
+		ad9361_enum_gain_control_mode;
+		ad9361_enum_rx_rf_port_select;
+		ad9361_enum_tx_rf_port_select;
+		ad9361_enum_rate_governor;
 		/* src/lib/ad9361_debugfs.c */
 		ad9361_get_bist_prbs;
 		ad9361_set_bist_prbs;
@@ -400,6 +407,9 @@ ad9361_0.2 {
 		ad9361_set_aux_dac2_tx_delay_us;
 		/* src/lib/common.c */
 		ad9361_legacy_dev;
+		/* src/lib/ad9361_enum.c */
+		ad9361_enum_get_value;
+		ad9361_enum_get_string;
 		/* src/lib/ad9361_hal.c */
 		ad9361_hal;
 		ad9361_spi_write_byte;

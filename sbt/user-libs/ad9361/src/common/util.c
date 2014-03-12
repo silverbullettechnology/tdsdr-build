@@ -26,6 +26,8 @@
 #include <stdarg.h>
 #include <errno.h>
 
+#include "util.h"
+
 
 /** Format and write a string to a /proc or /sys entry
  *
@@ -304,5 +306,56 @@ signed long dec_to_s_fix (const char *s, char d, unsigned e)
 		return 0 - dec_to_u_fix(s + 1, d, e);
 	
 	return dec_to_u_fix(s, d, e);
+}
+
+
+/** Trim whitespace from both ends of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *trim  (char *s)
+{
+	return ltrim(rtrim(s));
+}
+
+/** Trim whitespace from left end of a string
+ *
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *ltrim (char *s)
+{
+	while ( *s && isspace(*s) )
+		s++;
+
+	return s;
+}
+
+/** Trim whitespace from right end of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Trimmed s
+ */
+char *rtrim (char *s)
+{
+	char *q;
+
+	for ( q = s; *q; q++ ) ;
+    while ( q > s && isspace(*(q - 1)) )
+		q--;
+	*q = '\0';
+
+	return s;
 }
 

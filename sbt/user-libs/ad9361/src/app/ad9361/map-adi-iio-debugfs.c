@@ -1279,15 +1279,9 @@ static int map_get_bist_timing_analysis (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_bist_timing_analysis, ad9361_legacy_dev, buff, sizeof(buff));
 
-	char *p, *q;
-	for ( p = buff; isspace(*p); p++ ) ;
-	for ( q = p; *q; q++ ) ;
-	while ( q > p && isspace(*(q - 1)) )
-		q--;
-	*q = '\0';
-
+	char *q;
 	printf("bist_timing_analysis='");
-	for ( q = p; *q; q++ )
+	for ( q = trim(buff); *q; q++ )
 		switch ( *q )
 		{
 			case '\'': fputs("'\\''", stdout); break;
@@ -1322,11 +1316,11 @@ MAP_CMD(get_loopback, map_get_loopback, 1);
 
 static int map_get_frequency_division_duplex_mode_enable (int argc, const char **argv)
 {
-	int  enable;
+	int  frequency_division_duplex_mode_enable;
 
-	MAP_LIB_CALL(ad9361_get_frequency_division_duplex_mode_enable, ad9361_legacy_dev, &enable);
+	MAP_LIB_CALL(ad9361_get_frequency_division_duplex_mode_enable, ad9361_legacy_dev, &frequency_division_duplex_mode_enable);
 
-	MAP_RESULT(int, enable, 1);
+	MAP_RESULT(int, frequency_division_duplex_mode_enable, 1);
 	return 0;
 }
 MAP_CMD(get_frequency_division_duplex_mode_enable, map_get_frequency_division_duplex_mode_enable, 1);

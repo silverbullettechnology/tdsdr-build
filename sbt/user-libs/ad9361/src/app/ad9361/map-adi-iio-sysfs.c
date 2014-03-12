@@ -33,7 +33,7 @@
 
 static int map_set_calib_mode (int argc, const char **argv)
 {
-	MAP_ARG(int, mode, 1, "");
+	MAP_ARG_ENUM(mode, 1, ad9361_enum_calib_mode, "");
 
 	MAP_LIB_CALL(ad9361_set_calib_mode, ad9361_legacy_dev, mode);
 
@@ -43,7 +43,7 @@ MAP_CMD(set_calib_mode, map_set_calib_mode, 2);
 
 static int map_start_calib (int argc, const char **argv)
 {
-	MAP_ARG(int, mode, 1, "");
+	MAP_ARG_ENUM(mode, 1, ad9361_enum_calib_mode, "");
 	MAP_ARG(int, arg,  2, "");
 
 	MAP_LIB_CALL(ad9361_start_calib, ad9361_legacy_dev, mode, arg);
@@ -74,7 +74,7 @@ MAP_CMD(set_dcxo_tune_fine, map_set_dcxo_tune_fine, 2);
 
 static int map_set_ensm_mode (int argc, const char **argv)
 {
-	MAP_ARG(int, mode, 1, "");
+	MAP_ARG_ENUM(mode, 1, ad9361_enum_ensm_mode, "");
 
 	MAP_LIB_CALL(ad9361_set_ensm_mode, ad9361_legacy_dev, mode);
 
@@ -116,7 +116,7 @@ MAP_CMD(set_in_out_voltage_filter_fir_en, map_set_in_out_voltage_filter_fir_en, 
 static int map_set_in_voltage_gain_control_mode (int argc, const char **argv)
 {
 	MAP_ARG(int, channel, 1, "");
-	MAP_ARG(int, mode,    2, "");
+	MAP_ARG_ENUM(mode,    2, ad9361_enum_gain_control_mode, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage_gain_control_mode, ad9361_legacy_dev, channel, mode);
 
@@ -126,7 +126,7 @@ MAP_CMD(set_in_voltage_gain_control_mode, map_set_in_voltage_gain_control_mode, 
 
 static int map_set_in_voltage0_gain_control_mode (int argc, const char **argv)
 {
-	MAP_ARG(int, mode, 1, "");
+	MAP_ARG_ENUM(mode, 1, ad9361_enum_gain_control_mode, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage0_gain_control_mode, ad9361_legacy_dev, mode);
 
@@ -136,7 +136,7 @@ MAP_CMD(set_in_voltage0_gain_control_mode, map_set_in_voltage0_gain_control_mode
 
 static int map_set_in_voltage1_gain_control_mode (int argc, const char **argv)
 {
-	MAP_ARG(int, mode, 1, "");
+	MAP_ARG_ENUM(mode, 1, ad9361_enum_gain_control_mode, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage1_gain_control_mode, ad9361_legacy_dev, mode);
 
@@ -178,7 +178,7 @@ MAP_CMD(set_in_voltage1_hardwaregain, map_set_in_voltage1_hardwaregain, 2);
 static int map_set_in_voltage_rf_port_select (int argc, const char **argv)
 {
 	MAP_ARG(int, channel, 1, "");
-	MAP_ARG(int, port,    2, "");
+	MAP_ARG_ENUM(port,    2, ad9361_enum_rx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage_rf_port_select, ad9361_legacy_dev, channel, port);
 
@@ -188,7 +188,7 @@ MAP_CMD(set_in_voltage_rf_port_select, map_set_in_voltage_rf_port_select, 2);
 
 static int map_set_in_voltage0_rf_port_select (int argc, const char **argv)
 {
-	MAP_ARG(int, port, 1, "");
+	MAP_ARG_ENUM(port, 1, ad9361_enum_rx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage0_rf_port_select, ad9361_legacy_dev, port);
 
@@ -198,7 +198,7 @@ MAP_CMD(set_in_voltage0_rf_port_select, map_set_in_voltage0_rf_port_select, 2);
 
 static int map_set_in_voltage1_rf_port_select (int argc, const char **argv)
 {
-	MAP_ARG(int, port, 1, "");
+	MAP_ARG_ENUM(port, 1, ad9361_enum_rx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_in_voltage1_rf_port_select, ad9361_legacy_dev, port);
 
@@ -397,7 +397,7 @@ MAP_CMD(set_out_voltage1_hardwaregain, map_set_out_voltage1_hardwaregain, 2);
 static int map_set_out_voltage_rf_port_select (int argc, const char **argv)
 {
 	MAP_ARG(int, channel, 1, "");
-	MAP_ARG(int, port,    2, "");
+	MAP_ARG_ENUM(port,    2, ad9361_enum_tx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_out_voltage_rf_port_select, ad9361_legacy_dev, channel, port);
 
@@ -407,7 +407,7 @@ MAP_CMD(set_out_voltage_rf_port_select, map_set_out_voltage_rf_port_select, 2);
 
 static int map_set_out_voltage0_rf_port_select (int argc, const char **argv)
 {
-	MAP_ARG(int, port, 1, "");
+	MAP_ARG_ENUM(port, 1, ad9361_enum_tx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_out_voltage0_rf_port_select, ad9361_legacy_dev, port);
 
@@ -417,7 +417,7 @@ MAP_CMD(set_out_voltage0_rf_port_select, map_set_out_voltage0_rf_port_select, 2)
 
 static int map_set_out_voltage1_rf_port_select (int argc, const char **argv)
 {
-	MAP_ARG(int, port, 1, "");
+	MAP_ARG_ENUM(port, 1, ad9361_enum_tx_rf_port_select, "");
 
 	MAP_LIB_CALL(ad9361_set_out_voltage1_rf_port_select, ad9361_legacy_dev, port);
 
@@ -519,7 +519,7 @@ MAP_CMD(set_out_voltage_sampling_frequency, map_set_out_voltage_sampling_frequen
 
 static int map_set_trx_rate_governor (int argc, const char **argv)
 {
-	MAP_ARG(int, governor, 1, "");
+	MAP_ARG_ENUM(governor, 1, ad9361_enum_rate_governor, "");
 
 	MAP_LIB_CALL(ad9361_set_trx_rate_governor, ad9361_legacy_dev, governor);
 
@@ -533,7 +533,7 @@ static int map_get_calib_mode (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_calib_mode, ad9361_legacy_dev, &calib_mode);
 
-	MAP_RESULT(int, calib_mode, 1);
+	MAP_RES_ENUM(calib_mode, ad9361_enum_calib_mode);
 	return 0;
 }
 MAP_CMD(get_calib_mode, map_get_calib_mode, 1);
@@ -566,7 +566,7 @@ static int map_get_ensm_mode (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_ensm_mode, ad9361_legacy_dev, &ensm_mode);
 
-	MAP_RESULT(int, ensm_mode, 1);
+	MAP_RES_ENUM(ensm_mode, ad9361_enum_ensm_mode);
 	return 0;
 }
 MAP_CMD(get_ensm_mode, map_get_ensm_mode, 1);
@@ -588,14 +588,7 @@ static int map_get_filter_fir_config (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_filter_fir_config, ad9361_legacy_dev, buff, sizeof(buff));
 
-	char *p, *q;
-	for ( p = buff; isspace(*p); p++ ) ;
-	for ( q = p; *q; q++ ) ;
-	while ( q > p && isspace(*(q - 1)) )
-		q--;
-	*q = '\0';
-
-	printf("filter_fir_config=\"%s\"\n", p);
+	printf("filter_fir_config=\"%s\"\n", trim(buff));
 	return 0;
 }
 MAP_CMD(get_filter_fir_config,  map_get_filter_fir_config,  1);
@@ -618,7 +611,7 @@ static int map_get_in_voltage_gain_control_mode (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage_gain_control_mode, ad9361_legacy_dev, channel, &in_voltage_gain_control_mode);
 
-	MAP_RESULT(int, in_voltage_gain_control_mode, 1);
+	MAP_RES_ENUM(in_voltage_gain_control_mode, ad9361_enum_gain_control_mode);
 	return 0;
 }
 MAP_CMD(get_in_voltage_gain_control_mode, map_get_in_voltage_gain_control_mode, 2);
@@ -629,7 +622,7 @@ static int map_get_in_voltage0_gain_control_mode (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage0_gain_control_mode, ad9361_legacy_dev, &in_voltage0_gain_control_mode);
 
-	MAP_RESULT(int, in_voltage0_gain_control_mode, 1);
+	MAP_RES_ENUM(in_voltage0_gain_control_mode, ad9361_enum_gain_control_mode);
 	return 0;
 }
 MAP_CMD(get_in_voltage0_gain_control_mode, map_get_in_voltage0_gain_control_mode, 1);
@@ -640,7 +633,7 @@ static int map_get_in_voltage1_gain_control_mode (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage1_gain_control_mode, ad9361_legacy_dev, &in_voltage1_gain_control_mode);
 
-	MAP_RESULT(int, in_voltage1_gain_control_mode, 1);
+	MAP_RES_ENUM(in_voltage1_gain_control_mode, ad9361_enum_gain_control_mode);
 	return 0;
 }
 MAP_CMD(get_in_voltage1_gain_control_mode, map_get_in_voltage1_gain_control_mode, 1);
@@ -686,7 +679,7 @@ static int map_get_in_voltage_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage_rf_port_select, ad9361_legacy_dev, channel, &in_voltage_rf_port_select);
 
-	MAP_RESULT(int, in_voltage_rf_port_select, 1);
+	MAP_RES_ENUM(in_voltage_rf_port_select, ad9361_enum_rx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_in_voltage_rf_port_select, map_get_in_voltage_rf_port_select, 2);
@@ -697,7 +690,7 @@ static int map_get_in_voltage0_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage0_rf_port_select, ad9361_legacy_dev, &in_voltage0_rf_port_select);
 
-	MAP_RESULT(int, in_voltage0_rf_port_select, 1);
+	MAP_RES_ENUM(in_voltage0_rf_port_select, ad9361_enum_rx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_in_voltage0_rf_port_select, map_get_in_voltage0_rf_port_select, 1);
@@ -708,7 +701,7 @@ static int map_get_in_voltage1_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_in_voltage1_rf_port_select, ad9361_legacy_dev, &in_voltage1_rf_port_select);
 
-	MAP_RESULT(int, in_voltage1_rf_port_select, 1);
+	MAP_RES_ENUM(in_voltage1_rf_port_select, ad9361_enum_rx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_in_voltage1_rf_port_select, map_get_in_voltage1_rf_port_select, 1);
@@ -912,7 +905,7 @@ static int map_get_out_voltage_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_out_voltage_rf_port_select, ad9361_legacy_dev, channel, &out_voltage_rf_port_select);
 
-	MAP_RESULT(int, out_voltage_rf_port_select, 1);
+	MAP_RES_ENUM(out_voltage_rf_port_select, ad9361_enum_tx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_out_voltage_rf_port_select, map_get_out_voltage_rf_port_select, 2);
@@ -923,7 +916,7 @@ static int map_get_out_voltage0_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_out_voltage0_rf_port_select, ad9361_legacy_dev, &out_voltage0_rf_port_select);
 
-	MAP_RESULT(int, out_voltage0_rf_port_select, 1);
+	MAP_RES_ENUM(out_voltage0_rf_port_select, ad9361_enum_tx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_out_voltage0_rf_port_select, map_get_out_voltage0_rf_port_select, 1);
@@ -934,7 +927,7 @@ static int map_get_out_voltage1_rf_port_select (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_out_voltage1_rf_port_select, ad9361_legacy_dev, &out_voltage1_rf_port_select);
 
-	MAP_RESULT(int, out_voltage1_rf_port_select, 1);
+	MAP_RES_ENUM(out_voltage1_rf_port_select, ad9361_enum_tx_rf_port_select);
 	return 0;
 }
 MAP_CMD(get_out_voltage1_rf_port_select, map_get_out_voltage1_rf_port_select, 1);
@@ -1046,7 +1039,7 @@ static int map_get_trx_rate_governor (int argc, const char **argv)
 
 	MAP_LIB_CALL(ad9361_get_trx_rate_governor, ad9361_legacy_dev, &trx_rate_governor);
 
-	MAP_RESULT(int, trx_rate_governor, 1);
+	MAP_RES_ENUM(trx_rate_governor, ad9361_enum_rate_governor);
 	return 0;
 }
 MAP_CMD(get_trx_rate_governor, map_get_trx_rate_governor, 1);

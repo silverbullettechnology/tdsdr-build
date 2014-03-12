@@ -137,4 +137,36 @@ unsigned long dec_to_u_fix (const char *s, char d, unsigned e);
 signed long dec_to_s_fix (const char *s, char d, unsigned e);
 
 
+/** Trim whitespace from both ends of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *trim  (char *s);
+
+/** Trim whitespace from left end of a string
+ *
+ *  - Returns a pointer to the first non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Pointer into trimmed s
+ */
+char *ltrim (char *s);
+
+/** Trim whitespace from right end of a string
+ *
+ *  - Reterminates the string after the last non-whitespace character
+ *
+ *  \param  s  Source string
+ *
+ *  \return Trimmed s
+ */
+char *rtrim (char *s);
+
+
 #endif // _INCLUDE_COMMON_UTIL_H_

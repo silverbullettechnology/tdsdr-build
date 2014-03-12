@@ -30,6 +30,8 @@ void format_int32_t      (const int32_t   *val, const char *name, int num);
 void format_uint32_t     (const uint32_t  *val, const char *name, int num);
 void format_uint64_t     (const uint64_t  *val, const char *name, int num);
 
+void format_enum (const int *val, const char *name, const struct ad9361_enum_map *map);
+
 // Structure formatters
 void format_struct (const struct struct_map *map, const void *val, const char *name, int num);
 

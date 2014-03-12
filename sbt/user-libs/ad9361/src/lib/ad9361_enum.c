@@ -1,5 +1,5 @@
-/** \file      include/post/lib.h
- *  \brief     Stub wrapper
+/** \file      src/lib/ad9361_enum.c
+ *  \brief     Enum lookup code
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,24 +15,36 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_POST_LIB_H_
-#define _INCLUDE_POST_LIB_H_
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <assert.h>
+#include <errno.h>
 
-#define GPIO_TXNRX_pin   0
-#define GPIO_Enable_pin  1
-#define GPIO_Resetn_pin  2
+#include "lib.h"
+#include "ad9361_hal.h"
+#include "ad9361_hal_linux.h"
 
 
-extern unsigned ad9361_legacy_dev;
-
-
-struct ad9361_enum_map
+const char *ad9361_enum_get_string (const struct ad9361_enum_map *map, int value)
 {
-	const char *string;
-	int         value;
-};
-int         ad9361_enum_get_value  (const struct ad9361_enum_map *map, const char *string);
-const char *ad9361_enum_get_string (const struct ad9361_enum_map *map, int value);
+	for ( ; map->string; map++ )
+		if ( map->value == value )
+			return map->string;
+
+	errno = ENOENT;
+	return NULL;
+}
 
 
-#endif /* _INCLUDE_POST_LIB_H_ */
+int ad9361_enum_get_value (const struct ad9361_enum_map *map, const char *string)
+{
+	for ( ; map->string; map++ )
+		if ( !strcasecmp(map->string, string) )
+			return map->value;
+
+	errno = ENOENT;
+	return -1;
+}
+
+

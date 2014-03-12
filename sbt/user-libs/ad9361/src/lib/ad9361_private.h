@@ -17,12 +17,13 @@
  */
 #ifndef _SRC_LIB_AD9361_SYSFS_H_
 #define _SRC_LIB_AD9361_SYSFS_H_
+#include "lib.h"
 
 
 int ad9361_sysfs_get_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **word_list, size_t list_size, int *val);
+                           const struct ad9361_enum_map *map, int *val);
 int ad9361_sysfs_set_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **word_list, size_t list_size, int val);
+                           const struct ad9361_enum_map *map, int val);
 
 int ad9361_sysfs_get_int (unsigned dev, const char *root, const char *leaf, int      *val);
 int ad9361_sysfs_get_u32 (unsigned dev, const char *root, const char *leaf, uint32_t *val);

@@ -32,6 +32,9 @@ int parse_int16_t   (int16_t   *val, size_t size, int argc, const char **argv, i
 int parse_uint32_t  (uint32_t  *val, size_t size, int argc, const char **argv, int idx);
 int parse_uint64_t  (uint64_t  *val, size_t size, int argc, const char **argv, int idx);
 
+int parse_enum (int *val, size_t size, const struct ad9361_enum_map *map, 
+                int argc, const char **argv, int idx);
+
 int parse_struct (const struct struct_map *map, void *val, size_t size,
                   int argc, const char **argv, int idx);
 

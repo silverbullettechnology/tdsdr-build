@@ -30,10 +30,10 @@
 
 void format_int (const int *val, const char *name, int num)
 {
-	printf("%s=\"%d", name, *val++ ? 1 : 0);
+	printf("%s=\"%d", name, *val++);
 
 	for ( num--; num > 0; num-- )
-		printf(",%d", *val++ ? 1 : 0);
+		printf(",%d", *val++);
 
 	printf("\"\n");
 }
@@ -102,6 +102,15 @@ void format_uint64_t (const uint64_t *val, const char *name, int num)
 		printf(",%llu", (unsigned long long)*val++);
 
 	printf("\"\n");
+}
+
+
+void format_enum (const int *val, const char *name, const struct ad9361_enum_map *map)
+{
+	printf("%s=\"%d\"\n", name, *val);
+
+	const char *word = ad9361_enum_get_string(map, *val);
+	printf("%s_enum=\"%s\"\n", name, word ? word : "???");
 }
 
 

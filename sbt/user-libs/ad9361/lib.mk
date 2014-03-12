@@ -24,6 +24,7 @@ LIBS :=
 # in-tree objs - cleaned
 OBJS := \
 	src/common/util.o \
+	src/lib/ad9361_enum.o \
 	src/lib/ad9361_sysfs.o \
 	src/lib/ad9361_debugfs.o \
 	src/lib/ad9361_hal_linux_spidev.o \

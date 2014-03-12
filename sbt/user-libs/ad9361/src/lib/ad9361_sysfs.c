@@ -21,6 +21,7 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include "lib.h"
 #include "ad9361_hal.h"
 #include "ad9361_sysfs.h"
 #include "ad9361_private.h"
@@ -28,43 +29,33 @@
 
 
 int ad9361_sysfs_get_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **word_list, size_t list_size, int *val)
+                           const struct ad9361_enum_map *map, int *val)
 {
 	char b[64];
 	memset(b, 0, sizeof(b));
 	if ( ad9361_sysfs_read(dev, root, leaf, b, sizeof(b) - 1) < 0 )
 		return -1;
 
-	char *p, *q;
-	for ( p = b; isspace(*p); p++ ) ;
-	for ( q = p; *q; q++ ) ;
-	while ( q > p && isspace(*(q - 1)) )
-		q--;
-	
-	*q = '\0';
-
-	int n;
-	for ( n = 0; n < list_size; n++ )
-		if ( word_list[n] && !strcmp(word_list[n], p) )
-		{
-			*val = n;
-			return 0;
-		}
-
-	errno = EINVAL;
-	return -1;
-}
-
-int ad9361_sysfs_set_enum (unsigned dev, const char *root, const char *leaf,
-                           const char **word_list, size_t list_size, int val)
-{
-	if ( val >= list_size || !word_list[val] )
+	if ( (*val = ad9361_enum_get_value(map, trim(b))) < 0 )
 	{
 		errno = EINVAL;
 		return -1;
 	}
 
-	return ad9361_sysfs_printf(dev, root, leaf, "%s\n", word_list[val]);
+	return 0;
+}
+
+int ad9361_sysfs_set_enum (unsigned dev, const char *root, const char *leaf,
+                           const struct ad9361_enum_map *map, int val)
+{
+	const char *word = ad9361_enum_get_string(map, val);
+	if ( !word )
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
+	return ad9361_sysfs_printf(dev, root, leaf, "%s\n", word);
 }
 
 int ad9361_sysfs_get_int (unsigned dev, const char *root, const char *leaf, int *val)
@@ -99,10 +90,8 @@ int ad9361_sysfs_set_u64 (unsigned dev, const char *root, const char *leaf, uint
 
 
 #define ROOT "/sys/bus/iio/devices"
-#define get_enum(dev,leaf,list,val) \
-	ad9361_sysfs_get_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
-#define set_enum(dev,leaf,list,val) \
-	ad9361_sysfs_set_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
+#define get_enum(dev,leaf,list,val)  ad9361_sysfs_get_enum(dev,ROOT,leaf,list,val)
+#define set_enum(dev,leaf,list,val)  ad9361_sysfs_set_enum(dev,ROOT,leaf,list,val)
 #define get_int(dev,leaf,val)        ad9361_sysfs_get_int(dev,ROOT,leaf,val) 
 #define set_int(dev,leaf,val)        ad9361_sysfs_set_int(dev,ROOT,leaf,val) 
 #define get_u32(dev,leaf,val)        ad9361_sysfs_get_u32(dev,ROOT,leaf,val) 
@@ -113,9 +102,13 @@ int ad9361_sysfs_set_u64 (unsigned dev, const char *root, const char *leaf, uint
 
 /* Path: calib_mode
  */
-static const char *ad9361_enum_calib_mode[] =
+const struct ad9361_enum_map ad9361_enum_calib_mode[] =
 {
-	"auto", "manual", "tx_quad", "rf_dc_offs"
+	{ "auto",       AD9361_CALIB_MODE_AUTO       },
+	{ "manual",     AD9361_CALIB_MODE_MANUAL     },
+	{ "tx_quad",    AD9361_CALIB_MODE_TX_QUAD    },
+	{ "rf_dc_offs", AD9361_CALIB_MODE_RF_DC_OFFS },
+	{ NULL }
 };
 int ad9361_get_calib_mode (unsigned dev, int *mode)
 {
@@ -127,19 +120,17 @@ int ad9361_set_calib_mode (unsigned dev, int mode)
 }
 int ad9361_start_calib (unsigned dev, int mode, int arg)
 {
-	if ( mode >= (sizeof(ad9361_enum_calib_mode)/sizeof(ad9361_enum_calib_mode[0])) ||
-	     !ad9361_enum_calib_mode[mode] )
+	const char *word = ad9361_enum_get_string(ad9361_enum_calib_mode, mode);
+	if ( !word )
 	{
 		errno = EINVAL;
 		return -1;
 	}
 
 	if ( mode == AD9361_CALIB_MODE_TX_QUAD && arg >= 0 )
-		return ad9361_sysfs_printf(dev, ROOT, "calib_mode", "%s %d\n",
-		                           ad9361_enum_calib_mode[mode], arg);
+		return ad9361_sysfs_printf(dev, ROOT, "calib_mode", "%s %d\n", word, arg);
 
-	return ad9361_sysfs_printf(dev, ROOT, "calib_mode", "%s\n",
-	                           ad9361_enum_calib_mode[mode]);
+	return ad9361_sysfs_printf(dev, ROOT, "calib_mode", "%s\n", word);
 }
 
 /* Path: dcxo_tune_coarse
@@ -168,9 +159,16 @@ int ad9361_set_dcxo_tune_fine (unsigned dev, uint32_t val)
 
 /* Path: ensm_mode
  */
-static const char *ad9361_enum_ensm_mode[] =
+const struct ad9361_enum_map ad9361_enum_ensm_mode[] =
 {
-	"sleep", "wait", "alert", "rx", "tx", "fdd", "pinctrl"
+	{ "sleep",   AD9361_ENSM_MODE_SLEEP   },
+	{ "wait",    AD9361_ENSM_MODE_WAIT    },
+	{ "alert",   AD9361_ENSM_MODE_ALERT   },
+	{ "rx",      AD9361_ENSM_MODE_RX      },
+	{ "tx",      AD9361_ENSM_MODE_TX      },
+	{ "fdd",     AD9361_ENSM_MODE_FDD     },
+	{ "pinctrl", AD9361_ENSM_MODE_PINCTRL },
+	{ NULL }
 };
 int ad9361_get_ensm_mode (unsigned dev, int *mode)
 {
@@ -229,9 +227,13 @@ int ad9361_get_in_temp0_input (unsigned dev, int *val)
 
 /* Path: in_voltage0_gain_control_mode / in_voltage1_gain_control_mode
  */
-static const char *ad9361_enum_gain_control_mode[] =
+const struct ad9361_enum_map ad9361_enum_gain_control_mode[] =
 {
-	"manual", "fast_attack", "slow_attack", "hybrid"
+	{ "manual",      AD9361_GAIN_CONTROL_MODE_MANUAL      },
+	{ "fast_attack", AD9361_GAIN_CONTROL_MODE_FAST_ATTACK },
+	{ "slow_attack", AD9361_GAIN_CONTROL_MODE_SLOW_ATTACK },
+	{ "hybrid",      AD9361_GAIN_CONTROL_MODE_HYBRID      },
+	{ NULL }
 };
 int ad9361_get_in_voltage_gain_control_mode (unsigned dev, int channel, int *mode)
 {
@@ -302,9 +304,18 @@ int ad9361_set_in_voltage1_hardwaregain (unsigned dev, int val)
 
 /* Path: in_voltage0_rf_port_select
  */
-static const char *ad9361_enum_rx_rf_port_select [] =
+const struct ad9361_enum_map ad9361_enum_rx_rf_port_select[] =
 {
-	"A_BALANCED", "B_BALANCED", "C_BALANCED", "A_N", "A_P", "B_N", "B_P", "C_N", "C_P"
+	{ "A_BALANCED", AD9361_IN_RF_PORT_SELECT_A_BALANCED },
+	{ "B_BALANCED", AD9361_IN_RF_PORT_SELECT_B_BALANCED },
+	{ "C_BALANCED", AD9361_IN_RF_PORT_SELECT_C_BALANCED },
+	{ "A_N",        AD9361_IN_RF_PORT_SELECT_A_N        },
+	{ "A_P",        AD9361_IN_RF_PORT_SELECT_A_P        },
+	{ "B_N",        AD9361_IN_RF_PORT_SELECT_B_N        },
+	{ "B_P",        AD9361_IN_RF_PORT_SELECT_B_P        },
+	{ "C_N",        AD9361_IN_RF_PORT_SELECT_C_N        },
+	{ "C_P",        AD9361_IN_RF_PORT_SELECT_C_P        },
+	{ NULL }
 };
 int ad9361_get_in_voltage_rf_port_select (unsigned dev, int channel, int *port)
 {
@@ -528,7 +539,12 @@ int ad9361_set_out_voltage1_hardwaregain (unsigned dev, int val)
 
 /* Path: out_voltage0_rf_port_select / out_voltage1_rf_port_select
  */
-static const char *ad9361_enum_tx_rf_port_select [] = { "A", "B" };
+const struct ad9361_enum_map ad9361_enum_tx_rf_port_select[] =
+{
+	{ "A", AD9361_OUT_RF_PORT_SELECT_A },
+	{ "B", AD9361_OUT_RF_PORT_SELECT_B },
+	{ NULL }
+};
 int ad9361_get_out_voltage_rf_port_select (unsigned dev, int channel, int *port)
 {
 	char leaf[64];
@@ -678,7 +694,12 @@ int ad9361_get_rx_path_rates (unsigned dev, uint32_t *bbpll, uint32_t *adc,
 
 /* Path: trx_rate_governor
  */
-static const char *ad9361_enum_rate_governor[] = { "highest_osr", "nominal" };
+const struct ad9361_enum_map ad9361_enum_rate_governor[] =
+{
+	{ "highest_osr", AD9361_TRX_RATE_GOVERNOR_HIGHEST_OSR },
+	{ "nominal",     AD9361_TRX_RATE_GOVERNOR_NOMINAL     },
+	{ NULL }
+};
 int ad9361_get_trx_rate_governor (unsigned dev, int *val)
 {
 	return get_enum(dev, "trx_rate_governor", ad9361_enum_rate_governor, val);

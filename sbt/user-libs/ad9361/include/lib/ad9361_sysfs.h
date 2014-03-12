@@ -25,6 +25,7 @@
 #define AD9361_CALIB_MODE_MANUAL      1
 #define AD9361_CALIB_MODE_TX_QUAD     2
 #define AD9361_CALIB_MODE_RF_DC_OFFS  3
+extern const struct ad9361_enum_map ad9361_enum_calib_mode[];
 int ad9361_get_calib_mode (unsigned dev, int *mode);
 int ad9361_set_calib_mode (unsigned dev, int  mode);
 int ad9361_start_calib    (unsigned dev, int  mode, int arg);
@@ -50,6 +51,7 @@ int ad9361_set_dcxo_tune_fine (unsigned dev, uint32_t  val);
 #define AD9361_ENSM_MODE_TX       4
 #define AD9361_ENSM_MODE_FDD      5
 #define AD9361_ENSM_MODE_PINCTRL  6
+extern const struct ad9361_enum_map ad9361_enum_ensm_mode[];
 int ad9361_get_ensm_mode (unsigned dev, int *mode);
 int ad9361_set_ensm_mode (unsigned dev, int  mode);
 
@@ -75,6 +77,7 @@ int ad9361_get_in_temp0_input (unsigned dev, int *val);
 #define AD9361_GAIN_CONTROL_MODE_FAST_ATTACK  1
 #define AD9361_GAIN_CONTROL_MODE_SLOW_ATTACK  2
 #define AD9361_GAIN_CONTROL_MODE_HYBRID       3
+extern const struct ad9361_enum_map ad9361_enum_gain_control_mode[];
 int ad9361_get_in_voltage_gain_control_mode  (unsigned dev, int channel, int *mode);
 int ad9361_set_in_voltage_gain_control_mode  (unsigned dev, int channel, int  mode);
 int ad9361_get_in_voltage0_gain_control_mode (unsigned dev, int *mode);
@@ -102,6 +105,7 @@ int ad9361_set_in_voltage1_hardwaregain (unsigned dev, int  val);
 #define AD9361_IN_RF_PORT_SELECT_B_P         6
 #define AD9361_IN_RF_PORT_SELECT_C_N         7
 #define AD9361_IN_RF_PORT_SELECT_C_P         8
+extern const struct ad9361_enum_map ad9361_enum_rx_rf_port_select[];
 int ad9361_get_in_voltage_rf_port_select  (unsigned dev, int channel, int *port);
 int ad9361_set_in_voltage_rf_port_select  (unsigned dev, int channel, int  port);
 int ad9361_get_in_voltage0_rf_port_select (unsigned dev, int *port);
@@ -187,6 +191,7 @@ int ad9361_set_out_voltage1_hardwaregain (unsigned dev, int  val);
  */
 #define AD9361_OUT_RF_PORT_SELECT_A  0
 #define AD9361_OUT_RF_PORT_SELECT_B  1
+extern const struct ad9361_enum_map ad9361_enum_tx_rf_port_select[];
 int ad9361_get_out_voltage_rf_port_select  (unsigned dev, int channel, int *port);
 int ad9361_set_out_voltage_rf_port_select  (unsigned dev, int channel, int  port);
 int ad9361_get_out_voltage0_rf_port_select (unsigned dev, int *port);
@@ -232,6 +237,7 @@ int ad9361_set_out_voltage_sampling_frequency (unsigned dev, uint32_t  val);
  */
 #define AD9361_TRX_RATE_GOVERNOR_HIGHEST_OSR  0
 #define AD9361_TRX_RATE_GOVERNOR_NOMINAL      1
+extern const struct ad9361_enum_map ad9361_enum_rate_governor[];
 int ad9361_get_trx_rate_governor (unsigned dev, int *val);
 int ad9361_set_trx_rate_governor (unsigned dev, int  val);
 

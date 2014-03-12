@@ -26,10 +26,8 @@
 
 
 #define ROOT "/sys/kernel/debug/iio"
-#define get_enum(dev,leaf,list,val) \
-	ad9361_sysfs_get_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
-#define set_enum(dev,leaf,list,val) \
-	ad9361_sysfs_set_enum(dev,ROOT,leaf,list,(sizeof(list)/sizeof(list[0])),val)
+#define get_enum(dev,leaf,list,val)  ad9361_sysfs_get_enum(dev,ROOT,leaf,list,val)
+#define set_enum(dev,leaf,list,val)  ad9361_sysfs_set_enum(dev,ROOT,leaf,list,val)
 #define get_int(dev,leaf,val)        ad9361_sysfs_get_int(dev,ROOT,leaf,val) 
 #define set_int(dev,leaf,val)        ad9361_sysfs_set_int(dev,ROOT,leaf,val) 
 #define get_u32(dev,leaf,val)        ad9361_sysfs_get_u32(dev,ROOT,leaf,val) 
@@ -145,8 +143,11 @@ int ad9361_set_loopback (unsigned dev, int  mode)
  */
 int ad9361_get_bist_timing_analysis (unsigned dev, char *dst, size_t max)
 {
-	errno = ENOSYS;
-	return -1;
+	memset(dst, 0, max);
+	if ( ad9361_sysfs_read(dev, ROOT, "bist_timing_analysis", dst, max - 1) < 0 )
+		return -1;
+
+	return 0;
 }
 
 
