@@ -263,22 +263,9 @@
 				reg = < 0x0 >;
 				spi-max-frequency = <50000000>;
 				compatible = "micron,n25q128";
-				partition@0x00000000 {
-					label = "boot";
-					reg = <0x00000000 0x00500000>;
-				};
-				partition@0x00500000 {
-					label = "bootenv";
-					reg = <0x00500000 0x00020000>;
-				};
-				partition@0x00520000 {
-					label = "image";
-					reg = <0x00520000 0x00a80000>;
-				};
-				partition@0x00fa0000 {
-					label = "spare";
-					reg = <0x00fa0000 0x00000000>;
-				};
+				/* Note: partitions are defined in Petalinux config.vendor, starting with
+				 * CONFIG_SYSTEM_PARTITION1_NAME, and override partitions defined here.
+				 */
 			} ;
 		} ;
 		ps7_qspi_linear_0: ps7-qspi-linear@fc000000 {
@@ -474,7 +461,7 @@
 
 			gpio-sck  = < &ps7_gpio_0 91 0 >;
 			gpio-mosi = < &ps7_gpio_0 90 0 >;
-/*			gpio-miso = < &ps7_gpio_0 89 0 >; */
+			gpio-miso = < &ps7_gpio_0 89 0 >;
 			cs-gpios  = <
 				&ps7_gpio_0 92 0
 				&ps7_gpio_0 89 0
