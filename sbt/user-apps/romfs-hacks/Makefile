@@ -25,14 +25,7 @@ clean:
 
 romfs:
 	rm   -rf $(ROMFSDIR)/media/
-	mkdir -p $(ROMFSDIR)/media/card
-	mkdir -p $(ROMFSDIR)/media/emmc
-ifdef CONFIG_USER_APPS_ROMFS_HACKS_FSTAB_MICROSD
-	$(SHELL) add-fstab-entry.sh /dev/mmcblk0p1 /media/card auto defaults 0 0
-endif
-ifdef CONFIG_USER_APPS_ROMFS_HACKS_FSTAB_EMMC
-	$(SHELL) add-fstab-entry.sh /dev/mmcblk1p1 /media/emmc auto noauto 0 0
-endif
+	mkdir -p $(ROMFSDIR)/media/
 ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
 	$(SHELL) add-path-entry.sh cut1
 endif
@@ -43,7 +36,10 @@ ifdef CONFIG_DEFAULTS_SILVERBULLETTECH_SDRDC
 	$(SHELL) add-path-entry.sh
 endif
 	install -m755 switch.sh $(ROMFSDIR)/switch
-
+	install -m755 scanall.sh $(ROMFSDIR)/etc/init.d/scanall
+	rm -f $(ROMFSDIR)/etc/rcS.d/S30scanall
+	ln -sv ../init.d/scanall $(ROMFSDIR)/etc/rcS.d/S30scanall
+	$(SHELL) add-network.sh usb0
 
 image: 
 	echo image
