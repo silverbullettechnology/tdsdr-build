@@ -1,4 +1,5 @@
-# Configuration options for filesystem tweaks
+#!/bin/sh
+# Filesystem tweak: add network intefaces to /etc/network/interfaces
 #
 # Copyright 2013,2014 Silver Bullet Technology
 #
@@ -12,7 +13,13 @@
 # permissions and limitations under the License.
 #
 
-if USER_APPS_ROMFS_HACKS
-	comment "No additional options for ROMFS_HACKS"
+interfaces=$ROMFSDIR/etc/network/interfaces
 
-endif
+if grep -q "$1" $interfaces; then
+	echo "$1 already added to $interfaces"
+	exit 0
+fi
+
+echo "auto $1"            >> $interfaces
+echo "iface $1 inet dhcp" >> $interfaces
+
