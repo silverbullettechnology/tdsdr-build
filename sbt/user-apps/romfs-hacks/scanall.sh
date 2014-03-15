@@ -1,4 +1,5 @@
-# Configuration options for filesystem tweaks
+#!/bin/sh
+# Create fstab entries for partitions on microSD and eMMC storage 
 #
 # Copyright 2013,2014 Silver Bullet Technology
 #
@@ -12,7 +13,26 @@
 # permissions and limitations under the License.
 #
 
-if USER_APPS_ROMFS_HACKS
-	comment "No additional options for ROMFS_HACKS"
+fstab () {
+	/bin/mkdir -p "$2"
+	/bin/printf '%-20s %-20s %-10s %-21s 0  0\n' "$1" "$2" auto defaults >> /etc/fstab
+}
 
-endif
+scan () {
+	/bin/grep -q " $1" /proc/partitions || return
+
+	case `/bin/grep -c " ${1}p" /proc/partitions` in
+		0)	fstab /dev/$1     /media/$2 ;;
+		1)	fstab /dev/${1}p1 /media/$2 ;;
+		*)	num=1;
+			for part in `/bin/grep "${1}p" /proc/partitions | cut -c26-`; do
+				fstab "/dev/$part" "/media/$2/$num"
+				num=$(($num + 1))
+			done
+			;;
+	esac
+}
+
+scan "mmcblk0" "card"
+scan "mmcblk1" "emmc"
+
