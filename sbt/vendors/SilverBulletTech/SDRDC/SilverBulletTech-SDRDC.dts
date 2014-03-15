@@ -741,7 +741,7 @@
 					/* AuxADC Temp Sense Control */
 
 					adi,temp-sense-measurement-interval-ms = <1000>;
-					adi,temp-sense-offset-signed = <0xCE>;
+					adi,temp-sense-offset-signed = <0x00>;
 					adi,temp-sense-periodic-measurement-enable;
 
 				}; // ad1
@@ -965,7 +965,7 @@
 					/* AuxADC Temp Sense Control */
 
 					adi,temp-sense-measurement-interval-ms = <1000>;
-					adi,temp-sense-offset-signed = <0xCE>;
+					adi,temp-sense-offset-signed = <0x00>;
 					adi,temp-sense-periodic-measurement-enable;
 
 					/* Aux DAC is used for XO tuning on SDRDC */
