@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <termios.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <ctype.h>
 #include <limits.h>
@@ -187,4 +189,38 @@ char *path_match (char *dst, size_t max, const char *search, const char *leaf)
 	errno = ENOENT;
 	return NULL;
 }
+
+void terminal_pause (void)
+{
+	struct timeval  tv;
+	struct termios  tio_old;
+	struct termios  tio_new;
+	fd_set          fds;
+	int             ret;
+	char            buff[4096];
+
+	// swich to raw mode
+	tcgetattr(STDIN_FILENO, &tio_old);
+	tio_new = tio_old;
+	cfmakeraw(&tio_new);
+	tcsetattr(STDIN_FILENO, TCSANOW, &tio_new);
+
+	while ( 1 )
+	{
+		tv.tv_sec  = 5;
+		tv.tv_usec = 0;
+		FD_ZERO(&fds);
+		FD_SET(STDIN_FILENO, &fds);
+
+		if ( (ret = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv)) > 0 )
+		{
+			read(0, buff, sizeof(buff));
+			break;
+		}
+	}
+
+	// restore settings
+	tcsetattr(STDIN_FILENO, TCSANOW, &tio_old);
+}
+
 
