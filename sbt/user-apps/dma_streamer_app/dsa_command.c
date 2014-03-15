@@ -398,23 +398,27 @@ for ( ret = 0; ret <= argc; ret++ )
 		reps = 1;
 		LOG_INFO("Set for single trigger...\n");
 	}
-//	else if ( !strcasecmp(argv[optind], "cont") )
-//	{
-//		reps = 0;
-//		LOG_INFO("Set continuous triggers...\n");
-//	}
-//	else if ( !strcasecmp(argv[optind], "pause") )
-//	{
-//		reps  = 0;
-//		LOG_INFO("Set paused triggers...\n");
-//	}
+	else if ( !strcasecmp(argv[optind], "cont") )
+	{
+		reps = 0;
+		if ( dsa_adi_new )
+			LOG_INFO("Set continuous triggers...\n");
+		else
+		{
+			LOG_ERROR("Continuous transfer requires new ADI controls\n");
+			return -1;
+		}
+	}
 	else if ( (reps = size_dec(argv[optind])) < 1 )
 	{
 		LOG_ERROR("Invalid repetition count '%s'\n", argv[optind]);
 		return -1;
 	}
-	else
+
+	if ( reps )
 		LOG_INFO("Set for %lu repetitions...\n", reps);
+	else
+		LOG_INFO("Set for continuous transfer...\n");
 
 	// load source buffers before map - allows buffer sized to input data size
 	// pass dsa_adi_new as lsh: new ADI PL enforces a 4-bit right-shift on TX data
@@ -442,81 +446,83 @@ for ( ret = 0; ret <= argc; ret++ )
 		timeout = 100;
 	dsa_ioctl_set_timeout(timeout);
 
-	if ( reps > 1 && (dsa_evt.rx[0] || dsa_evt.rx[1]) )
-		LOG_WARN("Specified %lu reps applies to TX only; RX will run once\n", reps);
-
-	if ( reps )
+	if ( dsa_evt.rx[0] || dsa_evt.rx[1] )
 	{
-		// New FIFO controls: Reset only
-		if ( dsa_adi_new )
-			for ( dev = 0; dev < 2; dev++ ) 
-			{ 
-				// RX side
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
-				                        ADI_NEW_RX_RSTN);
-
-				// TX side
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
-				                        ADI_NEW_RX_RSTN);
-			} 
-
-		// Old FIFO controls: Reset and stop all FIFO controls
-		else
-			for ( dev = 0; dev < 2; dev++ )
-			{
-				dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_RESET);
-				dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_STOP);
-			}
-
-		// New FIFO controls: Setup channels based on transfer setup
-		if ( dsa_adi_new )
-			for ( dev = 0; dev < 2; dev++ ) 
-			{ 
-				unsigned long  reg;
-
-				// RX channel 1 parameters - minimal setup for now
-				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
-
-				// RX channel 2 parameters - minimal setup for now
-				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
-
-				// Always using T2R2 for now - discard the extra samples
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
-				reg &= ~ADI_NEW_RX_R1_MODE;
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
-
-				// TX channel parameters - Always using T2R2
-				if ( dsa_evt.tx[dev] )
-				{
-					// Select DMA source, enable format, disable T1R1 mode
-					reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);
-					reg |= ADI_NEW_TX_DATA_FORMAT;
-					reg &= ~ADI_NEW_TX_R1_MODE;
-					dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
-
-					// Rate 3 for T2R2 mode
-					reg = ADI_NEW_TX_TO_RATE(3);
-					dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
-				}
-			} 
-
-		// Old FIFO controls: Program FIFO counters with expected buffer size
-		else
-			for ( dev = 0; dev < 2; dev++ )
-			{
-				if ( dsa_evt.tx[dev] )
-					dsa_ioctl_adi_old_set_tx_cnt(dev, dsa_evt.tx[dev]->len, reps);
-			
-				if ( dsa_evt.rx[dev] )
-					dsa_ioctl_adi_old_set_rx_cnt(dev, dsa_evt.rx[dev]->len, reps);
-			}
+		if ( reps > 1 )
+			LOG_WARN("Specified %lu reps applies to TX only; RX will run once\n", reps);
+		else if ( !reps )
+			LOG_WARN("Specified continuous transfer is TX only; RX will run once\n");
 	}
+
+	// New FIFO controls: Reset only
+	if ( dsa_adi_new )
+		for ( dev = 0; dev < 2; dev++ ) 
+		{ 
+			// RX side
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
+			                        ADI_NEW_RX_RSTN);
+
+			// TX side
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
+			                        ADI_NEW_RX_RSTN);
+		} 
+
+	// Old FIFO controls: Reset and stop all FIFO controls
+	else
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_RESET);
+			dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_STOP);
+		}
+
+	// New FIFO controls: Setup channels based on transfer setup
+	if ( dsa_adi_new )
+		for ( dev = 0; dev < 2; dev++ ) 
+		{ 
+			unsigned long  reg;
+
+			// RX channel 1 parameters - minimal setup for now
+			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
+
+			// RX channel 2 parameters - minimal setup for now
+			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
+
+			// Always using T2R2 for now - discard the extra samples
+			dsa_ioctl_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
+			reg &= ~ADI_NEW_RX_R1_MODE;
+			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
+
+			// TX channel parameters - Always using T2R2
+			if ( dsa_evt.tx[dev] )
+			{
+				// Select DMA source, enable format, disable T1R1 mode
+				reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);
+				reg |= ADI_NEW_TX_DATA_FORMAT;
+				reg &= ~ADI_NEW_TX_R1_MODE;
+				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
+
+				// Rate 3 for T2R2 mode
+				reg = ADI_NEW_TX_TO_RATE(3);
+				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
+			}
+		} 
+
+	// Old FIFO controls: Program FIFO counters with expected buffer size
+	else
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			if ( dsa_evt.tx[dev] )
+				dsa_ioctl_adi_old_set_tx_cnt(dev, dsa_evt.tx[dev]->len, reps);
+		
+			if ( dsa_evt.rx[dev] )
+				dsa_ioctl_adi_old_set_rx_cnt(dev, dsa_evt.rx[dev]->len, reps);
+		}
 
 	if ( ctrl && !dsa_adi_new ) 
 	{
@@ -551,10 +557,23 @@ for ( ret = 0; ret <= argc; ret++ )
 	}
 
 	// Trigger DMA and block until complete
-	LOG_INFO("Triggering DMA...\n");
-	errno = 0;
-	if ( !dsa_ioctl_trigger() && !stats )
-		LOG_INFO("DMA triggered\n");
+	if ( reps )
+	{
+		LOG_INFO("Triggering DMA...\n");
+		errno = 0;
+		if ( !dsa_ioctl_trigger() && !stats )
+			LOG_INFO("DMA triggered\n");
+	}
+	else
+	{
+		LOG_INFO("Starting DMA, press any key to stop...\n");
+		dsa_ioctl_adi_new_start();
+
+		terminal_pause();
+
+		LOG_INFO("Stopping DMA...\n");
+		dsa_ioctl_adi_new_stop();
+	}
 
 
 	// Show FIFO numbers before transfer

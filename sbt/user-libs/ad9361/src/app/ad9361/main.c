@@ -58,7 +58,6 @@
 
 char *argv0;
 int   opt_dev_num  = DEF_DEV_NUM;
-char *opt_dev_node = NULL;
 int   opt_dev_gpio[3] = { -1, -1, -1 };
 int   opt_soft_fail = 0;
 int   opt_interact  = 0;
@@ -69,23 +68,14 @@ char  env_script_path[PATH_MAX];
 char  env_filter_path[PATH_MAX];
 char  env_data_path[PATH_MAX];
 
-static struct dev_info dev_node_list[] = 
-{
-	{ "/dev/spidev3.1", NULL, { 100,  99, 58 } },
-	{ "/dev/spidev4.1", NULL, { 107, 106, 59 } },
-};
-struct dev_info *dev_info_curr = NULL;
 
 static void export_active_channels (void)
 {
-	unsigned char  fb[4];
-	unsigned char *fp = fb;
+	uint8_t        fb[4];
 	int            fd;
 	int            ret;
-	int            reg;
-	int            adr;
 
-	if ( (fd = open(EXPORT_FILE, O_RDWR|O_CREAT)) < 0 )
+	if ( (fd = open(EXPORT_FILE, O_RDWR|O_CREAT, 0644)) < 0 )
 		stop(EXPORT_FILE);
 
 	if ( (ret = read(fd, fb, sizeof(fb))) < 0 )
@@ -93,15 +83,15 @@ static void export_active_channels (void)
 	if ( ret < sizeof(fb) )
 		memset(fb + ret, 0, sizeof(fb) - ret);
 
-	if ( opt_dev_num > 0 )
-		fp += 2;
+	ad9361_spi_read_byte(0, 0x002, &fb[0]);
+	ad9361_spi_read_byte(0, 0x003, &fb[1]);
+	ad9361_spi_read_byte(1, 0x002, &fb[2]);
+	ad9361_spi_read_byte(1, 0x003, &fb[3]);
 
-	for ( adr = 0x002; adr <= 0x003; adr++ )
-	{
-		if ( (reg = ad9361_hal_spi_reg_get(adr)) > -1 )
-			*fp = reg & 0xC0;
-		fp++;
-	}
+	fb[0] &= 0xC0;
+	fb[1] &= 0xC0;
+	fb[2] &= 0xC0;
+	fb[3] &= 0xC0;
 
 	if ( lseek(fd, 0, SEEK_SET) )
 		stop(EXPORT_FILE);
@@ -111,96 +101,6 @@ static void export_active_channels (void)
 
 	if ( close(fd) )
 		stop(EXPORT_FILE);
-}
-
-static int sysfs_scan (void)
-{
-	char    path[PATH_MAX];
-	char    buff[256];
-	char   *p;
-	glob_t  gl;
-	int     i;
-	int     c = 0;
-
-	memset(&gl, 0, sizeof(gl));
-	if ( glob("/sys/bus/iio/devices/iio:device*", 0, NULL, &gl) )
-	{
-		int err = errno;
-		globfree(&gl);
-		if ( err )
-			perror("glob(/sys/bus/iio/devices/iio:device*)");
-		errno = err;
-		return -1;
-	}
-
-	for ( i = 0; c < 2 && i < gl.gl_pathc; i++ )
-	{
-		snprintf(path, sizeof(path), "%s/name", gl.gl_pathv[i]);
-		if ( proc_read(path, buff, sizeof(buff)) < 0 )
-			stop("read(%s)", path);
-
-		if ( strstr(buff, "ad9361-phy") != buff )
-			continue;
-
-		p = strstr(gl.gl_pathv[i], "iio:device");
-
-		dev_node_list[c].leaf = strdup(p);
-		c++;
-	}
-
-	globfree(&gl);
-	return 2 - c;
-}
-
-
-
-int dev_reopen (int num, int reinit)
-{
-	int   i;
-	UINT8 v;
-
-#ifdef SIM_HAL
-	return 0;
-#endif
-
-	if ( num < 0 || num >= sizeof(dev_node_list) / sizeof(dev_node_list[0]) )
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	if ( reinit )
-		export_active_channels();
-	if ( reinit && (opt_dev_num != num) )
-		ad9361_hal_spi_reg_clr();
-
-	ad9361_hal_linux_spi_done();
-	ad9361_hal_linux_gpio_done();
-
-	opt_dev_num  = num;
-	opt_dev_node = dev_node_list[num].node;
-	dev_info_curr = &dev_node_list[num];
-	for ( i = 0; i < 3; i++ )
-		opt_dev_gpio[i] = dev_node_list[opt_dev_num].gpio[i];
-
-	// TODO: UART
-	if ( ad9361_hal_linux_spi_init(opt_dev_node) )
-	{
-		fprintf(stderr, "ad9361_hal_linux_spi_init(%s): %s\n",
-		        opt_dev_node, strerror(errno));
-		return -1;
-	}
-
-	// GPIO failure is a soft-fail with IIO driver
-	ad9361_hal_linux_gpio_init(opt_dev_gpio);
-	CMB_gpioWrite(GPIO_TXNRX_pin,  1);
-	CMB_gpioWrite(GPIO_Enable_pin, 1);
-
-	CMB_SPIReadByte(0x002, &v);
-	CMB_SPIReadByte(0x003, &v);
-
-	errno = 0;
-	return 0;
 }
 
 
@@ -222,16 +122,15 @@ void usage (void)
 	printf("Run command: ad9361 [options] command [args...]\n"
 	       "Run script : ad9361 [options] script\n"
 	       "Interactive: ad9361 [options]\n\n"
-	       "Options: ad9361 [-ei] [-g gpio] [-d num] [-D node] [-l dir]\n"
+	       "Options: ad9361 [-ei] [-g gpio] [-d num] [-l dir]\n"
 	       "Where:\n"
 	       "-e      As for /bin/sh, tolerate command failures\n"
 	       "-i      Enter interactive mode after running command or script\n"
 	       "-g gpio GPIO pins for TXNRX,ENABLE,RESETN (default %d,%d,%d)\n"
 	       "-d num  Specify AD9361 device number (0-1, default %d)\n"
-	       "-D node Specify AD9361 device node (default %s)\n"
 	       "-l dir  Specify library dir (default %s)\n",
 	       opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2],
-	       DEF_DEV_NUM, dev_node_list[DEF_DEV_NUM].node, LIB_DIR);
+	       DEF_DEV_NUM, LIB_DIR);
 	exit(1);
 }
 
@@ -462,9 +361,7 @@ int main (int argc, char **argv)
 	else
 		argv0 = argv[0];
 
-	sysfs_scan();
-
-	while ( (opt = getopt(argc, argv, "eig:d:D:")) > -1 )
+	while ( (opt = getopt(argc, argv, "eig:d:")) > -1 )
 		switch ( opt )
 		{
 			case 'e': opt_soft_fail = 1; break;
@@ -480,13 +377,8 @@ int main (int argc, char **argv)
 			case 'd': // Specify AD9361 device number
 				errno = 0;
 				opt_dev_num = strtol(optarg, NULL, 0);
-				if ( errno || opt_dev_num < 0 ||
-				     opt_dev_num >= (sizeof(dev_node_list)/sizeof(dev_node_list[0])) )
+				if ( errno || opt_dev_num < 0 || opt_dev_num >= 2 )
 					usage();
-				break;
-
-			case 'D': // 
-				opt_dev_node = optarg;
 				break;
 
 			case 'l': // 
@@ -524,8 +416,10 @@ int main (int argc, char **argv)
 #ifdef SIM_HAL
 	ad9361_hal_sim_attach();
 #else
+	ad9361_hal_linux_init();
 	ad9361_hal_linux_attach();
-	dev_reopen(opt_dev_num, 0);
+	ad9361_legacy_dev = opt_dev_num;
+	export_active_channels();
 #endif
 
 	// if at least one argv is given, search map for function name or try to run as script

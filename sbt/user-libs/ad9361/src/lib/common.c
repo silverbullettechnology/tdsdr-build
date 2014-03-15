@@ -16,23 +16,23 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "api_types.h"
 #include "lib.h"
 #include "common.h"
 
 #include "ad9361_hal.h"
-#include "ad9361_hal_linux.h"
+
+
+unsigned ad9361_legacy_dev = 0;
 
 
 void CMB_init (void)
 {
-	if ( !ad9361_hal )
-	{
-		printf("CMB_init() called without setting up the HAL first, stop.\n");
-		exit(1);
-	}
+	errno = ENOSYS;
 }
 
 
@@ -41,28 +41,22 @@ void CMB_init (void)
 
 void CMB_SPIWriteField (UINT16 addr, UINT8 field_val, UINT8 mask, UINT8 start_bit)
 {
-	UINT16 Val;
-	HAL_SPIReadByte(addr, &Val);
-//fprintf(stderr, "RMW %03x:%02x -> %02x | %02x -> ", addr, Val, Val & ~mask, (field_val << start_bit) & mask);
+	uint8_t Val;
+	ad9361_spi_read_byte(ad9361_legacy_dev, addr, &Val);
 	Val = (Val & ~mask) | ((field_val << start_bit) & mask);
-//fprintf(stderr, "%02x\n", Val);
-	HAL_SPIWriteByte(addr, Val);
+	ad9361_spi_write_byte(ad9361_legacy_dev, addr, Val);
 }
 
 
 void CMB_SPIWriteByte (UINT16 addr, UINT16 data)
 {
-//fprintf(stderr, "W %03x:%02x\n", addr, data);
-	HAL_SPIWriteByte(addr, data);
+	ad9361_spi_write_byte(ad9361_legacy_dev, addr, data & 0xFF);
 }
 
 
 void CMB_SPIReadByte (UINT16 addr, UINT8 *readdata)
 {
-	UINT16 data;
-	HAL_SPIReadByte(addr, &data);
-	*readdata = data & 0xFF;
-//fprintf(stderr, "R %03x:%02x\n", addr, data);
+	ad9361_spi_read_byte(ad9361_legacy_dev, addr, readdata);
 }
 
 
@@ -71,46 +65,20 @@ void CMB_SPIReadByte (UINT16 addr, UINT8 *readdata)
 
 void CMB_uartSendString (const char *dataString)
 {
-	while ( *dataString )
-		HAL_uartSendByte(*dataString++);
-
-	HAL_uartSendByte('\r');
-	HAL_uartSendByte('\n');
+	errno = ENOSYS;
 }
 
 
 void CMB_hostTxPacket (UINT8 *dataString, int maxSize)
 {
-	while ( maxSize-- > 0 )
-		HAL_uartSendByte(*dataString++);
+	errno = ENOSYS;
 }
 
 
 UINT8 CMB_hostRxPacket (UINT8 *RxString, int maxSize)
 {
-	int   loopIndex = 0;
-	BOOL  rxflag;
-	UINT8 rxbyte;
-
-	while (1)
-	{
-		rxflag = HAL_uartReceiveByte(&rxbyte);
-
-		// return 0 if idle on the first byte
-		if ((!rxflag) && (!loopIndex))
-			return 0;
-
-		// have a byte, store 
-		else if (rxflag)
-		{
-			RxString[loopIndex] = rxbyte;
-			loopIndex++;
-			if ( loopIndex == maxSize )
-				break;
-		}
-	}
-
-	return loopIndex;
+	errno = ENOSYS;
+	return 0;
 }
 
 
@@ -119,7 +87,7 @@ UINT8 CMB_hostRxPacket (UINT8 *RxString, int maxSize)
 
 void CMB_DelayU (int usec)
 {
-	Timer_Wait(usec);
+	usleep(usec);
 }
 
 
@@ -128,7 +96,7 @@ void CMB_DelayU (int usec)
 
 void CMB_gpioWrite (int gpio_num, int gpio_value)
 {
-	HAL_gpioWrite(gpio_num, gpio_value);
+	ad9361_gpio_write(ad9361_legacy_dev, gpio_num, gpio_value);
 }
 
 
@@ -136,15 +104,15 @@ void CMB_gpioPulse (int gpio_num, int pulseTime) //0-2.4us, 1-3.1us, 2-3.8us, 3-
 {
 	if ( gpio_num == GPIO_Resetn_pin )
 	{
-		HAL_gpioWrite(gpio_num, 0);
-		Timer_Wait(pulseTime);
-		HAL_gpioWrite(gpio_num, 1);
+		ad9361_gpio_write(ad9361_legacy_dev, gpio_num, 0);
+		usleep(pulseTime);
+		ad9361_gpio_write(ad9361_legacy_dev, gpio_num, 1);
 	}
 	else
 	{
-		HAL_gpioWrite(gpio_num, 1);
-		Timer_Wait(pulseTime);
-		HAL_gpioWrite(gpio_num, 0);
+		ad9361_gpio_write(ad9361_legacy_dev, gpio_num, 1);
+		usleep(pulseTime);
+		ad9361_gpio_write(ad9361_legacy_dev, gpio_num, 0);
 	}
 }
 

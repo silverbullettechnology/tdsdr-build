@@ -24,14 +24,16 @@
 #include "struct-gen.h"
 
 
-int parse_int                     (int                     *val, size_t size, int argc, const char **argv, int idx);
-int parse_BOOL                    (BOOL                    *val, size_t size, int argc, const char **argv, int idx);
-int parse_UINT8                   (UINT8                   *val, size_t size, int argc, const char **argv, int idx);
-int parse_UINT16                  (UINT16                  *val, size_t size, int argc, const char **argv, int idx);
-int parse_SINT16                  (SINT16                  *val, size_t size, int argc, const char **argv, int idx);
-int parse_UINT32                  (UINT32                  *val, size_t size, int argc, const char **argv, int idx);
-int parse_FLOAT                   (FLOAT                   *val, size_t size, int argc, const char **argv, int idx);
-int parse_DOUBLE                  (DOUBLE                  *val, size_t size, int argc, const char **argv, int idx);
+int parse_int       (int       *val, size_t size, int argc, const char **argv, int idx);
+int parse_BOOL      (BOOL      *val, size_t size, int argc, const char **argv, int idx);
+int parse_uint8_t   (uint8_t   *val, size_t size, int argc, const char **argv, int idx);
+int parse_uint16_t  (uint16_t  *val, size_t size, int argc, const char **argv, int idx);
+int parse_int16_t   (int16_t   *val, size_t size, int argc, const char **argv, int idx);
+int parse_uint32_t  (uint32_t  *val, size_t size, int argc, const char **argv, int idx);
+int parse_uint64_t  (uint64_t  *val, size_t size, int argc, const char **argv, int idx);
+
+int parse_enum (int *val, size_t size, const struct ad9361_enum_map *map, 
+                int argc, const char **argv, int idx);
 
 int parse_struct (const struct struct_map *map, void *val, size_t size,
                   int argc, const char **argv, int idx);
