@@ -62,14 +62,30 @@ MAP_CMD(TxAtten, map_TxAtten, 4);
 static int map_ADI_get_temperature (int argc, const char **argv)
 {
 	int temp1, temp2;
+	int temp3, temp4;
+	
+	uint8_t b0, b1, e0, e1;
 
 	if ( ad9361_get_in_temp0_input(0, &temp1) < 0 ) return -1;
 	if ( ad9361_get_in_temp0_input(1, &temp2) < 0 ) return -1;
 
-	printf("Uncorrected Temperature AD1: n/a\n");
-	printf("Uncorrected Temperature AD2: n/a\n\n");
-	printf("Corrected Temperature AD1: %d\n",   temp1);
-	printf("Corrected Temperature AD2: %d\n\n", temp2);
+	ad9361_spi_read_byte(0, 0x0b, &b0);
+	ad9361_spi_read_byte(1, 0x0b, &b1);
+
+	ad9361_spi_read_byte(0, 0x0E, &e0);
+	ad9361_spi_read_byte(1, 0x0E, &e1);
+
+	temp3 = (1000*(e0-64))/1148;
+	temp4 = (1000*(e1-64))/1148;
+
+	printf("Offset Register AD1: %d\n", b0);
+	printf("Offset Register AD2: %d\n\n", b1);
+	printf("Uncorrected Temperature AD1: %d\n", e0);
+	printf("Uncorrected Temperature AD2: %d\n\n", e1);
+	printf("Corrected Temperature (app note 2.4) AD1: %d\n",   temp3);
+	printf("Corrected Temperature (app note 2.4) AD2: %d\n\n", temp4);
+	//printf("Corrected Temperature (IIO drv) AD1: %d\n",   temp1);
+	//printf("Corrected Temperature (IIO drv) AD2: %d\n\n", temp2);
 
 	return 0;
 }
