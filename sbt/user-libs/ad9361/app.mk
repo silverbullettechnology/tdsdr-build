@@ -115,8 +115,8 @@ romfs: $(APPS)
 	mkdir -p $(ROMFSDIR)/usr/bin
 	install -m755 $(BIN)/$(NAME) $(ROMFSDIR)/usr/bin
 	mkdir -p $(ROMFSDIR)$(ETC_DIR) $(ROMFSDIR)$(LIB_DIR)
-	-(cd script/etc; cp -a * $(ROMFSDIR)$(ETC_DIR))
-	-(cd script/lib; cp -a * $(ROMFSDIR)$(LIB_DIR))
+	-(cd script/etc && cp -a * $(ROMFSDIR)$(ETC_DIR))
+	-(cd script/lib && cp -a * $(ROMFSDIR)$(LIB_DIR))
 	chmod -R +x $(ROMFSDIR)$(LIB_DIR)/script
 
 clean:
