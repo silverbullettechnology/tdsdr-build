@@ -20,6 +20,7 @@
 
 
 typedef int (* ad9361_handler_f) (int argc, const char **argv);
+typedef void (* ad9361_help_f)   (void *arg);
 
 
 struct ad9361_map_cmd_t
@@ -38,6 +39,8 @@ struct ad9361_map_arg_t
 	const char *name;
 	const char *type;
 	const char *desc;
+	ad9361_help_f help;
+	void         *arg;
 };
 
 
@@ -45,6 +48,7 @@ struct ad9361_map_cmd_t *ad9361_map_find (const char *arg0);
 int ad9361_map_call (struct ad9361_map_cmd_t *map, int argc, const char **argv);
 
 void ad9361_map_help (const char *name);
+void ad9361_map_help_enum (void *arg);
 
 #ifdef AD9361_USE_READLINE
 char **ad9361_map_completion (const char *text, int start, int end);
@@ -60,18 +64,22 @@ char **ad9361_map_completion (const char *text, int start, int end);
 
 /* Call, Check-Return macro: call library function func with 0 or more args.  If the
  * return is not ADIERR_OK, print an error message and return -1 */
-#define MAP_LIB_CALL(func, ...) do{              \
-	ADI_ERR ret = func(__VA_ARGS__);             \
-	if ( ret != ADIERR_OK ) {                    \
-		printf("%s: ADIERR_%s\n", argv[0], ad9361_err_desc(ret)); \
-		return ret;                              \
+#define MAP_LIB_CALL(func, ...) do{ \
+	int ret = func(__VA_ARGS__);    \
+	if ( ret < 0 ) {                \
+		printf("%s: %s\n", argv[0], strerror(errno)); \
+		return ret;                                   \
 	} }while(0)
 
 /* Define an ad9361_map_arg_t entry for the argument, used to auto-generate a help entry */
 #define MAP_ARG_HELP(type,name,idx,desc) \
 	static struct ad9361_map_arg_t ad9361_map_arg_ ## name \
 	 __attribute__((unused,used,section("ad9361_map_arg"),aligned(sizeof(void *)))) \
-	 = { __func__, idx, #name, #type, desc }
+	 = { __func__, idx, #name, #type, desc, NULL, NULL }
+#define MAP_ARG_HELP_ENUM(name,idx,desc,list) \
+	static struct ad9361_map_arg_t ad9361_map_arg_ ## name \
+	 __attribute__((unused,used,section("ad9361_map_arg"),aligned(sizeof(void *)))) \
+	 = { __func__, idx, #name, "enum", desc, ad9361_map_help_enum, (void *)list }
 
 /* Define argument to be read from argv[idx].  Specify a default initializer as the
  * variable-length argument */
@@ -85,9 +93,15 @@ char **ad9361_map_completion (const char *text, int start, int end);
 	MAP_ARG_HELP(type,name,idx,desc);                                   \
 	if ( parse_ ## type(name, sizeof(name), argc, argv, idx) )  \
 		return -1;
+#define MAP_ARG_ENUM(name, idx, list, desc)                     \
+	int  name;                                                  \
+	MAP_ARG_HELP_ENUM(name,idx,desc,list);                      \
+	if ( parse_enum(&name, sizeof(name), list, argc, argv, idx) ) \
+		return -1;
 
 /* Output a result using the appropriate format_* function for its type */
 #define MAP_RESULT(type, name, num) do{ format_ ## type(&name, #name, num); }while(0)
+#define MAP_RES_ENUM(name, list)    do{ format_enum(&name, #name, list);    }while(0)
 
 
 #endif /* _INCLUDE_APP_AD9361_MAP_H_ */

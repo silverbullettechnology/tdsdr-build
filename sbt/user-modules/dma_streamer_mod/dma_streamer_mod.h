@@ -146,20 +146,15 @@ struct dsm_new_adi_regs
 // Set a timeout in jiffies on the DMA transfer
 #define  DSM_IOCS_TIMEOUT  _IOW(DSM_IOCTL_MAGIC, 4, unsigned long)
 
-// Access to data source regs
-#define  DSM_IOCS_DSRC_CTRL   _IOW(DSM_IOCTL_MAGIC,  5, unsigned long)
-#define  DSM_IOCG_DSRC_STAT   _IOR(DSM_IOCTL_MAGIC,  6, unsigned long *)
-#define  DSM_IOCG_DSRC_BYTES  _IOR(DSM_IOCTL_MAGIC,  7, unsigned long *)
-#define  DSM_IOCS_DSRC_BYTES  _IOW(DSM_IOCTL_MAGIC,  8, unsigned long)
-#define  DSM_IOCG_DSRC_SENT   _IOR(DSM_IOCTL_MAGIC,  9, unsigned long *)
-#define  DSM_IOCG_DSRC_TYPE   _IOR(DSM_IOCTL_MAGIC, 10, unsigned long *)
-#define  DSM_IOCS_DSRC_TYPE   _IOW(DSM_IOCTL_MAGIC, 11, unsigned long)
+// Start a continuous transaction, after setting up the buffers with a successful
+// DSM_IOCS_MAP.  The calling process does not block, and should stop the transfer with
+// DSM_IOCS_STOP before unmapping the buffers.
+#define  DSM_IOCS_START  _IOW(DSM_IOCTL_MAGIC, 5, unsigned long)
 
-// Access to data sink regs
-#define  DSM_IOCS_DSNK_CTRL   _IOW(DSM_IOCTL_MAGIC, 12, unsigned long)
-#define  DSM_IOCG_DSNK_STAT   _IOR(DSM_IOCTL_MAGIC, 13, unsigned long *)
-#define  DSM_IOCG_DSNK_BYTES  _IOR(DSM_IOCTL_MAGIC, 14, unsigned long *)
-#define  DSM_IOCG_DSNK_SUM    _IOR(DSM_IOCTL_MAGIC, 15, unsigned long *)
+// Stop a running transaction started with DSM_IOCS_START.  The calling process will block
+// until all transfers are complete, or a timeout occurs.
+#define  DSM_IOCS_STOP  _IOW(DSM_IOCTL_MAGIC, 6, unsigned long)
+
 
 // Access to ADI LVDS regs
 #define  DSM_IOCS_ADI1_OLD_CTRL    _IOW(DSM_IOCTL_MAGIC, 20, unsigned long)
@@ -193,6 +188,21 @@ struct dsm_new_adi_regs
 #define  DSM_IOCG_ADI_NEW_REG      _IOR(DSM_IOCTL_MAGIC, 52, struct dsm_new_adi_regs *)
 #define  DSM_IOCS_ADI_NEW_REG_SO   _IOW(DSM_IOCTL_MAGIC, 53, struct dsm_new_adi_regs *)
 #define  DSM_IOCS_ADI_NEW_REG_RB   _IOW(DSM_IOCTL_MAGIC, 54, struct dsm_new_adi_regs *)
+
+// Access to data source regs
+#define  DSM_IOCS_DSRC_CTRL   _IOW(DSM_IOCTL_MAGIC, 60, unsigned long)
+#define  DSM_IOCG_DSRC_STAT   _IOR(DSM_IOCTL_MAGIC, 61, unsigned long *)
+#define  DSM_IOCG_DSRC_BYTES  _IOR(DSM_IOCTL_MAGIC, 62, unsigned long *)
+#define  DSM_IOCS_DSRC_BYTES  _IOW(DSM_IOCTL_MAGIC, 63, unsigned long)
+#define  DSM_IOCG_DSRC_SENT   _IOR(DSM_IOCTL_MAGIC, 64, unsigned long *)
+#define  DSM_IOCG_DSRC_TYPE   _IOR(DSM_IOCTL_MAGIC, 65, unsigned long *)
+#define  DSM_IOCS_DSRC_TYPE   _IOW(DSM_IOCTL_MAGIC, 66, unsigned long)
+
+// Access to data sink regs
+#define  DSM_IOCS_DSNK_CTRL   _IOW(DSM_IOCTL_MAGIC, 70, unsigned long)
+#define  DSM_IOCG_DSNK_STAT   _IOR(DSM_IOCTL_MAGIC, 71, unsigned long *)
+#define  DSM_IOCG_DSNK_BYTES  _IOR(DSM_IOCTL_MAGIC, 72, unsigned long *)
+#define  DSM_IOCG_DSNK_SUM    _IOR(DSM_IOCTL_MAGIC, 73, unsigned long *)
 
 
 #endif // _INCLUDE_DMA_STREAMER_MOD_H

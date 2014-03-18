@@ -24,4 +24,7 @@
 #include <ad9361/ad9361_hal_sim.h>
 #include <ad9361/ad9361_hal_linux.h>
 
+#include <ad9361/ad9361_sysfs.h>
+#include <ad9361/ad9361_debugfs.h>
+
 #endif /* _AD9361_H_ */

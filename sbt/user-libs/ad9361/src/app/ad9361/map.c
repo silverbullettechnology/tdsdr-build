@@ -121,12 +121,27 @@ void ad9361_map_help (const char *name)
 
 	for ( arg = beg; arg != &__stop_ad9361_map_arg; arg++ )
 		if ( !strcmp(arg->func, name) )
+		{
 			fprintf(stderr, "%3d: %-*s  %-*s  %s\n", arg->idx, type_len,
 			       arg->type, name_len, arg->name, arg->desc);
+			if ( arg->help )
+				arg->help(arg->arg);
+		}
 		else
 			break;
 }
 
+void ad9361_map_help_enum (void *arg)
+{
+	if ( !arg )
+		return;
+
+	struct ad9361_enum_map *map = (struct ad9361_enum_map *)arg;
+	fprintf(stderr, "     Values: %d:%s", map->value, map->string);
+	for ( map++; map->string; map++ )
+		fprintf(stderr, ", %d:%s", map->value, map->string);
+	fprintf(stderr, "\n");
+}
 
 #ifdef AD9361_USE_READLINE
 static char *ad9361_map_generate (const char *text, int state)
