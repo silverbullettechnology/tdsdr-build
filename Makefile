@@ -12,7 +12,7 @@ all: setup build
 build:
 	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist mrproper
 	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist SilverBulletTech/SDRDC_defconfig
-	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist clean all
+	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist clean all PV=$(PV)
 	@mkdir -p $(SBT_TOP)/out/$(SBT_NOW)
 	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/kernel.img  out/$(SBT_NOW)/kernel.img
 	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/devtree.img out/$(SBT_NOW)/devtree.img
