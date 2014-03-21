@@ -61,6 +61,7 @@ install: $(BIN)/$(ANAME) $(BIN)/$(SHARED) $(BIN)/$(LDNAME) $(BIN)/$(SONAME)
 	cp -a $(NAME).h                         $(STAGEDIR)/usr/include
 	cp -a include/post/api_types.h          $(STAGEDIR)/usr/include/$(NAME)
 	cp -a include/lib/asfe_ctl_hal*.h       $(STAGEDIR)/usr/include/$(NAME)
+	cp -a include/common/common.h           $(STAGEDIR)/usr/include/$(NAME)
 
 $(BIN)/$(ANAME): $(OBJS)
 	$(AR) rcs $@ $^
