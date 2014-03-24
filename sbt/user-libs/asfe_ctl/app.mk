@@ -42,7 +42,7 @@ APP_CFLAGS := \
 	-Iinclude/app/config \
 	-Iinclude/app/$(NAME) \
 	-Iinclude/common \
-	-Iinclude/lib
+	-Iinclude/lib \
 
 ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
 REV_CFLAGS += -DBOARD_REV_CUT1

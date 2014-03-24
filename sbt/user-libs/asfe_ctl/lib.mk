@@ -27,6 +27,7 @@ OBJS := \
 	src/lib/asfe_ctl_hal_linux_spidev.o \
 	src/lib/asfe_ctl_hal_sim.o \
 	src/lib/asfe_ctl_hal.o \
+	src/lib/asfe_ctl_lib.o \
 	src/lib/common.o
 
 ADI_CFLAGS := \
@@ -59,8 +60,10 @@ install: $(BIN)/$(ANAME) $(BIN)/$(SHARED) $(BIN)/$(LDNAME) $(BIN)/$(SONAME)
 	# Install includes to stage dir
 	mkdir -p $(STAGEDIR)/usr/include/$(NAME)
 	cp -a $(NAME).h                         $(STAGEDIR)/usr/include
+	cp -a include/app/$(NAME)/main.h        $(STAGEDIR)/usr/include/$(NAME)
 	cp -a include/post/api_types.h          $(STAGEDIR)/usr/include/$(NAME)
 	cp -a include/lib/asfe_ctl_hal*.h       $(STAGEDIR)/usr/include/$(NAME)
+	cp -a include/lib/asfe_ctl_lib*.h       $(STAGEDIR)/usr/include/$(NAME)
 	cp -a include/common/common.h           $(STAGEDIR)/usr/include/$(NAME)
 
 $(BIN)/$(ANAME): $(OBJS)

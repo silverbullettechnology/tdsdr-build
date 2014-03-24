@@ -495,6 +495,12 @@ int main (int argc, char **argv)
 		ret = interact(stdin);
 		fprintf(stderr, "\nLeaving interactive mode\n");
 	}
+	
+	asfe_test_function();
+	asfe_ctl_dev_reopen(0,0);
+	UINT16 asfe_data[] = {1,2,3,4,5};
+
+	asfe_ctl_spiwritearray(&asfe_data[0], 5);
 
 	export_active_channels();
 	return ret < 0;
