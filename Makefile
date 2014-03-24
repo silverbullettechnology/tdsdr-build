@@ -5,14 +5,12 @@ export SBT_TOP := $(PWD)
 
 include Config
 
-.PHONY: all build setup clean
+.PHONY: all build setup clean reset
 
 all: setup build
 
 build:
-	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist mrproper
-	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist SilverBulletTech/SDRDC_defconfig
-	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist clean all PV=$(PV)
+	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist all PV=$(PV)
 	@mkdir -p $(SBT_TOP)/out/$(SBT_NOW)
 	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/kernel.img  out/$(SBT_NOW)/kernel.img
 	@cp -v $(SBT_PETALINUX)/software/petalinux-dist/images/devtree.img out/$(SBT_NOW)/devtree.img
@@ -27,10 +25,21 @@ setup:
 	@$(SHELL) $(SBT_TOOLS)/setup-petalinux.sh
 	@$(SHELL) $(SBT_TOOLS)/setup-vendors.sh
 	@$(SHELL) $(SBT_TOOLS)/setup-links.sh
+	@$(MAKE)  .reset
+
+reset:
+	@rm -rf  .reset
+	@$(MAKE) .reset
+
+.reset:
+	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist mrproper
+	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist SilverBulletTech/$(SBT_BSP)_defconfig
+	@touch $@
 
 clean:
 	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist mrproper
 	@rm -rf out/
+	@rm -rf .reset
 
 
 
