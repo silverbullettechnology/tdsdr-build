@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 	ad9361_load_filter_fir_config (1, "/usr/lib/ad9361/filter/wimax");
 
 	//set some GPIOs and write some data to the ASFE spi interface in preparation for transmit.	
-	printf("Running asfe functions.\n");
 	asfe_ctl_spitransaction(&asfe_data[0], &asfe_rd_data[0], 5);
 	asfe_ctl_adi1_tx_en(1);
 	asfe_ctl_adi2_tx_en(1);
