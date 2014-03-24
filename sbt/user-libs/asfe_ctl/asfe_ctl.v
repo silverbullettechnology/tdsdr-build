@@ -40,6 +40,7 @@ asfe_ctl_0.1 {
 		asfe_ctl_hal_linux_attach;
 		asfe_ctl_hal_linux_cleanup;
 		asfe_ctl_hal_linux_gpio_init;
+		asfe_ctl_hal_linux_set_gpio;
 		asfe_ctl_hal_linux_gpio_done;
 		asfe_ctl_hal_linux_spi_init;
 		asfe_ctl_hal_linux_spi_done;
@@ -47,6 +48,22 @@ asfe_ctl_0.1 {
 		asfe_ctl_hal_linux_uart_done;
 		/* src/lib/asfe_ctl_hal_sim.c */
 		asfe_ctl_hal_sim_attach;
+		/* src/lib/asfe_ctl_lib.c */
+		asfe_test_function;
+		asfe_ctl_spiwritearray;
+		asfe_ctl_dev_reopen;
+		asfe_ctl_spitransaction;
+		asfe_ctl_asfe_spare_1;
+		asfe_ctl_asfe_spare_2;
+		asfe_ctl_asfe_rstn;
+		asfe_ctl_adi1_tx_en;
+		asfe_ctl_asfe_reserve1;
+		asfe_ctl_asfe_reserve2;
+		asfe_ctl_asfe_reserve4;
+		asfe_ctl_asfe_reserve3;
+		asfe_ctl_adi2_tx_en;
+		asfe_ctl_asfe_spare_3;
+		asfe_ctl_asfe_spare_4;
 	local:
 		*;
 };

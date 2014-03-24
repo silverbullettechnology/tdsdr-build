@@ -24,6 +24,7 @@ void asfe_ctl_hal_linux_cleanup  (void);
 
 
 int  asfe_ctl_hal_linux_gpio_init (const int pins[3]);
+int  asfe_ctl_hal_linux_set_gpio (int pin, int val);
 void asfe_ctl_hal_linux_gpio_done (void);
 int  asfe_ctl_hal_linux_spi_init  (const char *dev);
 void asfe_ctl_hal_linux_spi_done  (void);
