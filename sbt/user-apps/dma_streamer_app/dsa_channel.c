@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <ad9361.h>
+
 #include "dsa_main.h"
 #include "dsa_sample.h"
 #include "dsa_channel.h"
@@ -722,24 +724,21 @@ void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps)
 int dsa_channel_check_active (int ident)
 {
 	unsigned char  need = 0;
+	unsigned char  regs[2];
 	int            idx = 0;
 	int            ret = 0;
 	int            dev;
 	int            msg = 0;
 
-	for ( dev = DC_DEV_AD1; dev <= DC_DEV_AD2; dev <<= 1 )
-		if ( ident & dev )
+	for ( dev = 0; dev <= 1; dev++ )
+		if ( ident & DC_DEV_IDX_TO_MASK(dev) )
 		{
-			switch ( dev | (ident & (DC_DIR_TX|DC_DIR_RX)) )
-			{
-				case DC_DIR_TX|DC_DEV_AD1: idx = 0; break;
-				case DC_DIR_RX|DC_DEV_AD1: idx = 1; break;
-				case DC_DIR_TX|DC_DEV_AD2: idx = 2; break;
-				case DC_DIR_RX|DC_DEV_AD2: idx = 3; break;
-				default:
-					errno = EINVAL;
-					return -1;
-			}
+			ad9361_spi_read_byte(dev, 0x002, &regs[0]);
+			ad9361_spi_read_byte(dev, 0x003, &regs[1]);
+			regs[0] &= 0xC0;
+			regs[1] &= 0xC0;
+
+			idx = ident & DC_DIR_TX ? 0 : 1;
 			if ( ident & DC_CHAN_1 )  need |= 0x40;
 			if ( ident & DC_CHAN_2 )  need |= 0x80;
 
@@ -747,20 +746,20 @@ int dsa_channel_check_active (int ident)
 			// channels list - the user is requesting a channel which is not active.  the
 			// other direction isn't as bad, the user's ignoring an active channel.  on TX
 			// we'll send 0 paint, on RX we'll discard the samples
-			if ( need & ~(dsa_active_channels[idx] & 0xC0) )
+			if ( need & ~(regs[idx] & 0xC0) )
 			{
 				if ( ! msg++ )
 					LOG_ERROR("DMA transfer doesn't match channels configured in "
 					          "AD9361(s):\n");
 
 				LOG_ERROR("  %s %s: needed:%s%s, configured:%s%s%s\n",
-				          (dev == DC_DEV_AD1) ? "AD1" : "AD2",
+				          dev ? "AD2" : "AD1",
 				          (ident & DC_DIR_TX) ? "TX"  : "RX",
 				          need & 0x80 ? " CH2" : "",
 				          need & 0x40 ? " CH1" : "",
-				          dsa_active_channels[idx] & 0x80 ? " CH2" : "",
-				          dsa_active_channels[idx] & 0x40 ? " CH1" : "",
-				          dsa_active_channels[idx] & 0xC0 ? "" : " none");
+				          regs[idx] & 0x80 ? " CH2" : "",
+				          regs[idx] & 0x40 ? " CH1" : "",
+				          regs[idx] & 0xC0 ? "" : " none");
 				
 				ret++;
 			}

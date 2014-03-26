@@ -15,7 +15,7 @@ LDLIBS += -lm
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS) -lad9361
 
 dsa_format: dsa_format.c dsa_common.c log.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
