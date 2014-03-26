@@ -288,6 +288,7 @@ int parse_enum (int *val, size_t size, const struct ad9361_enum_map *map,
 	}
 
 	// second try lookup as a string, if that passes keep it
+	errno = 0;
 	*val = ad9361_enum_get_value(map, arg);
 	if ( !errno )
 		return 0;
