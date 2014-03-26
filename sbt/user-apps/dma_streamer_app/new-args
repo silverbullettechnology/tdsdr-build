@@ -278,7 +278,7 @@
 	data from a WiMAX signal in IQW format, then play continuously until a key is hit.
 
 	In AD9361 tool:
-		ad9361:1> dmaLoad ad12t12 /media/card/wimax.iqw
+		ad9361:1> dmaLoad ad12t12 802.16d-64q-cp16.iqw
 		Using infile size 14336 for size
 		ad9361:2> dmaTrigger cont
 		Starting continuous transfers, press any key to stop...
@@ -286,7 +286,7 @@
 		ad9361:4> 
 
 	Standalone dma_streamer_app:
-		# dma_streamer_app ad12t12 /media/card/wimax.iqw cont
+		# dma_streamer_app ad12t12 802.16d-64q-cp16.iqw cont
 		Using infile size 14336 for size
 		Starting continuous transfers, press any key to stop...
 		# 

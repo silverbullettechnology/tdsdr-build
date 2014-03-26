@@ -190,7 +190,7 @@ char *path_match (char *dst, size_t max, const char *search, const char *leaf)
 	return NULL;
 }
 
-void terminal_pause (void)
+int terminal_pause (void)
 {
 	struct timeval  tv;
 	struct termios  tio_old;
@@ -221,6 +221,7 @@ void terminal_pause (void)
 
 	// restore settings
 	tcsetattr(STDIN_FILENO, TCSANOW, &tio_old);
+	return buff[0];
 }
 
 
