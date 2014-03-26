@@ -111,6 +111,9 @@ romfs: $(APPS)
 	-(cd script/etc && cp -a * $(ROMFSDIR)$(ETC_DIR))
 	-(cd script/lib && cp -a * $(ROMFSDIR)$(LIB_DIR))
 	chmod -R +x $(ROMFSDIR)$(LIB_DIR)/script
+	install -m755 script/init/ad9361-sleep.sh $(ROMFSDIR)/etc/init.d
+	rm -f $(ROMFSDIR)/etc/rcS.d/S95ad9361-sleep.sh
+	ln -s ../init.d/ad9361-sleep.sh $(ROMFSDIR)/etc/rcS.d/S95ad9361-sleep.sh
 
 clean:
 	rm -f $(OBJS)
