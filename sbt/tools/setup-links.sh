@@ -12,7 +12,7 @@ for type in apps libs modules; do
 		if [ -L "$link" ]; then
 			echo "User-$type $name is already a symlink, no action taken"
 		elif [ -e "$link" ]; then
-			echo "SBT vendor tree in PetaLinux is obscured, no action taken"
+			echo "User-$type $name is obscured, no action taken"
 		else
 			ln -s ../../../sbt/user-$type/$name "$link"
 		fi

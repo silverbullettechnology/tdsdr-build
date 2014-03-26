@@ -1,5 +1,5 @@
 #!/bin/sh
-# Init script for AD9361 tool using legacy ADI driver
+# Example shell script using AD9361 tool
 #
 # Copyright 2013,2014 Silver Bullet Technology
 #

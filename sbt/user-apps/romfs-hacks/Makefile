@@ -26,15 +26,7 @@ clean:
 romfs:
 	rm   -rf $(ROMFSDIR)/media/
 	mkdir -p $(ROMFSDIR)/media/
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
-	$(SHELL) add-path-entry.sh cut1
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT2
-	$(SHELL) add-path-entry.sh cut2
-endif
-ifdef CONFIG_DEFAULTS_SILVERBULLETTECH_SDRDC
 	$(SHELL) add-path-entry.sh
-endif
 	install -m755 switch.sh $(ROMFSDIR)/switch
 	install -m755 scanall.sh $(ROMFSDIR)/etc/init.d/scanall
 	rm -f $(ROMFSDIR)/etc/rcS.d/S30scanall

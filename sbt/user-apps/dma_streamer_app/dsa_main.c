@@ -32,13 +32,6 @@
 LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 
 #define LIB_DIR "/usr/lib/ad9361"
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
 
 #define EXPORT_FILE "/tmp/.ad9361.channels"
 
@@ -220,8 +213,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}

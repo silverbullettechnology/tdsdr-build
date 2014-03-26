@@ -46,14 +46,6 @@
 #define DEF_DEV_NUM 0
 #define EXPORT_FILE "/tmp/.asfe_ctl.channels"
 
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
-
 
 char *argv0;
 int   opt_dev_num  = DEF_DEV_NUM;
@@ -411,8 +403,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}
