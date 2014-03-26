@@ -978,5 +978,17 @@
 			}; // spi_shim_2_0
 
 		}; // spi2
+
+		test: remoteproc-test@0 {
+			compatible = "xlnx,zynq_remoteproc";
+			reg = < 0x0 0x10000000 >;
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 37 4 0 38 4>;
+			firmware = "freertos";
+			ipino = <5>;
+			vring0 = <2>;
+			vring1 = <3>;
+		} ;
+
 	} ;
 } ;
