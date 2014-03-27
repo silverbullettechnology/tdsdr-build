@@ -346,10 +346,11 @@ LOG_DEBUG("dsa_parse_channel(): return %d\n", optind);
 
 void dsa_command_trigger_usage (void)
 {
-	printf("\nTrigger options: [-sSefuc] [reps|once|cont|press [reps]]\n"
+	printf("\nTrigger options: [-sSMefuc] [reps|once|cont|press [reps]]\n"
 	       "Where:\n"
 	       "-s  Show statistics for DMA transfers after completion (default)\n"
 	       "-S  Suppress statistics display\n"
+	       "-M  Forbid changing ENSM mode: user must setup AD9361s in correct mode\n"
 	       "-e  Debugging: compare expected TX checksum with FPGA value\n"
 	       "-f  Debugging: show FIFO counters before and after transfer\n"
 	       "-u  Debugging: un-transpose RX data after transfer in software\n"
@@ -387,6 +388,7 @@ int dsa_command_trigger (int argc, char **argv)
 	int                 exp      = 0;
 	int                 utp      = 0;
 	int                 ctrl     = 0;
+	int                 ensm     = 0;
 	int                 ret;
 	int                 dev;
 
@@ -396,12 +398,13 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	//
 	optind = 1;
-	while ( (ret = posix_getopt(argc, argv, "fsSeuc")) > -1 )
+	while ( (ret = posix_getopt(argc, argv, "fsSMeuc")) > -1 )
 		switch ( ret )
 		{
 			case 'f': fifo  = 1; break;
 			case 's': stats = 1; break;
 			case 'S': stats = 0; break;
+			case 'M': ensm = 1;  break;
 			case 'e': exp = 1;   break;
 			case 'u': utp = 1;   break;
 			case 'c': ctrl = 1;  break;
@@ -580,6 +583,18 @@ for ( ret = 0; ret <= argc; ret++ )
 		dsa_main_show_fifos(&fb);
 	}
 
+
+	// check AD9361s are in correct ENSM mode for TX/RX/FDD, wake from sleep if necessary
+	if ( (ret = dsa_channel_check_and_wake(&dsa_evt, ensm)) )
+	{
+		if ( ret < 0 )
+			LOG_ERROR("API call failed: %s\n", strerror(errno));
+
+		dsa_main_unmap();
+		return -1;
+	}
+
+
 	// Trigger DMA and block until complete
 	switch ( trig )
 	{
@@ -632,6 +647,10 @@ for ( ret = 0; ret <= argc; ret++ )
 			dsa_ioctl_adi_new_stop();
 			break;
 	}
+
+
+	if ( !ensm && dsa_channel_ensm_wake )
+		dsa_channel_sleep();
 
 
 	// Show FIFO numbers before transfer
