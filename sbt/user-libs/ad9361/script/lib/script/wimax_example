@@ -12,6 +12,10 @@
 # KIND, either express or implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
+# Set alert mode to allow chip configuration
+ad9361 -d0 set_ensm_mode 2
+ad9361 -d1 set_ensm_mode 2
+
 # Enable FIR filters
 
 ad9361 -d0 set_filter_fir_config             wb_wimax
@@ -38,5 +42,11 @@ ad9361 -d1 get_out_voltage_sampling_frequency
 ad9361 -d1 set_in_voltage_sampling_frequency  4000000
 ad9361 -d1 get_in_voltage_sampling_frequency
 
+# Set sleep mode to conserve power
+# ad9361 -d0 set_ensm_mode 0
+# ad9361 -d1 set_ensm_mode 0
+
 # load the example waveform and stream continuously across all TX channels
 dma_streamer_app adt /usr/lib/ad9361/data/802.16d-64q-cp16.iqw cont
+
+

@@ -24,7 +24,7 @@ do_strip: all
 	$(STRIP) $(APP)
 
 romfs: all $(DO_STRIP)
-	$(ROMFSINST) -d $(APP) /bin/$(APP)
+	$(ROMFSINST) -d $(APP) /usr/bin/$(APP)
 
 image: romfs
 	make -C ${PETALINUX}/software/petalinux-dist image

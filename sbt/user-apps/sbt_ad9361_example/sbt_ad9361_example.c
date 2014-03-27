@@ -16,6 +16,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <ad9361.h>
 #include <asfe_ctl.h>
 
@@ -36,6 +37,10 @@ int main(int argc, char *argv[])
 	//set up the ASFE_CTL HAL
 	asfe_ctl_hal_linux_attach();
 	asfe_ctl_dev_reopen(0,0);
+
+	//set both ADI devices to alert mode to permit chip configuration
+	ad9361_set_ensm_mode(0,2);
+	ad9361_set_ensm_mode(1,2);
 
 	//set the rx port configuration for both AD9361 devices to AD9361_IN_RF_PORT_SELECT_A_BALANCED
 	ad9361_set_in_voltage1_rf_port_select(0,0);
@@ -62,10 +67,10 @@ int main(int argc, char *argv[])
 	ad9361_set_out_voltage_sampling_frequency(1,4000000);
 
 	//set the tx and rx frequencies to 2400 MHz
-	ad9361_set_out_altvoltage0_RX_LO_frequency(0,2400000000);
-	ad9361_set_out_altvoltage1_TX_LO_frequency(0,2400000000);
-	ad9361_set_out_altvoltage0_RX_LO_frequency(1,2400000000);
-	ad9361_set_out_altvoltage1_TX_LO_frequency(1,2400000000);
+	ad9361_set_out_altvoltage0_RX_LO_frequency(0,2400000000ULL);
+	ad9361_set_out_altvoltage1_TX_LO_frequency(0,2400000000ULL);
+	ad9361_set_out_altvoltage0_RX_LO_frequency(1,2400000000ULL);
+	ad9361_set_out_altvoltage1_TX_LO_frequency(1,2400000000ULL);
 
 	//load the FIR filter configuration and activate the FIR filters.  Filters must be loaded twice.	
 	ad9361_load_filter_fir_config (0, "/usr/lib/ad9361/filter/wimax");
