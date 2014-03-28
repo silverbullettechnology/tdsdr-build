@@ -141,6 +141,35 @@ int asfe_ctl_hal_linux_gpio_init (const int pins[3])
 	return 0;
 }
 
+int asfe_ctl_hal_linux_set_gpio (int pin, int val)
+{
+	char path[PATH_MAX];
+	snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d", pin);
+
+	// stat /sys tree, if not present try to export by pin number
+	struct stat sb;
+	if ( stat(path, &sb) && errno == ENOENT )
+	{
+		proc_printf("/sys/class/gpio/export", "%d\n", pin);
+		if ( stat(path, &sb) )
+			return -1;
+	}
+
+	// check direction, if already correct then move on
+	char buff[16];
+	snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", pin);
+	if ( proc_scanf(path, "%15s\n", buff) != 1 )
+		return -1;
+	if ( strcmp(buff, "out") )
+		proc_printf(path, "out\n");
+
+	// open file descriptor for value before checking direction
+	snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
+	if ( proc_printf(path, "%d\n", val) < 0 )
+		return -1;
+
+	return 0;
+}
 
 void asfe_ctl_hal_linux_gpio_done (void)
 {
@@ -163,7 +192,7 @@ static int asfe_ctl_hal_linux_spi_spd = 100000;
 
 static void asfe_ctl_hal_linux_spi_write_byte_array (UINT16 *data, UINT16 size)
 {
-	UINT8  txb[3];
+	UINT8  txb[256];
 	int    ret;
 	int    i;
 
@@ -176,6 +205,29 @@ static void asfe_ctl_hal_linux_spi_write_byte_array (UINT16 *data, UINT16 size)
 	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, size, txb, NULL,
 	                                    asfe_ctl_hal_linux_spi_spd);
 	assert(ret == size);
+}
+
+static void asfe_ctl_hal_linux_spi_exchange_byte_array (UINT16 *wr_data, UINT16 *rd_data, UINT16 size)
+{
+	UINT8  txb[256];
+	UINT8  rxb[256];
+	int    ret;
+	int    i;
+
+	assert(asfe_ctl_hal_linux_spi_fd > -1);
+
+	for(i = 0; i < size; i++){
+		txb[i] = wr_data[i];
+	}		
+
+	ret = asfe_ctl_hal_linux_spidev_txn(asfe_ctl_hal_linux_spi_fd, size, txb, rxb,
+	                                    asfe_ctl_hal_linux_spi_spd);
+	assert(ret == size);
+
+	for(i = 0; i < size; i++){
+		rxb[i] = rd_data[i];
+	}
+
 }
 
 
@@ -266,6 +318,7 @@ static struct asfe_ctl_hal asfe_ctl_hal_linux =
 {
 	.HAL_gpioWrite          = asfe_ctl_hal_linux_gpio_write,
 	.HAL_SPIWriteByteArray  = asfe_ctl_hal_linux_spi_write_byte_array,
+	.HAL_SPIExchangeByteArray  = asfe_ctl_hal_linux_spi_exchange_byte_array,
 	.HAL_SPIReadByte        = asfe_ctl_hal_linux_spi_read_byte,
 	.Timer_Wait             = asfe_ctl_hal_linux_timer_wait,
 	.HAL_uartSendByte       = asfe_ctl_hal_linux_uart_send_byte,

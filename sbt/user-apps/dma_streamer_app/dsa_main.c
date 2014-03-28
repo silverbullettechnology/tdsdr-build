@@ -23,6 +23,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <ad9361.h>
+
 #include "dsa_main.h"
 #include "dsa_ioctl.h"
 #include "dsa_command.h"
@@ -32,15 +34,6 @@
 LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 
 #define LIB_DIR "/usr/lib/ad9361"
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
-
-#define EXPORT_FILE "/tmp/.ad9361.channels"
 
 const char *dsa_argv0;
 int         dsa_dev = -1;
@@ -52,8 +45,6 @@ const char *dsa_opt_device   = DEF_DEVICE;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];
-
-unsigned char  dsa_active_channels[4];
 
 struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
@@ -220,8 +211,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}
@@ -250,9 +243,15 @@ static void dsa_main_footer (void)
 	       "- Allocate buffers for TX through both AD1 and AD2, load both TX1 and TX2\n"
 	       "  channels with data from a WiMAX signal in IQW format, then play 1000 reps\n"
 	       "  with stats displayed afterwards:\n"
-	       "  # dma_streamer_app  ad12t12 /media/card/wimax.iqw  -s 1000\n\n"
+	       "  # dma_streamer_app  ad12t12 802.16d-64q-cp16.iqw  -s 1000\n\n"
 	       "- The above could be shortened to:\n"
-	       "  # dma_streamer_app  adt /media/card/wimax.iqw  1000\n\n"
+	       "  # dma_streamer_app  adt 802.16d-64q-cp16.iqw  1k\n\n"
+	       "- The WiMAX signal above could be transmitted until a key is pressed:\n"
+	       "  # dma_streamer_app  adt 802.16d-64q-cp16.iqw  cont\n\n"
+	       "- Alternatively, the signal could be transmitted each time a key is pressed:\n"
+	       "  # dma_streamer_app  adt 802.16d-64q-cp16.iqw  press\n\n"
+	       "- Each press can also trigger a repeated burst of transmit events:\n"
+	       "  # dma_streamer_app  adt 802.16d-64q-cp16.iqw  press 100\n\n"
 	       "- Allocate buffers for RX on both AD1 and AD2, sample 1 million samples, and\n"
 	       "  write out to four separate files:\n"
 	       "  # dma_streamer_app -S 1M \\\n"
@@ -263,48 +262,6 @@ static void dsa_main_footer (void)
 	       "- Using printf-style substitutions as described under Buffer options, the above\n"
 	       "  could be shortened to:\n"
 	       "  # dma_streamer_app  -S 1M  adr /media/card/ad%%ar%%c.iqw\n");
-}
-
-static void import_active_channels (void)
-{
-	int  fd;
-	int  ret;
-	int  dev;
-	int  dir;
-
-	// before importing, auto-probe the channel config - starts ad9361 looking at ad1,
-	// then switch to ad2, then writes out the channel status on exit
-	system("/usr/bin/ad9361 device ad2 2>/dev/null");
-
-	memset(dsa_active_channels, 0, sizeof(dsa_active_channels));
-	if ( (fd = open(EXPORT_FILE, O_RDONLY)) < 0 )
-		return;
-
-	if ( (ret = read(fd, dsa_active_channels, sizeof(dsa_active_channels))) < 0 )
-	{
-		close(fd);
-		return;
-	}
-	close(fd);
-
-	if ( ret < sizeof(dsa_active_channels) )
-		memset(dsa_active_channels + ret, 0, sizeof(dsa_active_channels) - ret);
-
-	LOG_DEBUG("Active channels from %02x %02x %02x %02x:\n", 
-	          dsa_active_channels[0], dsa_active_channels[1], 
-	          dsa_active_channels[2], dsa_active_channels[3]);
-
-	for ( dev = 0; dev < 4; dev += 2 )
-		for ( dir = 0; dir < 2; dir++ )
-		{
-			unsigned char ch = dsa_active_channels[dev + dir];
-			LOG_DEBUG("  %s %s:%s%s%s\n",
-			          dev ? "AD2" : "AD1",
-			          dir ? "RX"  : "TX",
-			          ch & 0x80 ? " CH2" : "",
-			          ch & 0x40 ? " CH1" : "",
-			          ch & 0xC0 ? "" : " none");
-		}
 }
 
 int main(int argc, char *argv[])
@@ -332,6 +289,11 @@ int main(int argc, char *argv[])
 	for ( i = 0; i <= argc; i++ )
 		LOG_DEBUG("  argv[%d]: '%s'\n", i, argv[i]);
 
+	// Now that we're using the new API directly, init the HAL
+	if ( ad9361_hal_linux_init() < 0 )
+		stop("failed to init HAL");
+	if ( ad9361_hal_linux_attach() < 0 )
+		stop("failed to attach HAL");
 
 	// set global options - returns 0 on success, -1 on global options fail, -2 if '?'
 	// given, so print all the help
@@ -348,7 +310,6 @@ int main(int argc, char *argv[])
 		dsa_main_footer();
 		return 1;
 	}
-	import_active_channels();
 
 	unsigned long  mask;
 	if ( dsa_main_dev_reopen(&mask) < 0 )

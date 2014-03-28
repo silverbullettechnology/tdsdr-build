@@ -71,13 +71,6 @@ APP_CFLAGS := \
 	-Iinclude/common \
 	-Iinclude/lib
 
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
-REV_CFLAGS += -DBOARD_REV_CUT1
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT2
-REV_CFLAGS += -DBOARD_REV_CUT2
-endif
-
 ifeq ($(CONFIG_USER_LIBS_AD9361_READLINE),y)
 APP_CFLAGS += -DAD9361_USE_READLINE
 LIBS       += -lcurses -lreadline
@@ -115,9 +108,12 @@ romfs: $(APPS)
 	mkdir -p $(ROMFSDIR)/usr/bin
 	install -m755 $(BIN)/$(NAME) $(ROMFSDIR)/usr/bin
 	mkdir -p $(ROMFSDIR)$(ETC_DIR) $(ROMFSDIR)$(LIB_DIR)
-	-(cd script/etc; cp -a * $(ROMFSDIR)$(ETC_DIR))
-	-(cd script/lib; cp -a * $(ROMFSDIR)$(LIB_DIR))
+	-(cd script/etc && cp -a * $(ROMFSDIR)$(ETC_DIR))
+	-(cd script/lib && cp -a * $(ROMFSDIR)$(LIB_DIR))
 	chmod -R +x $(ROMFSDIR)$(LIB_DIR)/script
+	install -m755 script/init/ad9361-init.sh $(ROMFSDIR)/etc/init.d
+	rm -f $(ROMFSDIR)/etc/rcS.d/S95ad9361-init.sh
+	ln -s ../init.d/ad9361-init.sh $(ROMFSDIR)/etc/rcS.d/S95ad9361-init.sh
 
 clean:
 	rm -f $(OBJS)

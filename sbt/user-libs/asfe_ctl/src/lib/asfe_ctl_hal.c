@@ -16,6 +16,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
@@ -53,7 +54,6 @@ int asfe_ctl_hal_detach (void)
 	asfe_ctl_hal_spi_reg_clr();
 	return 0;
 }
-
 
 void asfe_ctl_hal_spi_reg_set (UINT16 addr, UINT8 data)
 {

@@ -42,14 +42,7 @@ APP_CFLAGS := \
 	-Iinclude/app/config \
 	-Iinclude/app/$(NAME) \
 	-Iinclude/common \
-	-Iinclude/lib
-
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
-REV_CFLAGS += -DBOARD_REV_CUT1
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT2
-REV_CFLAGS += -DBOARD_REV_CUT2
-endif
+	-Iinclude/lib \
 
 #ifeq ($(CONFIG_USER_LIBS_ASFE_CTL_READLINE),y)
 APP_CFLAGS += -DASFE_CTL_USE_READLINE
@@ -88,8 +81,8 @@ romfs: $(APPS)
 	mkdir -p $(ROMFSDIR)/usr/bin
 	install -m755 $(BIN)/$(NAME) $(ROMFSDIR)/usr/bin
 	mkdir -p $(ROMFSDIR)$(ETC_DIR) $(ROMFSDIR)$(LIB_DIR)
-	-(cd script/etc; cp -a * $(ROMFSDIR)$(ETC_DIR))
-	-(cd script/lib; cp -a * $(ROMFSDIR)$(LIB_DIR))
+	-(cd script/etc && cp -a * $(ROMFSDIR)$(ETC_DIR))
+	-(cd script/lib && cp -a * $(ROMFSDIR)$(LIB_DIR))
 	-chmod -R +x $(ROMFSDIR)$(LIB_DIR)/script
 
 clean:
