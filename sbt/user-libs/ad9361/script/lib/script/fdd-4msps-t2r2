@@ -13,10 +13,10 @@
 # permissions and limitations under the License.
 
 # Set AD1 to alert mode to allow chip configuration
+device ad1
 set_ensm_mode 2
 
 # Enable FIR filters
-device ad1
 set_filter_fir_config             wimax
 set_in_out_voltage_filter_fir_en  1
 set_filter_fir_config             wimax
@@ -32,10 +32,10 @@ get_in_voltage_sampling_frequency
 set_ensm_mode 0
 
 # Set AD2 to alert mode to allow chip configuration
+device ad2
 set_ensm_mode 2
 
 # Enable FIR filters
-device ad2
 set_filter_fir_config             wimax
 set_in_out_voltage_filter_fir_en  1
 set_filter_fir_config             wimax
