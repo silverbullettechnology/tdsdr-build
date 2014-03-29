@@ -28,7 +28,7 @@
 
 
 #define DSM_BUS_WIDTH  8
-#define DSM_MAX_SIZE   64000000
+#define DSM_MAX_SIZE   320000000
 
 #define DSM_IOCTL_MAGIC 1
 
