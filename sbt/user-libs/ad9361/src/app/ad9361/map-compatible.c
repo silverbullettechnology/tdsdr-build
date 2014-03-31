@@ -75,11 +75,11 @@ static int map_ADI_get_temperature (int argc, const char **argv)
 	if ( ad9361_get_in_temp0_input(0, &temp1) < 0 ) return -1;
 	if ( ad9361_get_in_temp0_input(1, &temp2) < 0 ) return -1;
 
-	//set the ADIs to alert mode to activate the AuxADC
+	//get the current ensm_mode before setting the ADIs to transmit mode to activate the AuxADC
 	ad9361_get_ensm_mode(0,&ensm_mode[0]);
 	ad9361_get_ensm_mode(1,&ensm_mode[1]);
 	
-	//note this only works with FDD mode 
+	//note this only works with FDD mode currently.  TODO: check for TDD mode as well.
 	if(ensm_mode[0] < 5)
 		ad9361_set_ensm_mode(0,5);
 	
@@ -125,7 +125,7 @@ static int map_ADI_get_temperature (int argc, const char **argv)
 	srate[0] = srate[0]/1000;
 	srate[1] = srate[1]/1000;
 
-	srate_factor[0] = ((((int)srate[0]*(-308))-4508580)/1000000)-1;
+	srate_factor[0] = (((((int)srate[0]*(-308))-4508580)/1000000)-1)+5;
 	srate_factor[1] = ((((int)srate[1]*(-308))-4508580)/1000000)-1;
 
 	ad9361_spi_write_byte(0, 0x01d, 1);
