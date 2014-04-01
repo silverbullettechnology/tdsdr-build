@@ -145,7 +145,7 @@ int execute (char *line)
 	char *argv[MAX_ARGS];
 	int   argc = 0;
 	char *t;
-	char *s;
+	char *s = NULL;
 
 	memset(argv, 0, sizeof(argv));
 	if ( (t = strtok_r(line, SEP_CHARS, &s)) )
@@ -166,7 +166,7 @@ int script (FILE *fp, script_hint_f hint_func)
 	int                   count = 1;
 	int                   ret = 0;
 	char                 *t;
-	char                 *s;
+	char                 *s = NULL;
 
 	if ( config_buffer_init(&line_buff, 4096, 4096) ||
 	     config_buffer_init(&hint_buff, 4096, 4096) )
@@ -246,7 +246,7 @@ int interact (FILE *fp)
 	char        prompt[32];
 	int         count = 1;
 	char       *t;
-	char       *s;
+	char       *s = NULL;
 	int         ret = 0;
 	char       *line;
 	char       *buff;
