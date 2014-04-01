@@ -45,6 +45,9 @@ fi
 
 echo "Start AD1/AD2..."
 /usr/bin/ad9361 fdd-4msps-t2r2
+sleep 1
+/usr/bin/ad9361 -d0 set_ensm_mode fdd
+/usr/bin/ad9361 -d1 set_ensm_mode fdd
 
 echo "Start CPU threads..."
 rm -f /tmp/sst.pids
@@ -100,6 +103,10 @@ else
 	done
 
 fi
+
+echo "Stopping AD1/AD2..."
+/usr/bin/ad9361 -d0 set_ensm_mode sleep
+/usr/bin/ad9361 -d1 set_ensm_mode sleep
 
 echo "Stopping test threads..."
 killall stress-mem stress-fpu stress-mmc stress-nor stress-alu 2>/dev/null
