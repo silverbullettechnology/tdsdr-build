@@ -37,12 +37,6 @@ reset:
 	@touch $@
 
 clean:
-	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist mrproper
+	@$(SHELL) $(SBT_TOOLS)/petalinux-make.sh -C software/petalinux-dist clean
 	@rm -rf out/
-	@rm -rf .reset
-
-
-
-
-
 
