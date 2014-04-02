@@ -45,15 +45,6 @@
 #define MAX_ARGS    32
 #define SEP_CHARS   " \t\n\r"
 #define DEF_DEV_NUM 0
-#define EXPORT_FILE "/tmp/.ad9361.channels"
-
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
 
 
 char *argv0;
@@ -67,41 +58,6 @@ char  env_profile_path[PATH_MAX];
 char  env_script_path[PATH_MAX];
 char  env_filter_path[PATH_MAX];
 char  env_data_path[PATH_MAX];
-
-
-static void export_active_channels (void)
-{
-	uint8_t        fb[4];
-	int            fd;
-	int            ret;
-
-	if ( (fd = open(EXPORT_FILE, O_RDWR|O_CREAT, 0644)) < 0 )
-		stop(EXPORT_FILE);
-
-	if ( (ret = read(fd, fb, sizeof(fb))) < 0 )
-		stop(EXPORT_FILE);
-	if ( ret < sizeof(fb) )
-		memset(fb + ret, 0, sizeof(fb) - ret);
-
-	ad9361_spi_read_byte(0, 0x002, &fb[0]);
-	ad9361_spi_read_byte(0, 0x003, &fb[1]);
-	ad9361_spi_read_byte(1, 0x002, &fb[2]);
-	ad9361_spi_read_byte(1, 0x003, &fb[3]);
-
-	fb[0] &= 0xC0;
-	fb[1] &= 0xC0;
-	fb[2] &= 0xC0;
-	fb[3] &= 0xC0;
-
-	if ( lseek(fd, 0, SEEK_SET) )
-		stop(EXPORT_FILE);
-
-	if ( (ret = write(fd, fb, sizeof(fb))) != sizeof(fb) )
-		stop(EXPORT_FILE);
-
-	if ( close(fd) )
-		stop(EXPORT_FILE);
-}
 
 
 void stop (const char *fmt, ...)
@@ -189,7 +145,7 @@ int execute (char *line)
 	char *argv[MAX_ARGS];
 	int   argc = 0;
 	char *t;
-	char *s;
+	char *s = NULL;
 
 	memset(argv, 0, sizeof(argv));
 	if ( (t = strtok_r(line, SEP_CHARS, &s)) )
@@ -210,7 +166,7 @@ int script (FILE *fp, script_hint_f hint_func)
 	int                   count = 1;
 	int                   ret = 0;
 	char                 *t;
-	char                 *s;
+	char                 *s = NULL;
 
 	if ( config_buffer_init(&line_buff, 4096, 4096) ||
 	     config_buffer_init(&hint_buff, 4096, 4096) )
@@ -290,7 +246,7 @@ int interact (FILE *fp)
 	char        prompt[32];
 	int         count = 1;
 	char       *t;
-	char       *s;
+	char       *s = NULL;
 	int         ret = 0;
 	char       *line;
 	char       *buff;
@@ -343,8 +299,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}
@@ -419,7 +377,6 @@ int main (int argc, char **argv)
 	ad9361_hal_linux_init();
 	ad9361_hal_linux_attach();
 	ad9361_legacy_dev = opt_dev_num;
-	export_active_channels();
 #endif
 
 	// if at least one argv is given, search map for function name or try to run as script
@@ -436,7 +393,6 @@ int main (int argc, char **argv)
 		fprintf(stderr, "\nLeaving interactive mode\n");
 	}
 
-	export_active_channels();
 	return ret < 0;
 }
 

@@ -26,6 +26,13 @@ export SBT_PETALINUX_SDK := $(HOME)/sdrdc/petalinux-v2013.04-final-full.tar.gz
 export SBT_PETALINUX_VER := 2013.04
 
 
+# BSP selection
+# Select the default BSP "SDRDC" for normal SMP use.  Select the BSP "SDRDC-AMP" for AMP
+# use with FreeRTOS, as described in Xilinx UG978 "Zynq AMP Linux FreeRTOS Guide"
+export SBT_BSP := SDRDC
+#export SBT_BSP := SDRDC-AMP
+
+
 # You shouldn't need to modify anything beyond here
 SBT_TOOLS     := $(SBT_TOP)/sbt/tools
 SBT_FILES     := $(SBT_TOP)/sbt/files

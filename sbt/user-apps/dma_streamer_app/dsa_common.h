@@ -26,7 +26,7 @@ size_t size_bin (const char *str);
 size_t size_dec (const char *str);
 uint64_t dsnk_sum (void *buff, size_t size);
 int posix_getopt (int argc, char **argv, const char *optstring);
-void terminal_pause (void);
+int terminal_pause (void);
 
 
 /** Find a leaf filename in a colon-separated path list and return a full path

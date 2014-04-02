@@ -1,5 +1,5 @@
 --- a/settings.sh	2013-04-19 19:21:25.000000000 -0700
-+++ b/settings.sh	2014-01-07 10:46:00.000000000 -0800
++++ b/settings.sh	2014-03-23 18:25:42.737978487 -0700
 @@ -104,5 +104,9 @@
      return $?
    fi
@@ -11,7 +11,7 @@
  fi
  
 --- a/software/petalinux-dist/vendors/PetaLogix/common/common.mak	2013-04-08 21:41:05.000000000 -0700
-+++ b/software/petalinux-dist/vendors/PetaLogix/common/common.mak	2014-01-14 16:21:34.919477168 -0800
++++ b/software/petalinux-dist/vendors/PetaLogix/common/common.mak	2014-03-24 11:33:21.404973168 -0700
 @@ -10,18 +10,14 @@
  BOOTDIR = $(ROOTDIR)/$(LINUXDIR)/arch/$(ARCH)/boot
  DTSDIR = $(BOOTDIR)/dts
@@ -33,7 +33,24 @@
  VMLINUX  = $(ROOTDIR)/$(LINUXDIR)/vmlinux
  LINUXBIN = $(IMAGEDIR)/linux.bin
  ifneq ($(BUILD_UBOOT),)
-@@ -162,6 +158,7 @@
+@@ -79,6 +75,16 @@
+ 
+ I2C_MAJOR = 89
+ 
++# CONFIG_PHYS_OFFSET: as mentioned in UG978 (v2013.04) FIT images fail when using a
++# physical offset for AMP.  Since uImage requires a load address anyways, adding the
++# offset here works.
++UIMAGE_LOADADDR := 0x00100000
++ifdef CONFIG_PHYS_OFFSET
++  ifneq ($(CONFIG_PHYS_OFFSET),0x0)
++    UIMAGE_LOADADDR := $(shell printf '%08x' $$(($(CONFIG_PHYS_OFFSET) + 0x00100000)))
++  endif
++endif
++
+ all::
+ 	dirs=$(DIRS) ; \
+ 	for i in $$dirs ; do  $(MAKE) -C $$i || exit $? ; done
+@@ -162,6 +168,7 @@
  image: $(FSIMG) $(LINUXBIN) $(ELFIMAGE) $(VEND_PROD_DTB) $(RELOCATE_IMAGE) $(UBIMAGE)
  	# Copy DTB file to the images/ directory
  	@cp $(VEND_PROD_DTB) $(IMAGEDIR)/system.dtb
@@ -41,17 +58,26 @@
  	# Copy image files into /tftpboot, if requested
  	@if [ "$(CONFIG_SYSTEM_COPY_TO_TFTPBOOT)" = "y" ] ; then \
  		if [ -w "$(CONFIG_SYSTEM_TFTPBOOT_DIR)" ]; then \
-@@ -187,6 +183,8 @@
+@@ -187,6 +194,8 @@
  
  $(LINUXELF): $(DTSFILE) $(LINUX_CONFIG)
  	$(MAKEARCH_KERNEL) -j$(HOST_NCPU) -C $(ROOTDIR)/$(LINUXDIR) $(SIMPLETARGET)
-+	$(MAKEARCH_KERNEL) -C $(ROOTDIR)/$(LINUXDIR) uImage LOADADDR=0x00100000
++	$(MAKEARCH_KERNEL) -C $(ROOTDIR)/$(LINUXDIR) uImage LOADADDR=$(UIMAGE_LOADADDR)
 +	cp $(BOOTDIR)/uImage $(IMAGEDIR)/kernel.img
  
  # $(LINUXELF) is a DTB-embedded bootable ELF image - this is just a simple copy
  $(ELFIMAGE): $(LINUXELF)
---- a/software/petalinux-dist/Makefile	(revision 484)
-+++ b/software/petalinux-dist/Makefile	(working copy)
+--- a/software/petalinux-dist/Makefile	2013-04-08 21:41:05.000000000 -0700
++++ b/software/petalinux-dist/Makefile	2014-03-24 12:09:50.170928498 -0700
+@@ -406,7 +406,7 @@
+ 		echo "ERROR: you need to do a 'make config' first" ; \
+ 		exit 1 ; \
+ 	fi
+-	$(MAKEARCH_KERNEL) -C $(LINUXDIR) dep
++	$(MAKEARCH_KERNEL) -C $(LINUXDIR) prepare
+ 
+ # This one removes all executables from the tree and forces their relinking
+ .PHONY: relink
 @@ -556,12 +556,12 @@
  	esac
  

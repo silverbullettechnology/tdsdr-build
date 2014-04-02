@@ -140,7 +140,6 @@ static int dsm_thread (void *data)
 	spinlock_t                      irq_lock;
 	int                             ret = 0;
 	u32                             reg;
-	int                             continuous;
 
 	smp_rmb();
 	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
@@ -156,11 +155,11 @@ static int dsm_thread (void *data)
 	if ( parent->old_regs && state->dir == DMA_MEM_TO_DEV )
 		REG_WRITE(&parent->old_regs->cs_rst, 0xFFFFFFFF);
 
-	continuous = atomic_read(&state->continuous);
-	while ( atomic_read(&state->continuous) || state->left > 0 )
+	state->left = state->chunk;
+	memset(&state->stats, 0, sizeof(struct dsm_xfer_stats));
+	while ( state->left > 0 )
 	{
-		if ( !continuous )
-			pr_debug("%s: left %lu, start %d\n", state->name, state->left, state->start);
+		pr_debug("%s: left %lu, start %d\n", state->name, state->left, state->start);
 
 		/* Only one interrupt */
 		xil_conf.coalesc = 1;
@@ -280,11 +279,14 @@ static int dsm_thread (void *data)
 		state->stats.bytes += state->bytes;
 		state->stats.completes++;
 
-		if ( !continuous )
+		pr_debug("%s: left %lu - %lu -> ", state->name, state->left, state->words);
+		state->left -= state->words;
+		pr_debug("%lu\n", state->left);
+
+		if ( !state->left && atomic_read(&state->continuous) )
 		{
-			pr_debug("%s: left %lu - %lu -> ", state->name, state->left, state->words);
-			state->left -= state->words;
-			pr_debug("%lu\n", state->left);
+			pr_debug("continuous: reset\n");
+			state->left = state->chunk;
 		}
 	}
 

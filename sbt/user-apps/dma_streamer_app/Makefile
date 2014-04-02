@@ -12,17 +12,10 @@ endif
 CFLAGS += -Wall -Werror
 LDLIBS += -lm
 
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
-REV_CFLAGS += -DBOARD_REV_CUT1
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT2
-REV_CFLAGS += -DBOARD_REV_CUT2
-endif
-
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS) -lad9361
 
 dsa_format: dsa_format.c dsa_common.c log.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)

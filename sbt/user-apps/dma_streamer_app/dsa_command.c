@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <errno.h>
 
 #include <dma_streamer_mod.h>
@@ -345,17 +346,34 @@ LOG_DEBUG("dsa_parse_channel(): return %d\n", optind);
 
 void dsa_command_trigger_usage (void)
 {
-	printf("\nTrigger options: [-sSefuc] [reps|once]\n"
+	printf("\nTrigger options: [-sSMefuc] [reps|once|cont|press [reps]]\n"
 	       "Where:\n"
 	       "-s  Show statistics for DMA transfers after completion (default)\n"
 	       "-S  Suppress statistics display\n"
+	       "-M  Forbid changing ENSM mode: user must setup AD9361s in correct mode\n"
 	       "-e  Debugging: compare expected TX checksum with FPGA value\n"
 	       "-f  Debugging: show FIFO counters before and after transfer\n"
 	       "-u  Debugging: un-transpose RX data after transfer in software\n"
-	       "-c  Debugging: debug FIFO control registers before and after transfer\n"
-	       "The \"reps\" may be a number of repetitions to run before returning, or\n"
-	       "the word \"once\" for a single run, which is the default if omitted\n\n");
+	       "-c  Debugging: debug FIFO control registers before and after transfer\n\n"
+	       "The positional arguments support several operating modes:\n"
+	       "- reps may be a numeric number of repetitions to trigger, once, before cleaning\n"
+	       "  up and exiting.  The number may suffixed with K or M for convenience.\n"
+	       "- The word \"once\" is equivalent to a reps value of 1, and is the default.\n"
+	       "- The word \"cont\" means to repeat continuously until a key is pressed.\n"
+	       "- The word \"press\" means to wait until a key is pressed before each trigger.\n"
+	       "  After the first trigger, pressing Q, Esc, or arrow/function keys will\n"
+	       "  break the loop and exit, any other key will trigger another transfer.\n"
+	       "  A repetition count as described above may be given after \"press\" to specify the\n"
+	       "  number of repetitions per keypress.\n\n");
 }
+
+typedef enum
+{
+	TRIG_ONCE,
+	TRIG_PRESS,
+	TRIG_CONT,
+}
+trigger_t;
 
 int dsa_command_trigger (int argc, char **argv)
 {
@@ -364,11 +382,13 @@ int dsa_command_trigger (int argc, char **argv)
 	unsigned long       last[2];
 	unsigned long       reps     = 1;
 	unsigned long       timeout;
+	trigger_t           trig = TRIG_ONCE;
 	int                 fifo     = 0;
 	int                 stats    = 1;
 	int                 exp      = 0;
 	int                 utp      = 0;
 	int                 ctrl     = 0;
+	int                 ensm     = 0;
 	int                 ret;
 	int                 dev;
 
@@ -378,12 +398,13 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	//
 	optind = 1;
-	while ( (ret = posix_getopt(argc, argv, "fsSeuc")) > -1 )
+	while ( (ret = posix_getopt(argc, argv, "fsSMeuc")) > -1 )
 		switch ( ret )
 		{
 			case 'f': fifo  = 1; break;
 			case 's': stats = 1; break;
 			case 'S': stats = 0; break;
+			case 'M': ensm = 1;  break;
 			case 'e': exp = 1;   break;
 			case 'u': utp = 1;   break;
 			case 'c': ctrl = 1;  break;
@@ -395,12 +416,12 @@ for ( ret = 0; ret <= argc; ret++ )
 	// figure number of reps from argument
 	if ( !argv[optind] || !strcasecmp(argv[optind], "once") )
 	{
-		reps = 1;
+		trig = TRIG_ONCE;
 		LOG_INFO("Set for single trigger...\n");
 	}
 	else if ( !strcasecmp(argv[optind], "cont") )
 	{
-		reps = 0;
+		trig = TRIG_CONT;
 		if ( dsa_adi_new )
 			LOG_INFO("Set continuous triggers...\n");
 		else
@@ -409,16 +430,22 @@ for ( ret = 0; ret <= argc; ret++ )
 			return -1;
 		}
 	}
-	else if ( (reps = size_dec(argv[optind])) < 1 )
+	else if ( !strcasecmp(argv[optind], "press") )
+	{
+		trig = TRIG_PRESS;
+		if ( dsa_adi_new )
+			LOG_INFO("Set to trigger per keypress...\n");
+		if ( argv[optind + 1] )
+			optind++;
+	}
+
+	if ( argv[optind] && isdigit(argv[optind][0]) && (reps = size_dec(argv[optind])) < 1 )
 	{
 		LOG_ERROR("Invalid repetition count '%s'\n", argv[optind]);
 		return -1;
 	}
-
-	if ( reps )
+	if ( reps > 1 )
 		LOG_INFO("Set for %lu repetitions...\n", reps);
-	else
-		LOG_INFO("Set for continuous transfer...\n");
 
 	// load source buffers before map - allows buffer sized to input data size
 	// pass dsa_adi_new as lsh: new ADI PL enforces a 4-bit right-shift on TX data
@@ -556,24 +583,74 @@ for ( ret = 0; ret <= argc; ret++ )
 		dsa_main_show_fifos(&fb);
 	}
 
+
+	// check AD9361s are in correct ENSM mode for TX/RX/FDD, wake from sleep if necessary
+	if ( (ret = dsa_channel_check_and_wake(&dsa_evt, ensm)) )
+	{
+		if ( ret < 0 )
+			LOG_ERROR("API call failed: %s\n", strerror(errno));
+
+		dsa_main_unmap();
+		return -1;
+	}
+
+
 	// Trigger DMA and block until complete
-	if ( reps )
+	switch ( trig )
 	{
-		LOG_INFO("Triggering DMA...\n");
-		errno = 0;
-		if ( !dsa_ioctl_trigger() && !stats )
-			LOG_INFO("DMA triggered\n");
-	}
-	else
-	{
-		LOG_INFO("Starting DMA, press any key to stop...\n");
-		dsa_ioctl_adi_new_start();
+		case TRIG_PRESS:
+			LOG_INFO("Ready to DMA, press any key to trigger...\n");
+			terminal_pause();
+			// fallthrough
+			while ( 1 )
+			{
+				int ch;
 
-		terminal_pause();
+				LOG_INFO("Triggering DMA...\n");
+				errno = 0;
+				if ( !dsa_ioctl_trigger() && !stats )
+					LOG_INFO("DMA triggered\n");
 
-		LOG_INFO("Stopping DMA...\n");
-		dsa_ioctl_adi_new_stop();
+				if ( stats )
+				{
+					struct dsm_user_stats  sb;
+
+					dsa_ioctl_get_stats(&sb);
+
+					if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
+					if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
+					if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
+					if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
+				}
+				LOG_INFO("Ready to DMA, press Q or Esc to stop, any other key to trigger...\n");
+
+				ch = toupper(terminal_pause());
+				if ( ch == 'Q' || ch == 27 )
+					break;
+			}
+			break;
+
+		case TRIG_ONCE:
+			LOG_INFO("Triggering DMA...\n");
+			errno = 0;
+			if ( !dsa_ioctl_trigger() && !stats )
+				LOG_INFO("DMA triggered\n");
+			break;
+
+		case TRIG_CONT:
+			LOG_INFO("Starting DMA, press any key to stop...\n");
+			dsa_ioctl_adi_new_start();
+
+			terminal_pause();
+
+			LOG_INFO("Stopping DMA...\n");
+			dsa_ioctl_adi_new_stop();
+			break;
 	}
+
+
+	if ( !ensm && dsa_channel_ensm_wake )
+		dsa_channel_sleep();
 
 
 	// Show FIFO numbers before transfer
@@ -628,7 +705,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		}
 	}
 
-	if ( stats )
+	if ( stats && trig != TRIG_PRESS )
 	{
 		struct dsm_user_stats  sb;
 

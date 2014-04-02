@@ -46,14 +46,6 @@
 #define DEF_DEV_NUM 0
 #define EXPORT_FILE "/tmp/.asfe_ctl.channels"
 
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
-
 
 char *argv0;
 int   opt_dev_num  = DEF_DEV_NUM;
@@ -278,7 +270,7 @@ int script (FILE *fp, script_hint_f hint_func)
 	int                   count = 1;
 	int                   ret = 0;
 	char                 *t;
-	char                 *s;
+	char                 *s = NULL;
 
 	if ( config_buffer_init(&line_buff, 4096, 4096) ||
 	     config_buffer_init(&hint_buff, 4096, 4096) )
@@ -358,7 +350,7 @@ int interact (FILE *fp)
 	char        prompt[32];
 	int         count = 1;
 	char       *t;
-	char       *s;
+	char       *s = NULL;
 	int         ret = 0;
 	char       *line;
 	char       *buff;
@@ -411,8 +403,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}
@@ -495,6 +489,12 @@ int main (int argc, char **argv)
 		ret = interact(stdin);
 		fprintf(stderr, "\nLeaving interactive mode\n");
 	}
+	
+	asfe_test_function();
+	asfe_ctl_dev_reopen(0,0);
+	UINT16 asfe_data[] = {1,2,3,4,5};
+
+	asfe_ctl_spiwritearray(&asfe_data[0], 5);
 
 	export_active_channels();
 	return ret < 0;

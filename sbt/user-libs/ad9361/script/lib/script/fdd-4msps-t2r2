@@ -1,5 +1,5 @@
 #!/usr/bin/ad9361
-# Init script for AD9361 tool using legacy ADI driver
+# Init script for AD9361 tool using ADI IIO driver
 #
 # Copyright 2013,2014 Silver Bullet Technology
 #
@@ -12,21 +12,11 @@
 # KIND, either express or implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
-# Enable FIR filters
+# Set AD1 to alert mode to allow chip configuration
 device ad1
-set_filter_fir_config             wimax
-set_in_out_voltage_filter_fir_en  1
-set_filter_fir_config             wimax
-get_filter_fir_config
-
-# Setup AD1 for 4MSPS
-set_out_voltage_sampling_frequency 4000000
-get_out_voltage_sampling_frequency
-set_in_voltage_sampling_frequency  4000000
-get_in_voltage_sampling_frequency
+set_ensm_mode 2
 
 # Enable FIR filters
-device ad2
 set_filter_fir_config             wimax
 set_in_out_voltage_filter_fir_en  1
 set_filter_fir_config             wimax
@@ -37,4 +27,26 @@ set_out_voltage_sampling_frequency 4000000
 get_out_voltage_sampling_frequency
 set_in_voltage_sampling_frequency  4000000
 get_in_voltage_sampling_frequency
+
+# Set AD1 to sleep mode to conserve power
+set_ensm_mode 0
+
+# Set AD2 to alert mode to allow chip configuration
+device ad2
+set_ensm_mode 2
+
+# Enable FIR filters
+set_filter_fir_config             wimax
+set_in_out_voltage_filter_fir_en  1
+set_filter_fir_config             wimax
+get_filter_fir_config
+
+# Setup AD2 for 4MSPS
+set_out_voltage_sampling_frequency 4000000
+get_out_voltage_sampling_frequency
+set_in_voltage_sampling_frequency  4000000
+get_in_voltage_sampling_frequency
+
+# Set AD2 to sleep mode to conserve power
+set_ensm_mode 0
 
