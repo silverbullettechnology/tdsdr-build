@@ -1,0 +1,26 @@
+# Application configuration 
+#
+# Copyright 2013,2014 Silver Bullet Technology
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+# file except in compliance with the License.  You may obtain a copy of the License at:
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the specific language governing
+# permissions and limitations under the License.
+#
+# \copyright Copyright (C) 2013 Silver Bullet Technologies
+# vim:ts=4:noexpandtab
+
+
+if USER_APPS_SDRDC_STRESS_TEST
+	comment "No additional options for SDRDC_STRESS_TEST"
+
+ 	config USER_APPS_SDRDC_STRESS_TEST_AUTO_RUN
+	string "Number of seconds to run for at startup"
+	help
+	  Set to the number of seconds you want the stress-test to automatically
+	  run for at startup, leave blank to startup normally.
+endif

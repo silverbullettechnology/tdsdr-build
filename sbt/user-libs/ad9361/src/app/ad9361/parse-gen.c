@@ -29,6 +29,7 @@
 #include "struct-gen.h"
 #include "parse-gen.h"
 #include "scalar.h"
+#include "util.h"
 
 
 #define SEP_CHARS ",;"
@@ -47,12 +48,12 @@ int parse_int (int *val, size_t size, int argc, const char **argv, int idx)
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
 		errno = 0;
 		tmp = strtol(arg, NULL, 0);
-		if ( errno )
+		if ( errno || !(isdigit(*arg) || *arg == '-') )
 		{
 			fprintf(stderr, "%s: '%s' is not a valid int\n", argv[0], arg);
 			return -1;
@@ -86,7 +87,7 @@ int parse_BOOL (BOOL *val, size_t size, int argc, const char **argv, int idx)
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
 		switch ( tolower(*arg) )
@@ -104,7 +105,7 @@ int parse_BOOL (BOOL *val, size_t size, int argc, const char **argv, int idx)
 			default:
 				errno = 0;
 				tmp = strtoul(arg, NULL, 0);
-				if ( errno )
+				if ( errno || !isdigit(*arg) )
 				{
 					fprintf(stderr, "%s: '%s' is not TRUE or YES, FALSE or NO, or a valid "
 					        "number\n", argv[0], arg);
@@ -124,25 +125,25 @@ int parse_BOOL (BOOL *val, size_t size, int argc, const char **argv, int idx)
 }
 
 
-int parse_UINT8 (UINT8 *val, size_t size,
-                 int argc, const char **argv, int idx)
+int parse_uint8_t (uint8_t *val, size_t size,
+                   int argc, const char **argv, int idx)
 {
 	const char    *arg, *nxt;
-	UINT8         *end = (UINT8 *)((char *)val + size);
+	uint8_t       *end = (uint8_t *)((char *)val + size);
 	unsigned long  tmp = 0;
 
 	if ( idx >= argc )
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
 		errno = 0;
 		tmp = strtoul(arg, NULL, 0);
-		if ( errno )
+		if ( errno || !isdigit(*arg) )
 		{
-			fprintf(stderr, "%s: '%s' is not a valid UINT8\n", argv[0], arg);
+			fprintf(stderr, "%s: '%s' is not a valid uint8_t\n", argv[0], arg);
 			return -1;
 		}
 		if ( tmp > 0xFF )
@@ -163,25 +164,25 @@ int parse_UINT8 (UINT8 *val, size_t size,
 }
 
 
-int parse_UINT16 (UINT16 *val, size_t size,
-                  int argc, const char **argv, int idx)
+int parse_uint16_t (uint16_t *val, size_t size,
+                    int argc, const char **argv, int idx)
 {
 	const char    *arg, *nxt;
-	UINT16        *end = (UINT16 *)((char *)val + size);
+	uint16_t      *end = (uint16_t *)((char *)val + size);
 	unsigned long  tmp = 0;
 
 	if ( idx >= argc )
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
 		errno = 0;
 		tmp = strtoul(arg, NULL, 0);
-		if ( errno )
+		if ( errno || !isdigit(*arg) )
 		{
-			fprintf(stderr, "%s: '%s' is not a valid UINT16\n", argv[0], arg);
+			fprintf(stderr, "%s: '%s' is not a valid uint16_t\n", argv[0], arg);
 			return -1;
 		}
 		if ( tmp > 65535 )
@@ -202,64 +203,25 @@ int parse_UINT16 (UINT16 *val, size_t size,
 }
 
 
-int parse_SINT16 (SINT16 *val, size_t size,
-                  int argc, const char **argv, int idx)
-{
-	const char  *arg, *nxt;
-	SINT16      *end = (SINT16 *)((char *)val + size);
-	signed long  tmp = 0;
-
-	if ( idx >= argc )
-		return -1;
-
-	memset(val, 0, size);
-	arg = argv[idx];
-	while ( val < end )
-	{
-		errno = 0;
-		tmp = strtol(arg, NULL, 0);
-		if ( errno )
-		{
-			fprintf(stderr, "%s: '%s' is not a valid SINT16\n", argv[0], arg);
-			return -1;
-		}
-		if ( tmp < -32768 || tmp > 32767 )
-		{
-			errno = ERANGE;
-			fprintf(stderr, "%s: '%s' is out of range (-32768-32767)\n", argv[0], arg);
-			return -1;
-		}
-		*val++ = tmp;
-
-		if ( (nxt = strchr(arg, ',')) )
-			arg = nxt + 1;
-		else
-			break;
-	}
-
-	return end - val;
-}
-
-
-int parse_UINT32 (UINT32 *val, size_t size,
-                  int argc, const char **argv, int idx)
+int parse_uint32_t (uint32_t *val, size_t size,
+                    int argc, const char **argv, int idx)
 {
 	const char    *arg, *nxt;
-	UINT32        *end = (UINT32 *)((char *)val + size);
+	uint32_t      *end = (uint32_t *)((char *)val + size);
 	unsigned long  tmp = 0;
 
 	if ( idx >= argc )
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
 		errno = 0;
 		tmp = strtoul(arg, NULL, 0);
-		if ( errno )
+		if ( errno || !isdigit(*arg) )
 		{
-			fprintf(stderr, "%s: '%s' is not a valid UINT32\n", argv[0], arg);
+			fprintf(stderr, "%s: '%s' is not a valid uint32_t\n", argv[0], arg);
 			return -1;
 		}
 		*val++ = tmp;
@@ -274,23 +236,25 @@ int parse_UINT32 (UINT32 *val, size_t size,
 }
 
 
-int parse_FLOAT (FLOAT *val, size_t size,
-                 int argc, const char **argv, int idx)
+int parse_uint64_t (uint64_t *val, size_t size,
+                    int argc, const char **argv, int idx)
 {
-	const char  *arg, *nxt;
-	FLOAT       *end = (FLOAT *)((char *)val + size);
-	FLOAT        tmp = 0;
+	const char    *arg, *nxt;
+	uint64_t      *end = (uint64_t *)((char *)val + size);
+	uint64_t       tmp = 0;
 
 	if ( idx >= argc )
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
+	arg = ltrim((char *)argv[idx]);
 	while ( val < end )
 	{
-		if ( sscanf(arg, "%g", &tmp) != 1 )
+		errno = 0;
+		tmp = strtoull(arg, NULL, 0);
+		if ( errno || !isdigit(*arg) )
 		{
-			fprintf(stderr, "%s: '%s' is not a valid FLOAT\n", argv[0], arg);
+			fprintf(stderr, "%s: '%s' is not a valid uint64_t\n", argv[0], arg);
 			return -1;
 		}
 		*val++ = tmp;
@@ -305,34 +269,37 @@ int parse_FLOAT (FLOAT *val, size_t size,
 }
 
 
-int parse_DOUBLE (DOUBLE *val, size_t size,
-                  int argc, const char **argv, int idx)
+int parse_enum (int *val, size_t size, const struct ad9361_enum_map *map, 
+                int argc, const char **argv, int idx)
 {
-	const char  *arg, *nxt;
-	DOUBLE      *end = (DOUBLE *)((char *)val + size);
-	DOUBLE       tmp = 0;
-
 	if ( idx >= argc )
 		return -1;
 
 	memset(val, 0, size);
-	arg = argv[idx];
-	while ( val < end )
-	{
-		if ( sscanf(arg, "%lg", &tmp) != 1 )
-		{
-			fprintf(stderr, "%s: '%s' is not a valid DOUBLE\n", argv[0], arg);
-			return -1;
-		}
-		*val++ = tmp;
 
-		if ( (nxt = strchr(arg, ',')) )
-			arg = nxt + 1;
-		else
-			break;
+	// first try conversion as number, if it exists in the list keep it
+	char *arg = ltrim((char *)argv[idx]);
+	if ( *arg && isdigit(*arg) )
+	{
+		errno = 0;
+		*val = strtol(arg, NULL, 0);
+		if ( !errno && ad9361_enum_get_string(map, *val) )
+			return 0;
 	}
 
-	return end - val;
+	// second try lookup as a string, if that passes keep it
+	errno = 0;
+	*val = ad9361_enum_get_value(map, arg);
+	if ( !errno )
+		return 0;
+
+	// failing that output error with legal values
+	fprintf(stderr, "%s: '%s' is not a valid enum\n", argv[0], argv[idx]);
+	fprintf(stderr, "Values: %d:%s", map->value, map->string);
+	for ( map++; map->string; map++ )
+		fprintf(stderr, ", %d:%s", map->value, map->string);
+	fprintf(stderr, "\n");
+	return -1;
 }
 
 
@@ -356,16 +323,13 @@ int parse_field (void *dst, const struct struct_map *map, const char *src)
 			return parse_BOOL((BOOL *)dat, sizeof(BOOL), 1, &src, 0);
 
 		case ST_UINT8:
-			return parse_UINT8((UINT8 *)dat, sizeof(UINT8), 1, &src, 0);
+			return parse_uint8_t((uint8_t *)dat, sizeof(uint8_t), 1, &src, 0);
 
 		case ST_UINT16:
-			return parse_UINT16((UINT16 *)dat, sizeof(UINT16), 1, &src, 0);
+			return parse_uint16_t((uint16_t *)dat, sizeof(uint16_t), 1, &src, 0);
 
 		case ST_UINT32:
-			return parse_UINT32((UINT32 *)dat, sizeof(UINT32), 1, &src, 0);
-
-		case ST_DOUBLE:
-			return parse_DOUBLE((DOUBLE *)dat, sizeof(DOUBLE), 1, &src, 0);
+			return parse_uint32_t((uint32_t *)dat, sizeof(uint32_t), 1, &src, 0);
 
 		default:
 			fprintf(stderr, "parse_field(): don't know how to handle type %d\n",

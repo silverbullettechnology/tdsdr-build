@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <ad9361.h>
+
 #include "dsa_main.h"
 #include "dsa_sample.h"
 #include "dsa_channel.h"
@@ -31,6 +33,9 @@
 
 #include "log.h"
 LOG_MODULE_STATIC("channel", LOG_LEVEL_INFO);
+
+
+int dsa_channel_ensm_wake = 0;
 
 
 const char *dsa_channel_desc (int ident)
@@ -722,44 +727,217 @@ void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps)
 int dsa_channel_check_active (int ident)
 {
 	unsigned char  need = 0;
+	unsigned char  regs[2];
 	int            idx = 0;
 	int            ret = 0;
 	int            dev;
 	int            msg = 0;
 
-	for ( dev = DC_DEV_AD1; dev <= DC_DEV_AD2; dev <<= 1 )
-		if ( ident & dev )
+	for ( dev = 0; dev <= 1; dev++ )
+		if ( ident & DC_DEV_IDX_TO_MASK(dev) )
 		{
-			switch ( dev | (ident & (DC_DIR_TX|DC_DIR_RX)) )
-			{
-				case DC_DIR_TX|DC_DEV_AD1: idx = 0; break;
-				case DC_DIR_RX|DC_DEV_AD1: idx = 1; break;
-				case DC_DIR_TX|DC_DEV_AD2: idx = 2; break;
-				case DC_DIR_RX|DC_DEV_AD2: idx = 3; break;
-				default:
-					errno = EINVAL;
-					return -1;
-			}
+			ad9361_spi_read_byte(dev, 0x002, &regs[0]);
+			ad9361_spi_read_byte(dev, 0x003, &regs[1]);
+			regs[0] &= 0xC0;
+			regs[1] &= 0xC0;
+
+			idx = ident & DC_DIR_TX ? 0 : 1;
 			if ( ident & DC_CHAN_1 )  need |= 0x40;
 			if ( ident & DC_CHAN_2 )  need |= 0x80;
 
-			if ( need ^ (dsa_active_channels[idx] & 0xC0) )
+			// revised check: error if need has a bit set which is not set in the active 
+			// channels list - the user is requesting a channel which is not active.  the
+			// other direction isn't as bad, the user's ignoring an active channel.  on TX
+			// we'll send 0 paint, on RX we'll discard the samples
+			if ( need & ~(regs[idx] & 0xC0) )
 			{
 				if ( ! msg++ )
 					LOG_ERROR("DMA transfer doesn't match channels configured in "
 					          "AD9361(s):\n");
 
 				LOG_ERROR("  %s %s: needed:%s%s, configured:%s%s%s\n",
-				          (dev == DC_DEV_AD1) ? "AD1" : "AD2",
+				          dev ? "AD2" : "AD1",
 				          (ident & DC_DIR_TX) ? "TX"  : "RX",
 				          need & 0x80 ? " CH2" : "",
 				          need & 0x40 ? " CH1" : "",
-				          dsa_active_channels[idx] & 0x80 ? " CH2" : "",
-				          dsa_active_channels[idx] & 0x40 ? " CH1" : "",
-				          dsa_active_channels[idx] & 0xC0 ? "" : " none");
+				          regs[idx] & 0x80 ? " CH2" : "",
+				          regs[idx] & 0x40 ? " CH1" : "",
+				          regs[idx] & 0xC0 ? "" : " none");
 				
 				ret++;
 			}
+		}
+
+	return ret;
+}
+
+
+int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
+{
+	struct dsa_channel_xfer **xfer;
+	unsigned char             regs[2];
+	int                       fdd;
+	int                       mode;
+	int                       need;
+	int                       wake;
+	int                       cycles = 0;
+	int                       dev;
+	int                       dir;
+	int                       ret = 0;
+
+	LOG_INFO("Checking AD9361 mode:\n");
+	for ( dev = 0; dev <= 1; dev++ )
+	{
+		// get current ENSM mode and FDD config setting
+		if ( ad9361_get_ensm_mode(dev, &mode) < 0 )
+			return -1;
+		if ( ad9361_get_frequency_division_duplex_mode_enable(dev, &fdd) < 0 )
+			return -1;
+
+		// check for transfers setup for each direction
+		need = 0;
+		for ( dir = DC_DIR_TX; dir <= DC_DIR_RX; dir <<= 1 )
+		{
+			LOG_DEBUG("%s: %s\n",
+			          dev ? "AD2" : "AD1",
+			          dsa_channel_desc(DC_DEV_IDX_TO_MASK(dev)|dir));
+			if ( (xfer = evt_to_xfer(evt, DC_DEV_IDX_TO_MASK(dev)|dir)) && *xfer )
+			{
+				LOG_DEBUG("xfer %p, *xfer %p\n", xfer, xfer ? *xfer : NULL);
+				need |= dir;
+			}
+			else
+				LOG_DEBUG("!xfer || !*xfer\n");
+		}
+		LOG_DEBUG("%s needs %s\n", dev ? "AD2" : "AD1", dsa_channel_desc(need));
+
+		// nothing setup for this ADI: move on
+		if ( !need )
+		{
+			LOG_DEBUG("%s needs nothing\n", dev ? "AD2" : "AD1");
+			continue;
+		}
+
+		LOG_DEBUG("%s is in mode %s, DMA requested is %s\n", 
+		          dev ? "AD2" : "AD1",
+		          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode),
+		          dsa_channel_desc(need));
+
+		switch ( mode )
+		{
+			// inactive modes: if configured for FDD, we can activate FDD and proceed
+			case AD9361_ENSM_MODE_SLEEP:
+			case AD9361_ENSM_MODE_WAIT:
+			case AD9361_ENSM_MODE_ALERT:
+				if ( !fdd )
+				{
+					LOG_ERROR("%s is in mode %s, but not configured for FDD: "
+					          "can't set to FDD for DMA\n",
+					          dev ? "AD2" : "AD1",
+					          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+					ret++;
+				}
+				else if ( no_change )
+				{
+					LOG_ERROR("%s is in mode %s, but user config forbids changing mode\n",
+					          dev ? "AD2" : "AD1",
+					          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+					ret++;
+				}
+				else
+				{
+					// put the chip in FDD mode
+					LOG_INFO("%s: setting to FDD\n", dev ? "AD2" : "AD1");
+					if ( ad9361_set_ensm_mode(dev, AD9361_ENSM_MODE_FDD) < 0 )
+						return -1;
+
+					// record this device was activated to wait for it to be ready
+					dsa_channel_ensm_wake |= DC_DEV_IDX_TO_MASK(dev);
+				}
+				break;
+
+			case AD9361_ENSM_MODE_RX:
+				if ( need != DC_DIR_RX )
+				{
+					LOG_ERROR("%s is in state %s, but RX DMA requested\n",
+					          dev ? "AD2" : "AD1",
+					          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+					ret++;
+				}
+				break;
+
+			case AD9361_ENSM_MODE_TX:
+				if ( need != DC_DIR_TX )
+				{
+					LOG_ERROR("%s is in state %s, but TX DMA requested\n",
+					          dev ? "AD2" : "AD1",
+					          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+					ret++;
+				}
+				break;
+
+			case AD9361_ENSM_MODE_FDD:
+				LOG_DEBUG("%s is in state %s: normal operation\n",
+				          dev ? "AD2" : "AD1",
+				          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+				break;
+
+			case AD9361_ENSM_MODE_PINCTRL:
+				LOG_WARN("%s is in state %s: this is not well-tested yet\n",
+				         dev ? "AD2" : "AD1",
+				         ad9361_enum_get_string(ad9361_enum_ensm_mode, mode));
+				break;
+		}
+	}
+
+	// wait for wakeup: currently checking TX quad cal
+	if ( dsa_channel_ensm_wake )
+		LOG_DEBUG("Waiting for %s...\n", dsa_channel_desc(dsa_channel_ensm_wake));
+	for ( wake = dsa_channel_ensm_wake; wake && cycles < 1000; cycles++ )
+	{
+		usleep(2500); // 2.5ms delay
+		for ( dev = 0; dev <= 1; dev++ )
+			if ( dsa_channel_ensm_wake & DC_DEV_IDX_TO_MASK(dev) )
+			{
+				// read TX quad cal status and mask for convergence status
+				ad9361_spi_read_byte(dev, 0x0A7, &regs[0]);
+				ad9361_spi_read_byte(dev, 0x0A8, &regs[1]);
+				regs[0] = 0x03;
+				regs[1] = 0x03;
+				LOG_DEBUG("%02x/%02x\n", regs[0], regs[1]);
+
+				// if converged clear this dev
+				if ( regs[0] == 0x03 && regs[1] == 0x03 )
+					wake &= ~DC_DEV_IDX_TO_MASK(dev);
+			}
+	}
+	if ( wake )
+	{
+		LOG_ERROR("Failed to wake up %s\n", dsa_channel_desc(wake));
+		errno = ETIME;
+		return -1;
+	}
+
+	if ( !ret )
+		LOG_INFO("No problems found\n");
+
+	return ret;
+}
+
+
+int dsa_channel_sleep (void)
+{
+	int  dev;
+	int  ret = 0;
+
+	LOG_DEBUG("Putting %s to sleep\n", dsa_channel_desc(dsa_channel_ensm_wake));
+	for ( dev = 0; dev <= 1; dev++ )
+		if ( dsa_channel_ensm_wake & DC_DEV_IDX_TO_MASK(dev) )
+		{
+			LOG_DEBUG("  %s...\n", dev ? "AD2" : "AD1");
+			dsa_channel_ensm_wake &= ~DC_DEV_IDX_TO_MASK(dev);
+			if ( ad9361_set_ensm_mode(dev, AD9361_ENSM_MODE_SLEEP) < 0 )
+				ret++;
 		}
 
 	return ret;

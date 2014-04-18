@@ -25,24 +25,21 @@ clean:
 
 romfs:
 	rm   -rf $(ROMFSDIR)/media/
-	mkdir -p $(ROMFSDIR)/media/card
-	mkdir -p $(ROMFSDIR)/media/emmc
-ifdef CONFIG_USER_APPS_ROMFS_HACKS_FSTAB_MICROSD
-	$(SHELL) add-fstab-entry.sh /dev/mmcblk0p1 /media/card auto defaults 0 0
-endif
-ifdef CONFIG_USER_APPS_ROMFS_HACKS_FSTAB_EMMC
-	$(SHELL) add-fstab-entry.sh /dev/mmcblk1p1 /media/emmc auto noauto 0 0
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT1
-	$(SHELL) add-path-entry.sh cut1
-endif
-ifdef CONFIG_DEFAULTS_SERCOMM_SDRDC_CUT2
-	$(SHELL) add-path-entry.sh cut2
-endif
-ifdef CONFIG_DEFAULTS_SILVERBULLETTECH_SDRDC
+	mkdir -p $(ROMFSDIR)/media/
 	$(SHELL) add-path-entry.sh
+	install -m755 switch.sh $(ROMFSDIR)/switch
+	install -m755 scanall.sh $(ROMFSDIR)/etc/init.d/scanall
+	rm -f $(ROMFSDIR)/etc/rcS.d/S30scanall
+	ln -sv ../init.d/scanall $(ROMFSDIR)/etc/rcS.d/S30scanall
+	$(SHELL) add-network.sh usb0
+	rm -f $(ROMFSDIR)/lib/firmware/freertos
+ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
+	if [ -e $(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS) ]; then \
+		mkdir -p $(ROMFSDIR)/lib/firmware; \
+		cp -v $(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS) \
+			$(ROMFSDIR)/lib/firmware/freertos; \
+	fi
 endif
-
 
 image: 
 	echo image

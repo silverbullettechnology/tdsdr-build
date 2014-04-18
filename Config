@@ -13,7 +13,7 @@
 
 # Linux kernel source
 SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
-SBT_KERNEL_GIT_BRANCH := xcomm_zynq_new_pcore_regmap
+SBT_KERNEL_GIT_BRANCH := sdrdc-stable
 #SBT_KERNEL_GIT_USER   := 
 #SBT_KERNEL_GIT_EMAIL  := 
 export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
@@ -24,6 +24,13 @@ export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_
 # and patched for the SDRDC build.  Currently PetaLinux 2013.04 is supported.
 export SBT_PETALINUX_SDK := $(HOME)/sdrdc/petalinux-v2013.04-final-full.tar.gz
 export SBT_PETALINUX_VER := 2013.04
+
+
+# BSP selection
+# Select the default BSP "SDRDC" for normal SMP use.  Select the BSP "SDRDC-AMP" for AMP
+# use with FreeRTOS, as described in Xilinx UG978 "Zynq AMP Linux FreeRTOS Guide"
+export SBT_BSP := SDRDC
+#export SBT_BSP := SDRDC-AMP
 
 
 # You shouldn't need to modify anything beyond here

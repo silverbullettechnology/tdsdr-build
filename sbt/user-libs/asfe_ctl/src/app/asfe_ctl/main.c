@@ -46,19 +46,11 @@
 #define DEF_DEV_NUM 0
 #define EXPORT_FILE "/tmp/.asfe_ctl.channels"
 
-#if defined(BOARD_REV_CUT1)
-#define BOARD_REV "cut1"
-#elif defined(BOARD_REV_CUT2)
-#define BOARD_REV "cut2"
-#else
-#define BOARD_REV "sim"
-#endif
-
 
 char *argv0;
 int   opt_dev_num  = DEF_DEV_NUM;
 char *opt_dev_node = NULL;
-int   opt_dev_gpio[3] = { -1, -1, -1 };
+/*int   opt_dev_gpio[3] = { -1, -1, -1 };     */
 int   opt_soft_fail = 0;
 int   opt_interact  = 0;
 char *opt_lib_dir   = NULL;
@@ -68,12 +60,19 @@ char  env_script_path[PATH_MAX];
 static struct 
 {
 	char *node;
-	int   gpio[3];
+/*	int   gpio[3];     */
 }
+/*
 dev_node_list[] = 
 {
 	{ "/dev/spidev1.0", { -1, -1, -1 } },
 	{ "/dev/spidev1.1", { -1, -1, -1 } },
+};    */
+
+dev_node_list[] = 
+{
+	{ "/dev/spidev1.0" },
+	{ "/dev/spidev1.1" },
 };
 
 static void export_active_channels (void)
@@ -115,7 +114,7 @@ static void export_active_channels (void)
 
 int dev_reopen (int num, int reinit)
 {
-	int   i;
+	//int   i;
 	//UINT8 v;
 
 #ifdef SIM_HAL
@@ -138,8 +137,8 @@ int dev_reopen (int num, int reinit)
 
 	opt_dev_num  = num;
 	opt_dev_node = dev_node_list[num].node;
-	for ( i = 0; i < 3; i++ )
-		opt_dev_gpio[i] = dev_node_list[opt_dev_num].gpio[i];
+/*	for ( i = 0; i < 3; i++ )
+		opt_dev_gpio[i] = dev_node_list[opt_dev_num].gpio[i];     */
 
 	// TODO: UART
 	if ( asfe_ctl_hal_linux_spi_init(opt_dev_node) )
@@ -149,13 +148,13 @@ int dev_reopen (int num, int reinit)
 		return -1;
 	}
 
-	if ( asfe_ctl_hal_linux_gpio_init(opt_dev_gpio) )
+/*	if ( asfe_ctl_hal_linux_gpio_init(opt_dev_gpio) )
 	{
 		fprintf(stderr, "asfe_ctl_hal_linux_gpio_init(%d,%d,%d): %s\n",
 		        opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2], strerror(errno));
 		return -1;
 	}
-
+*/
 	//CMB_SPIReadByte(0x002, &v);
 	//CMB_SPIReadByte(0x003, &v);
 
@@ -182,15 +181,15 @@ void usage (void)
 	printf("Run command: asfe_ctl [options] command [args...]\n"
 	       "Run script : asfe_ctl [options] script\n"
 	       "Interactive: asfe_ctl [options]\n\n"
-	       "Options: asfe_ctl [-ei] [-g gpio] [-d num] [-D node] [-l dir]\n"
+	       "Options: asfe_ctl [-ei] [-d num] [-D node] [-l dir]\n"
 	       "Where:\n"
 	       "-e      As for /bin/sh, tolerate command failures\n"
 	       "-i      Enter interactive mode after running command or script\n"
-	       "-g gpio GPIO pins for TXNRX,ENABLE,RESETN (default %d,%d,%d)\n"
+/*	       "-g gpio GPIO pins for TXNRX,ENABLE,RESETN (default %d,%d,%d)\n"		*/
 	       "-d num  Specify ASFE_CTL device number (0-1, default %d)\n"
 	       "-D node Specify ASFE_CTL device node (default %s)\n"
 	       "-l dir  Specify library dir (default %s)\n",
-	       opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2],
+/*	       opt_dev_gpio[0], opt_dev_gpio[1], opt_dev_gpio[2],                      */
 	       DEF_DEV_NUM, dev_node_list[DEF_DEV_NUM].node, LIB_DIR);
 	exit(1);
 }
@@ -271,7 +270,7 @@ int script (FILE *fp, script_hint_f hint_func)
 	int                   count = 1;
 	int                   ret = 0;
 	char                 *t;
-	char                 *s;
+	char                 *s = NULL;
 
 	if ( config_buffer_init(&line_buff, 4096, 4096) ||
 	     config_buffer_init(&hint_buff, 4096, 4096) )
@@ -289,13 +288,13 @@ int script (FILE *fp, script_hint_f hint_func)
 		}
 
 		// match comments and keep as a "hint"
-		if ( (hint = strstr(line_buff.buff, "//")) )
+		if ( (hint = strstr(line_buff.buff, "#")) )
+			*hint++ = '\0';
+		else if ( (hint = strstr(line_buff.buff, "//")) )
 		{
 			*hint = '\0';
 			hint += 2;
 		}
-		else if ( (hint = strstr(line_buff.buff, "#")) )
-			*hint++ = '\0';
 
 		// if a hint was found, strip leading space
 		if ( hint )
@@ -351,7 +350,7 @@ int interact (FILE *fp)
 	char        prompt[32];
 	int         count = 1;
 	char       *t;
-	char       *s;
+	char       *s = NULL;
 	int         ret = 0;
 	char       *line;
 	char       *buff;
@@ -404,8 +403,10 @@ static void path_setup (char *dst, size_t max, const char *leaf)
 
 	while ( *root_walk && d < e )
 	{
+#ifdef BOARD_REV
 		d += snprintf(d, e - d, "%s%s/%s/%s", d > dst ? ":" : "",
 		              *root_walk, leaf, BOARD_REV);
+#endif
 		d += snprintf(d, e - d, ":%s/%s", *root_walk, leaf);
 		root_walk++;
 	}
@@ -428,13 +429,13 @@ int main (int argc, char **argv)
 			case 'e': opt_soft_fail = 1; break;
 			case 'i': opt_interact  = 1; break;
 
-			case 'g':
+/*			case 'g':
 				ret = sscanf(optarg, "%d,%d,%d",
 				             &opt_dev_gpio[0], &opt_dev_gpio[1], &opt_dev_gpio[2]);
 				if ( ret != 3 )
 					usage();
 				break;
-
+*/
 			case 'd': // Specify ASFE_CTL device number
 				errno = 0;
 				opt_dev_num = strtol(optarg, NULL, 0);
@@ -488,6 +489,12 @@ int main (int argc, char **argv)
 		ret = interact(stdin);
 		fprintf(stderr, "\nLeaving interactive mode\n");
 	}
+	
+	asfe_test_function();
+	asfe_ctl_dev_reopen(0,0);
+	UINT16 asfe_data[] = {1,2,3,4,5};
+
+	asfe_ctl_spiwritearray(&asfe_data[0], 5);
 
 	export_active_channels();
 	return ret < 0;

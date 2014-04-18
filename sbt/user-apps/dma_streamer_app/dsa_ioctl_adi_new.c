@@ -72,6 +72,25 @@ int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long v
 	return ret;
 }
 
+int dsa_ioctl_adi_new_stop (void)
+{
+	int  ret;
+
+	if ( (ret = ioctl(dsa_dev, DSM_IOCS_STOP, 0)) )
+		printf("DSM_IOCS_STOP: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+int dsa_ioctl_adi_new_start (void)
+{
+	int  ret;
+
+	if ( (ret = ioctl(dsa_dev, DSM_IOCS_START, 0)) )
+		printf("DSM_IOCS_START: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
 
 
 

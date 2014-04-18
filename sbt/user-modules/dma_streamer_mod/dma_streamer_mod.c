@@ -71,6 +71,7 @@ struct dsm_xfer
 	unsigned long  chunk;
 	unsigned long  left;
 	int            start;
+	atomic_t       continuous;
 
 	// DMA engine glue
 	enum dma_transfer_direction  dir;
@@ -139,7 +140,6 @@ static int dsm_thread (void *data)
 	spinlock_t                      irq_lock;
 	int                             ret = 0;
 	u32                             reg;
-	int                             ch;
 
 	smp_rmb();
 	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
@@ -155,6 +155,8 @@ static int dsm_thread (void *data)
 	if ( parent->old_regs && state->dir == DMA_MEM_TO_DEV )
 		REG_WRITE(&parent->old_regs->cs_rst, 0xFFFFFFFF);
 
+	state->left = state->chunk;
+	memset(&state->stats, 0, sizeof(struct dsm_xfer_stats));
 	while ( state->left > 0 )
 	{
 		pr_debug("%s: left %lu, start %d\n", state->name, state->left, state->start);
@@ -280,6 +282,12 @@ static int dsm_thread (void *data)
 		pr_debug("%s: left %lu - %lu -> ", state->name, state->left, state->words);
 		state->left -= state->words;
 		pr_debug("%lu\n", state->left);
+
+		if ( !state->left && atomic_read(&state->continuous) )
+		{
+			pr_debug("continuous: reset\n");
+			state->left = state->chunk;
+		}
 	}
 
 done:
@@ -494,6 +502,9 @@ pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
 		state->chunk = buff->words;
 	state->left = state->chunk;
 
+	// default is non-continuous
+	atomic_set(&state->continuous, 0);
+
 	// allocate scatterlists and init
 	pr_debug("%d sg pages\n", sg_count);
 	for ( idx = 0; idx < sg_count; idx++ )
@@ -548,7 +559,8 @@ pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
 
 	pr_debug("Mapped scatterlist chain:\n");
 	for_each_sg(state->chain[0], sg_walk, state->pages, idx)
-		pr_debug("  %d: sg %p -> phys %08lx\n", idx, sg_walk, sg_dma_address(sg_walk));
+		pr_debug("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
+		         (unsigned long)sg_dma_address(sg_walk));
 
 	pr_debug("done\n");
 	free_page((unsigned long)us_pages);
@@ -609,7 +621,7 @@ static void dsm_cleanup (void)
 	dsm_mapped = 0;
 }
 
-static int inline dsm_start (struct dsm_chan *chan)
+static int dsm_start_chan (struct dsm_chan *chan)
 {
 	static char name[32];
 
@@ -640,7 +652,23 @@ static int inline dsm_start (struct dsm_chan *chan)
 	return 0;
 }
 
-static inline void dsm_stop (struct dsm_chan *chan)
+static int dsm_start_all (int continuous)
+{
+	int ret = 0;
+
+	// continuous option for TX only
+	if ( dsm_adi1_state.tx ) atomic_set(&dsm_adi1_state.tx->continuous, continuous);
+	if ( dsm_adi2_state.tx ) atomic_set(&dsm_adi2_state.tx->continuous, continuous);
+	if ( dsm_dsxx_state.tx ) atomic_set(&dsm_dsxx_state.tx->continuous, continuous);
+
+	if ( dsm_start_chan(&dsm_adi1_state) ) ret++;
+	if ( dsm_start_chan(&dsm_adi2_state) ) ret++;
+	if ( dsm_start_chan(&dsm_dsxx_state) ) ret++;
+
+	return ret;
+}
+
+static void dsm_halt_chan (struct dsm_chan *chan)
 {
 	if ( chan->tx && chan->tx->task )
 	{
@@ -653,6 +681,49 @@ static inline void dsm_stop (struct dsm_chan *chan)
 		chan->rx->task = NULL;
 	}
 }
+
+static void dsm_halt_all (void)
+{
+	dsm_halt_chan(&dsm_adi1_state);
+	dsm_halt_chan(&dsm_adi2_state);
+	dsm_halt_chan(&dsm_dsxx_state);
+}
+
+static void dsm_stop_chan (struct dsm_chan *chan)
+{
+	if ( chan->tx )
+		atomic_set(&chan->tx->continuous, 0);
+}
+
+static void dsm_stop_all (void)
+{
+	dsm_stop_chan(&dsm_adi1_state);
+	dsm_stop_chan(&dsm_adi2_state);
+	dsm_stop_chan(&dsm_dsxx_state);
+}
+
+static int dsm_wait_all (void)
+{
+	if ( atomic_read(&dsm_busy) == 0 )
+	{
+		pr_debug("thread(s) completed already\n");
+		return 0;
+	}
+
+	// using a waitqueue here rather than a completion to wait for all threads in
+	// the full-duplex case
+	pr_debug("thread(s) started, wait for completion...\n");
+	if ( wait_event_interruptible(dsm_wait, (atomic_read(&dsm_busy) == 0) ) )
+	{
+		pr_warn("interrupted, expect a crash...\n");
+		dsm_halt_all();
+		return -EINTR;
+	}
+
+	pr_debug("thread(s) completed after wait...\n");
+	return 0;
+}
+
 
 static inline int dsm_setup (struct dsm_chan *chan, int adi, int dma, 
                              const struct dsm_chan_buffs *buff)
@@ -714,38 +785,6 @@ static inline int dsm_setup (struct dsm_chan *chan, int adi, int dma,
 
 	return 0;
 }
-
-
-#ifdef DEBUG
-static void dsm_dump_new_adi (void __iomem *regs, unsigned long base)
-{
-	u32 ofs;
-
-#if 0
-	pr_debug("RX common\n");
-	for ( ofs = 0x40; ofs <= 0xC0; ofs += 4 )
-		pr_debug("  %08lx: %08lx\n", base | ofs, REG_READ(ADI_NEW_RT_ADDR(regs, ofs, 0)));
-
-	pr_debug("RX channels\n");
-	for ( ofs = 0x400; ofs < 0x500; ofs += 4 )
-		pr_debug("  %08lx: %08lx\n", base | ofs, REG_READ(ADI_NEW_RT_ADDR(regs, ofs, 0)));
-#endif
-
-#if 1
-	base |= 0x4000;
-
-	pr_debug("TX common\n");
-	for ( ofs = 0x40; ofs <= 0xC0; ofs += 4 )
-		pr_debug("  %08lx: %08lx\n", base | ofs, REG_READ(ADI_NEW_RT_ADDR(regs, ofs, 1)));
-
-	pr_debug("TX channels\n");
-	for ( ofs = 0x400; ofs < 0x500; ofs += 4 )
-		pr_debug("  %08lx: %08lx\n", base | ofs, REG_READ(ADI_NEW_RT_ADDR(regs, ofs, 1)));
-#endif
-}
-#else
-static inline void dsm_dump_new_adi (void __iomem *regs, unsigned long base) {}
-#endif
 
 
 static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
@@ -815,37 +854,46 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		// block until both transfers are complete, or a timeout occurs. 
 		case  DSM_IOCS_TRIGGER:
 			pr_debug("DSM_IOCS_TRIGGER\n");
-//			zynq_slcr_dump_fclkc_regs("DSM_IOCS_TRIGGER");
-//			if ( dsm_adi1_new_regs )  dsm_dump_new_adi(dsm_adi1_new_regs, 0x79000000);
-			if ( dsm_adi2_new_regs )  dsm_dump_new_adi(dsm_adi2_new_regs, 0x79020000);
 
-			if ( dsm_start(&dsm_adi1_state) || 
-			     dsm_start(&dsm_adi2_state) || 
-			     dsm_start(&dsm_dsxx_state) )
+			if ( dsm_start_all(0) )
 			{
-				dsm_stop(&dsm_adi1_state);
-				dsm_stop(&dsm_adi2_state);
-				dsm_stop(&dsm_dsxx_state);
-				return -EBUSY;
-			}
-
-			// using a waitqueue here rather than a completion to wait for both threads in
-			// the full-duplex case
-			pr_debug("thread(s) started, wait for completion...\n");
-			if ( wait_event_interruptible(dsm_wait, (atomic_read(&dsm_busy) == 0) ) )
-			{
-				pr_warn("interrupted, expect a crash...\n");
-				dsm_stop(&dsm_adi1_state);
-				dsm_stop(&dsm_adi2_state);
-				dsm_stop(&dsm_dsxx_state);
-				ret = -EINTR;
+				dsm_halt_all();
+				ret = -EBUSY;
 			}
 			else
-				pr_debug("thread(s) completed...\n");
-			if ( dsm_adi2_new_regs )  dsm_dump_new_adi(dsm_adi2_new_regs, 0x79020000);
+				ret = dsm_wait_all();
 
-			ret = 0;
 			break;
+
+
+		// Start a transaction, after setting up the buffers with a successful
+		// DSM_IOCS_MAP. The calling process does not block, which is only really useful
+		// with a continuous transfer.  The calling process should stop those with
+		// DSM_IOCS_STOP before unmapping the buffers. 
+		case DSM_IOCS_START:
+			pr_debug("DSM_IOCS_START\n");
+			ret = 0;
+
+			// continuous mode not supported with old PL
+			if ( dsm_adi1_old_regs )
+				ret = -EBUSY;
+
+			else if ( dsm_start_all(1) )
+			{
+				dsm_halt_all();
+				ret = -EBUSY;
+			}
+			break;
+
+		// Stop a running transaction started with DSM_IOCS_START.  The calling process
+		// will block until both transfers are complete, or a timeout occurs.
+		case DSM_IOCS_STOP:
+			pr_debug("DSM_IOCS_STOP\n");
+
+			dsm_stop_all();
+			ret = dsm_wait_all();
+			break;
+
 
 		case  DSM_IOCG_FIFO_CNT:
 		{
@@ -1361,9 +1409,7 @@ static int dsm_release (struct inode *inode_p, struct file *file_p)
 	if ( dsm_users )
 	{
 		pr_debug("%s()\n", __func__);
-		dsm_stop(&dsm_adi1_state);
-		dsm_stop(&dsm_adi2_state);
-		dsm_stop(&dsm_dsxx_state);
+		dsm_halt_all();
 		dsm_cleanup();
 
 		dsm_users = 0;
@@ -1415,9 +1461,7 @@ error2:
 
 static void __exit dma_streamer_mod_exit(void)
 {
-	dsm_stop(&dsm_adi1_state);
-	dsm_stop(&dsm_adi2_state);
-	dsm_stop(&dsm_dsxx_state);
+	dsm_halt_all();
 	dsm_cleanup();
 
 	dsm_dev = NULL;

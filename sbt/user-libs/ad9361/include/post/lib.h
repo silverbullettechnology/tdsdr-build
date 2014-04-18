@@ -22,4 +22,17 @@
 #define GPIO_Enable_pin  1
 #define GPIO_Resetn_pin  2
 
+
+extern unsigned ad9361_legacy_dev;
+
+
+struct ad9361_enum_map
+{
+	const char *string;
+	int         value;
+};
+int         ad9361_enum_get_value  (const struct ad9361_enum_map *map, const char *string);
+const char *ad9361_enum_get_string (const struct ad9361_enum_map *map, int value);
+
+
 #endif /* _INCLUDE_POST_LIB_H_ */
