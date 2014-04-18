@@ -34,4 +34,11 @@ int  ad9361_hal_linux_spidev_txn  (int fd, int len, void *txb, void *rxb, int sp
 int  ad9361_hal_linux_spidev_init (int fd);
 
 
+int  ad9361_hal_linux_init (void);
+void ad9361_hal_linux_done (void);
+
+void ad9361_hal_linux_defaults_set_spidev (unsigned dev, const char *path);
+void ad9361_hal_linux_defaults_set_gpio   (unsigned dev, const int   pins[3]);
+
+
 #endif /* _INCLUDE_LIB_AD9361_HAL_H_ */

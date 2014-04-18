@@ -23,10 +23,14 @@
 
 
 // Scalar formatters
-void format_UINT8        (const UINT8        *val, const char *name, int num);
-void format_UINT16       (const UINT16       *val, const char *name, int num);
-void format_FLOAT        (const FLOAT        *val, const char *name, int num);
-void format_DOUBLE       (const DOUBLE       *val, const char *name, int num);
+void format_int          (const int       *val, const char *name, int num);
+void format_uint8_t      (const uint8_t   *val, const char *name, int num);
+void format_uint16_t     (const uint16_t  *val, const char *name, int num);
+void format_int32_t      (const int32_t   *val, const char *name, int num);
+void format_uint32_t     (const uint32_t  *val, const char *name, int num);
+void format_uint64_t     (const uint64_t  *val, const char *name, int num);
+
+void format_enum (const int *val, const char *name, const struct ad9361_enum_map *map);
 
 // Structure formatters
 void format_struct (const struct struct_map *map, const void *val, const char *name, int num);

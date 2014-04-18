@@ -16,6 +16,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
@@ -23,16 +24,17 @@
 #include <ad9361.h>
 
 #include "map.h"
+#include "main.h"
 #include "parse-gen.h"
 #include "format-gen.h"
 
 
 static int map_CMB_SPIWriteField (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr,      1, "");
-	MAP_ARG(UINT8,  field_val, 2, "");
-	MAP_ARG(UINT8,  mask,      3, "");
-	MAP_ARG(UINT8,  start_bit, 4, "");
+	MAP_ARG(uint16_t, addr,      1, "");
+	MAP_ARG(uint8_t,  field_val, 2, "");
+	MAP_ARG(uint8_t,  mask,      3, "");
+	MAP_ARG(uint8_t,  start_bit, 4, "");
 
 	CMB_SPIWriteField(addr, field_val, mask, start_bit);
 
@@ -44,10 +46,10 @@ MAP_CMD(SPIWriteField, map_CMB_SPIWriteField, 5);
 
 static int map_CMB_SPIWriteByte (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr, 1, "");
-	MAP_ARG(UINT16, data, 2, "");
+	MAP_ARG(uint16_t, addr, 1, "");
+	MAP_ARG(uint16_t, data, 2, "");
 
-	CMB_SPIWriteByte(addr, data);
+	ad9361_spi_write_byte(ad9361_legacy_dev, addr, data);
 
 	return 0;
 }
@@ -57,13 +59,13 @@ MAP_CMD(W,            map_CMB_SPIWriteByte, 3);
 
 static int map_CMB_SPIReadByte (int argc, const char **argv)
 {
-	MAP_ARG(UINT16, addr, 1, "");
+	MAP_ARG(uint16_t, addr, 1, "");
 
-	UINT8  readdata;
+	uint8_t readdata;
 
-	CMB_SPIReadByte(addr, &readdata);
+	ad9361_spi_read_byte(ad9361_legacy_dev, addr, &readdata);
 
-	MAP_RESULT(UINT8, readdata, 1);
+	MAP_RESULT(uint8_t, readdata, 1);
 	return 0;
 }
 MAP_CMD(SPIReadByte, map_CMB_SPIReadByte, 2);
@@ -74,7 +76,7 @@ static int map_CMB_DelayU (int argc, const char **argv)
 {
 	MAP_ARG(int, usec, 1, "");
 
-	CMB_DelayU(usec);
+	usleep(usec);
 
 	return 0;
 }
@@ -86,7 +88,7 @@ static int map_CMB_gpioWrite (int argc, const char **argv)
 	MAP_ARG(int, gpio_num,   1, "");
 	MAP_ARG(int, gpio_value, 2, "");
 
-	CMB_gpioWrite(gpio_num, gpio_value);
+	ad9361_gpio_write(ad9361_legacy_dev, gpio_num, gpio_value);
 
 	return 0;
 }

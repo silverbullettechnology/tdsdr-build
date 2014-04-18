@@ -20,8 +20,6 @@
 
 
 extern char *argv0;
-extern int   opt_dev_num;
-extern char *opt_dev_node;
 extern int   opt_soft_fail;
 extern char *opt_lib_dir;
 
@@ -29,14 +27,6 @@ extern char  env_profile_path[];
 extern char  env_script_path[];
 extern char  env_filter_path[];
 extern char  env_data_path[];
-
-struct dev_info
-{
-	char *node;
-	char *leaf;
-	int   gpio[3];
-};
-extern struct dev_info *dev_info_curr;
 
 void stop (const char *fmt, ...);
 
@@ -48,7 +38,5 @@ int interact (FILE *fp);
 int execute (char *line);
 
 int command (int argc, char **argv);
-
-int dev_reopen (int num, int reinit);
 
 #endif // _INCLUDE_APP_MAIN_H_

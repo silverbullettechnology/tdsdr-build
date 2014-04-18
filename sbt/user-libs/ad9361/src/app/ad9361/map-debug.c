@@ -23,16 +23,17 @@
 #include <ad9361.h>
 
 #include "map.h"
+#include "main.h"
 
 
 static int map_ext_reg_dump (int argc, const char **argv)
 {
-	UINT16  r;
-	UINT8   v;
+	uint16_t  r;
+	uint8_t   v;
 
 	for ( r = 0; r < 0x400; r++ )
 	{
-		CMB_SPIReadByte(r, &v);
+		ad9361_spi_read_byte(ad9361_legacy_dev, r, &v);
 		printf("reg_0x%03x=\"0x%02x\"\n", r, v);
 	}
 
@@ -42,8 +43,8 @@ MAP_CMD(RegDump, map_ext_reg_dump, 1);
 
 static int map_ext_reg_grid (int argc, const char **argv)
 {
-	int    x,y;
-	UINT8  v;
+	int      x,y;
+	uint8_t  v;
 
 	printf("     ");
 	for ( x = 0; x < 0x10; x++ )
@@ -54,7 +55,7 @@ static int map_ext_reg_grid (int argc, const char **argv)
 		printf("\n0x%02xx", y >> 4);
 		for ( x = 0; x < 0x10; x++ )
 		{
-			CMB_SPIReadByte(y | x, &v);
+			ad9361_spi_read_byte(ad9361_legacy_dev, y | x, &v);
 			printf("  %02x", v);
 		}
 	}

@@ -62,6 +62,9 @@ struct dsa_channel_event
 };
 
 
+extern int dsa_channel_ensm_wake;
+
+
 int  dsa_channel_ident   (const char *argv0);
 int  dsa_channel_buffer  (struct dsa_channel_event *evt, int ident, size_t len, int paint);
 int  dsa_channel_sxx     (struct dsa_channel_event *evt, int ident, int sxx,
@@ -85,6 +88,15 @@ unsigned long dsa_channel_timeout (struct dsa_channel_event *evt, int msps);
 // checks user's requested channel config against setup of the AD9361 chips, returns
 // number of buffers which mismatch, or 0 if all allocated buffers/channels are supported.
 int dsa_channel_check_active (int ident);
+
+// check the configured directions against the AD9361 ENSM modes; if configured for FDD
+// but in sleep, wait, or alert modes the mode will be set to FDD; otherwise if configured
+// for TX, RX, or FDD the mode and directions are checked.  returns 0 if transfers can
+// proceed, >0 for mismatches, <0 on error
+int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change);
+
+// put to sleep AD9361s woken up by dsa_channel_check_and_wake()
+int dsa_channel_sleep (void);
 
 unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old);
 

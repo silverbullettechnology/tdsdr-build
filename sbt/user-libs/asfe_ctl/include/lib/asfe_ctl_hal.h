@@ -15,6 +15,9 @@
  *
  * vim:ts=4:noexpandtab
  */
+
+
+
 #ifndef _INCLUDE_LIB_HAL_H_
 #define _INCLUDE_LIB_HAL_H_
 #include <assert.h>
@@ -23,6 +26,7 @@
 
 
 typedef void  (* HAL_SPIWriteByteArray_fn)     (UINT16 *data, UINT16 size);
+typedef void  (* HAL_SPIExchangeByteArray_fn)     (UINT16 *wr_data, UINT16 *rd_data, UINT16 size);
 typedef void  (* HAL_SPIReadByte_fn)      (UINT16 addr, UINT16 *readdata);
 typedef void  (* HAL_uartSendByte_fn)     (UINT8 sendByte);
 typedef BOOL  (* HAL_uartReceiveByte_fn)  (UINT8 *RxByte);
@@ -33,6 +37,7 @@ typedef void  (* HAL_gpioWrite_fn)        (int gpio_num, int gpio_value);
 struct asfe_ctl_hal
 {
 	HAL_SPIWriteByteArray_fn        HAL_SPIWriteByteArray;
+	HAL_SPIExchangeByteArray_fn	HAL_SPIExchangeByteArray;
 	HAL_SPIReadByte_fn         HAL_SPIReadByte;
 	HAL_uartSendByte_fn        HAL_uartSendByte;
 	HAL_uartReceiveByte_fn     HAL_uartReceiveByte;
@@ -48,6 +53,14 @@ static inline void HAL_SPIWriteByteArray (UINT16 *data, UINT16 size)
 	assert(asfe_ctl_hal);
 	assert(asfe_ctl_hal->HAL_SPIWriteByteArray);
 	asfe_ctl_hal->HAL_SPIWriteByteArray(data, size);
+	//asfe_ctl_hal_spi_reg_set(addr, data);
+}
+
+static inline void HAL_SPIExchangeByteArray (UINT16 *wr_data, UINT16 *rd_data, UINT16 size)
+{
+	assert(asfe_ctl_hal);
+	assert(asfe_ctl_hal->HAL_SPIExchangeByteArray);
+	asfe_ctl_hal->HAL_SPIExchangeByteArray(wr_data, rd_data, size);
 	//asfe_ctl_hal_spi_reg_set(addr, data);
 }
 
@@ -87,12 +100,10 @@ static inline void HAL_gpioWrite (int gpio_num, int gpio_value)
 	asfe_ctl_hal->HAL_gpioWrite(gpio_num, gpio_value);
 }
 
-
 int asfe_ctl_hal_attach (const struct asfe_ctl_hal *hal);
 int asfe_ctl_hal_detach (void);
 
 int  asfe_ctl_hal_spi_reg_get (UINT16 addr);
 void asfe_ctl_hal_spi_reg_clr (void);
-
 
 #endif /* _INCLUDE_LIB_HAL_H_ */

@@ -58,7 +58,7 @@ fi
 
 ls -1 "$SBT_PATCHES/petalinux-$SBT_PETALINUX_VER" | while read p; do
 	if ! cat "$SBT_PATCHES/petalinux-$SBT_PETALINUX_VER/$p" | \
-	patch --strip=1 --verbose --directory="$SBT_PETALINUX"; then
+	patch --strip=1 --directory="$SBT_PETALINUX"; then
 		echo "Patching PetaLinux SDK failed, stopping here."
 		exit 1
 	fi

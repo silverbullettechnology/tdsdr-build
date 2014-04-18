@@ -13,14 +13,12 @@
 #
 
 if USER_APPS_ROMFS_HACKS
- 	config USER_APPS_ROMFS_HACKS_FSTAB_MICROSD
-	bool "Add /etc/fstab entry for micro-SD card"
+ 	config USER_APPS_ROMFS_HACKS_FREERTOS
+	string "Filename of FreeRTOS firmware for AMP"
+	default "../../prebuilt/freertos_app.elf"
 	help
-	  Select this to add an FSTAB entry to auto-mount the micro-SD card on boot
-
- 	config USER_APPS_ROMFS_HACKS_FSTAB_EMMC
-	bool "Add /etc/fstab entry for onboard eMMC"
-	help
-	  Select this to add an FSTAB entry for the eMMC chip, it is set noauto
+	  Set this path to the FreeRTOS binary produced with a FreeRTOS AMP BSP as
+	  described in Xilinx UG978.  The file will be included in the romfs tree as 
+	    /lib/firmware/freertos
 
 endif

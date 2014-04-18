@@ -21,11 +21,12 @@
 
 typedef enum
 {
+	ST_INT,
 	ST_BOOL,
 	ST_UINT8,
 	ST_UINT16,
 	ST_UINT32,
-	ST_DOUBLE,
+	ST_UINT64,
 	ST_MAX
 }
 scalar_type_t;

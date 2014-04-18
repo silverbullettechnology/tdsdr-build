@@ -20,11 +20,12 @@
 
 #include <asfe_ctl/api_types.h>
 
-#include "common.h"
+#include <asfe_ctl/common.h>
 
 #include <asfe_ctl/asfe_ctl_hal.h>
 #include <asfe_ctl/asfe_ctl_hal_sim.h>
 #include <asfe_ctl/asfe_ctl_hal_linux.h>
+#include <asfe_ctl/asfe_ctl_lib.h>
 
 //#define ASFE_CTL_USE_READLINE 1
 

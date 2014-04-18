@@ -1,0 +1,14 @@
+###############################################################################
+# Please modify this file if you want to configure your own application.
+# You can uncommon and/or change the following Kconfig elements.
+###############################################################################
+
+
+if USER_APPS_SBT_AD9361_EXAMPLE
+	comment "No additional options for SBT_AD9361_EXAMPLE"
+
+# 	config USER_APPS_SBT_AD9361_EXAMPLE_OPTION0
+#	bool "option0"
+#	help
+#	  Help text
+endif

@@ -17,16 +17,15 @@
  */
 #ifndef _INCLUDE_POST_API_TYPES_H_
 #define _INCLUDE_POST_API_TYPES_H_
+#include <stdint.h>
 
 /* Typedefs */
-typedef unsigned long  UINT32;
-typedef signed   long  SINT32;
-typedef unsigned short UINT16;
-typedef signed   short SINT16;
-typedef unsigned char  UINT8;
-typedef signed   char  SINT8;
-typedef float          FLOAT;
-typedef double         DOUBLE;
+typedef uint32_t       UINT32;
+typedef int32_t        SINT32;
+typedef uint16_t       UINT16;
+typedef int16_t        SINT16;
+typedef uint8_t        UINT8;
+typedef int8_t         SINT8;
 typedef unsigned char  BOOL;
 
 typedef enum
