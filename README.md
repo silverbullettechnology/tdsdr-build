@@ -98,7 +98,7 @@ Setup Steps
    resulting directory.  Edit the file *Config* and set the variable *SBT_PETALINUX_SDK*
    to point to the PetaLinux SDK tarball downloaded in step 1
    ```
-   git clone https://github.com/silverbullettechnology/sdrdc-build.git
+   git clone -b sdrdc-staging https://github.com/silverbullettechnology/sdrdc-build.git
    cd sdrdc-build
    nano Config
    ```
