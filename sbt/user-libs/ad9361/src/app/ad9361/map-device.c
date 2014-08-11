@@ -127,43 +127,30 @@ static int map_Set_ASFE_Mode (int argc, const char **argv)
 	MAP_ARG(uint8_t, RX1_LNAB, 2, "Set RX1 LNA Bypass active (1) or inactive (0)");
 	MAP_ARG(uint8_t, RX2_LNAB, 3, "Set RX2 LNA Bypass active (1) or inactive (0)");
 	MAP_ARG(uint8_t, TR_N,     4, "Set ASFE_ADx_TR_N active (1) or inactive (0)");
+	MAP_ARG(uint8_t, SPARE,    5, "Set ADx_Spare_1 active (1) or inactive (0)");
 	uint8_t lna_bypass;
+
+	//LNA Bypass Setup
+	lna_bypass = 0;		
+	lna_bypass = (TR_N << 7) + (SPARE << 6) + (RX2_LNAB << 5) + (RX1_LNAB << 4);	
 		
-	if(ADx == 1 || ADx == 3){			
-		
-		//LNA Bypass Setup
-		lna_bypass = 0;		
-		lna_bypass = (TR_N << 7) + (RX2_LNAB << 5) + (RX1_LNAB << 4);		
+	if(ADx == 1 || ADx == 3){				
 		ad9361_spi_write_byte(0, 0x020, 0x00);
 		ad9361_spi_write_byte(0, 0x026, 0x90);
 		ad9361_spi_write_byte(0, 0x027, lna_bypass);
-	} else{
-		//LNA Bypass Setup
-		ad9361_spi_write_byte(0, 0x020, 0x00);
-		ad9361_spi_write_byte(0, 0x026, 0x90);
-		ad9361_spi_write_byte(0, 0x027, 0x00);	
-	}
+	} 
 
 	if(ADx == 2 || ADx == 3){
-		//LNA Bypass Setup
-		lna_bypass = 0;		
-		lna_bypass = (TR_N << 7) + (RX2_LNAB << 5) + (RX1_LNAB << 4);
 		ad9361_spi_write_byte(1, 0x020, 0x00);
 		ad9361_spi_write_byte(1, 0x026, 0x90);
 		ad9361_spi_write_byte(1, 0x027, lna_bypass);
-
-	} else{
-		//LNA Bypass Setup
-		ad9361_spi_write_byte(1, 0x020, 0x00);
-		ad9361_spi_write_byte(1, 0x026, 0x90);
-		ad9361_spi_write_byte(1, 0x027, 0x00);	
 	}
 
 	printf("ADI ASFE Control Setup Complete\r\n");
 
 	return 0;
 }
-MAP_CMD(Set_ASFE_Mode, map_Set_ASFE_Mode, 5);
+MAP_CMD(Set_ASFE_Mode, map_Set_ASFE_Mode, 6);
 
 
 static void ADI_Get_Voltage(void){
