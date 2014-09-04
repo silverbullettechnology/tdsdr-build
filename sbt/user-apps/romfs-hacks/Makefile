@@ -40,6 +40,8 @@ ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
 			$(ROMFSDIR)/lib/firmware/freertos; \
 	fi
 endif
+	rm -f $(ROMFSDIR)/bin/gzip
+	install -m755 gzip $(ROMFSDIR)/bin/gzip
 
 image: 
 	echo image
