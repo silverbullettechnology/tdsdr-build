@@ -570,6 +570,12 @@ static int fmt_iqw_write (FILE *fp, void *buff, size_t size, int chan)
 	return 0;
 }
 
+static int fmt_nul_write (FILE *fp, void *buff, size_t size, int chan)
+{
+	fputc('\r', stderr);
+	return 0;
+}
+
 
 static struct format format_list[] =
 {
@@ -580,6 +586,7 @@ static struct format format_list[] =
 	{ "dec",   "",  fmt_dec_size,   fmt_dec_read,   fmt_dec_write   },
 	{ "iqw",   "",  fmt_iqw_size,   fmt_iqw_read,   fmt_iqw_write   },
 	{ "bit",   "",  NULL,           NULL,           fmt_bit_write  },
+	{ "nul",   "",  NULL,           NULL,           fmt_nul_write  },
 	{ NULL }
 };
 

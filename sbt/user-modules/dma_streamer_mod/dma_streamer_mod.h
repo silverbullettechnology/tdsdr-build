@@ -52,9 +52,10 @@
 
 #define DSM_TARGT_ADI1            0x01
 #define DSM_TARGT_ADI2            0x02
-#define DSM_TARGT_DSXX            0x04
-#define DSM_TARGT_NEW             0x08
-#define DSM_TARGT_MASK            0x0F
+#define DSM_TARGT_DSX0            0x04
+#define DSM_TARGT_DSX1            0x08
+#define DSM_TARGT_NEW             0x10
+#define DSM_TARGT_MASK            0x1F
 
 #define DSM_NEW_CTRL_RX1          0x01
 #define DSM_NEW_CTRL_RX2          0x02
@@ -66,6 +67,7 @@ struct dsm_xfer_buff
 	unsigned long  addr;   /* Userspace address for get_user_pages() */
 	unsigned long  size;   /* Size of userspace buffer in bytes */
 	unsigned long  words;  /* Number of words to transfer per repetition */
+	unsigned long  ctrl;
 };
 
 struct dsm_chan_buffs
@@ -79,7 +81,8 @@ struct dsm_user_buffs
 {
 	struct dsm_chan_buffs  adi1;
 	struct dsm_chan_buffs  adi2;
-	struct dsm_chan_buffs  dsxx;
+	struct dsm_chan_buffs  dsx0;
+	struct dsm_chan_buffs  dsx1;
 };
 
 
@@ -102,7 +105,8 @@ struct dsm_user_stats
 {
 	struct dsm_chan_stats  adi1;
 	struct dsm_chan_stats  adi2;
-	struct dsm_chan_stats  dsxx;
+	struct dsm_chan_stats  dsx0;
+	struct dsm_chan_stats  dsx1;
 };
 
 struct dsm_fifo_counts
@@ -190,19 +194,40 @@ struct dsm_new_adi_regs
 #define  DSM_IOCS_ADI_NEW_REG_RB   _IOW(DSM_IOCTL_MAGIC, 54, struct dsm_new_adi_regs *)
 
 // Access to data source regs
-#define  DSM_IOCS_DSRC_CTRL   _IOW(DSM_IOCTL_MAGIC, 60, unsigned long)
-#define  DSM_IOCG_DSRC_STAT   _IOR(DSM_IOCTL_MAGIC, 61, unsigned long *)
-#define  DSM_IOCG_DSRC_BYTES  _IOR(DSM_IOCTL_MAGIC, 62, unsigned long *)
-#define  DSM_IOCS_DSRC_BYTES  _IOW(DSM_IOCTL_MAGIC, 63, unsigned long)
-#define  DSM_IOCG_DSRC_SENT   _IOR(DSM_IOCTL_MAGIC, 64, unsigned long *)
-#define  DSM_IOCG_DSRC_TYPE   _IOR(DSM_IOCTL_MAGIC, 65, unsigned long *)
-#define  DSM_IOCS_DSRC_TYPE   _IOW(DSM_IOCTL_MAGIC, 66, unsigned long)
+#define  DSM_IOCS_DSRC0_CTRL   _IOW(DSM_IOCTL_MAGIC, 60, unsigned long)
+#define  DSM_IOCG_DSRC0_STAT   _IOR(DSM_IOCTL_MAGIC, 61, unsigned long *)
+#define  DSM_IOCG_DSRC0_BYTES  _IOR(DSM_IOCTL_MAGIC, 62, unsigned long *)
+#define  DSM_IOCS_DSRC0_BYTES  _IOW(DSM_IOCTL_MAGIC, 63, unsigned long)
+#define  DSM_IOCG_DSRC0_SENT   _IOR(DSM_IOCTL_MAGIC, 64, unsigned long *)
+#define  DSM_IOCG_DSRC0_TYPE   _IOR(DSM_IOCTL_MAGIC, 65, unsigned long *)
+#define  DSM_IOCS_DSRC0_TYPE   _IOW(DSM_IOCTL_MAGIC, 66, unsigned long)
+#define  DSM_IOCG_DSRC0_REPS   _IOR(DSM_IOCTL_MAGIC, 67, unsigned long *)
+#define  DSM_IOCS_DSRC0_REPS   _IOW(DSM_IOCTL_MAGIC, 68, unsigned long)
+#define  DSM_IOCG_DSRC0_RSENT  _IOR(DSM_IOCTL_MAGIC, 69, unsigned long *)
 
 // Access to data sink regs
-#define  DSM_IOCS_DSNK_CTRL   _IOW(DSM_IOCTL_MAGIC, 70, unsigned long)
-#define  DSM_IOCG_DSNK_STAT   _IOR(DSM_IOCTL_MAGIC, 71, unsigned long *)
-#define  DSM_IOCG_DSNK_BYTES  _IOR(DSM_IOCTL_MAGIC, 72, unsigned long *)
-#define  DSM_IOCG_DSNK_SUM    _IOR(DSM_IOCTL_MAGIC, 73, unsigned long *)
+#define  DSM_IOCS_DSNK0_CTRL   _IOW(DSM_IOCTL_MAGIC, 70, unsigned long)
+#define  DSM_IOCG_DSNK0_STAT   _IOR(DSM_IOCTL_MAGIC, 71, unsigned long *)
+#define  DSM_IOCG_DSNK0_BYTES  _IOR(DSM_IOCTL_MAGIC, 72, unsigned long *)
+#define  DSM_IOCG_DSNK0_SUM    _IOR(DSM_IOCTL_MAGIC, 73, unsigned long *)
+
+// Access to data source regs
+#define  DSM_IOCS_DSRC1_CTRL   _IOW(DSM_IOCTL_MAGIC, 80, unsigned long)
+#define  DSM_IOCG_DSRC1_STAT   _IOR(DSM_IOCTL_MAGIC, 81, unsigned long *)
+#define  DSM_IOCG_DSRC1_BYTES  _IOR(DSM_IOCTL_MAGIC, 82, unsigned long *)
+#define  DSM_IOCS_DSRC1_BYTES  _IOW(DSM_IOCTL_MAGIC, 83, unsigned long)
+#define  DSM_IOCG_DSRC1_SENT   _IOR(DSM_IOCTL_MAGIC, 84, unsigned long *)
+#define  DSM_IOCG_DSRC1_TYPE   _IOR(DSM_IOCTL_MAGIC, 85, unsigned long *)
+#define  DSM_IOCS_DSRC1_TYPE   _IOW(DSM_IOCTL_MAGIC, 86, unsigned long)
+#define  DSM_IOCG_DSRC1_REPS   _IOR(DSM_IOCTL_MAGIC, 87, unsigned long *)
+#define  DSM_IOCS_DSRC1_REPS   _IOW(DSM_IOCTL_MAGIC, 88, unsigned long)
+#define  DSM_IOCG_DSRC1_RSENT  _IOR(DSM_IOCTL_MAGIC, 89, unsigned long *)
+
+// Access to data sink regs
+#define  DSM_IOCS_DSNK1_CTRL   _IOW(DSM_IOCTL_MAGIC, 90, unsigned long)
+#define  DSM_IOCG_DSNK1_STAT   _IOR(DSM_IOCTL_MAGIC, 91, unsigned long *)
+#define  DSM_IOCG_DSNK1_BYTES  _IOR(DSM_IOCTL_MAGIC, 92, unsigned long *)
+#define  DSM_IOCG_DSNK1_SUM    _IOR(DSM_IOCTL_MAGIC, 93, unsigned long *)
 
 
 #endif // _INCLUDE_DMA_STREAMER_MOD_H

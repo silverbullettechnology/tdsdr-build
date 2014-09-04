@@ -39,6 +39,10 @@
 #include "dsm_xparameters.h"
 
 
+#define pr_trace(fmt,...) do{ }while(0)
+//#define pr_trace pr_debug
+
+
 #define ADI_NEW_TX_REG_CNTRL_1  0x0044
 #define ADI_NEW_TX_ENABLE       (1 << 0)
 
@@ -105,6 +109,8 @@ struct dsm_chan
 
 	// pointer to old and new FIFO control registers
 	struct dsm_lvds_regs __iomem *old_regs;
+	struct dsm_dsrc_regs __iomem *dsrc_regs;
+	struct dsm_dsnk_regs __iomem *dsnk_regs;
 	u32 __iomem                  *new_regs;
 
 	// register value (old) and direction/channel mask (new)
@@ -113,7 +119,8 @@ struct dsm_chan
 
 static struct dsm_chan  dsm_adi1_state = { .name = "adi1" };
 static struct dsm_chan  dsm_adi2_state = { .name = "adi2" };
-static struct dsm_chan  dsm_dsxx_state = { .name = "dsxx" };
+static struct dsm_chan  dsm_dsx0_state = { .name = "dsx0" };
+static struct dsm_chan  dsm_dsx1_state = { .name = "dsx1" };
 
 
 static void dsm_thread_cb (void *cmp)
@@ -149,6 +156,10 @@ static int dsm_thread (void *data)
 		pr_debug("\told_regs %p\n", parent->old_regs);
 	else if ( parent->new_regs )
 		pr_debug("\tnew_regs %p\n", parent->new_regs);
+	else if ( parent->dsrc_regs )
+		pr_debug("\tdsrc_regs %p\n", parent->dsrc_regs);
+	else if ( parent->dsnk_regs )
+		pr_debug("\tdsnk_regs %p\n", parent->dsnk_regs);
 	pr_debug("\tctrl %02lx\n", parent->ctrl);
 
 	// reset TX checksum register
@@ -226,6 +237,12 @@ static int dsm_thread (void *data)
 				else
 					pr_debug("No TX: ADI_NEW_TX_REG_CNTRL_1 unchanged\n");
 			}
+			// TX to DSNK 
+			else if ( parent->dsnk_regs && state->dir == DMA_MEM_TO_DEV )
+			{
+				REG_WRITE(&parent->dsnk_regs->ctrl, DSM_DSXX_CTRL_ENABLE);
+				pr_debug("TX: ctrl = DSM_DSXX_CTRL_ENABLE\n");
+			}
 			else
 				pr_debug("%s: skip start TX\n", state->name);
 
@@ -240,6 +257,12 @@ static int dsm_thread (void *data)
 			else if ( parent->new_regs && state->dir == DMA_DEV_TO_MEM )
 			{
 				pr_debug("%s: skip new RX ctrl: handled in userspace\n", state->name);
+			}
+			// RX from DSRC
+			else if ( parent->dsrc_regs && state->dir == DMA_DEV_TO_MEM )
+			{
+				pr_debug("RX: ctrl = DSM_DSXX_CTRL_ENABLE\n");
+				REG_WRITE(&parent->dsrc_regs->ctrl, DSM_DSXX_CTRL_ENABLE);
 			}
 			else
 				pr_debug("%s: skip start RX\n", state->name);
@@ -318,11 +341,11 @@ static void dsm_xfer_cleanup (struct dsm_xfer *state)
 
 pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
 
-//pr_debug("put_page() on %d user pages:\n", pc);
+	pr_trace("put_page() on %d user pages:\n", pc);
 	while ( pc > 0 )
 	{
 		pg = sg_page(sg);
-//pr_debug("  sg %p -> pg %p\n", sg, pg);
+		pr_trace("  sg %p -> pg %p\n", sg, pg);
 		if ( state->dir == DMA_DEV_TO_MEM && !PageReserved(pg) )
 			set_page_dirty(pg);
 
@@ -335,11 +358,11 @@ pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
 
 	dma_release_channel(state->chan);
 
-//pr_debug("free_page() on %d sg pages:\n", sc);
+	pr_trace("free_page() on %d sg pages:\n", sc);
 	for ( pc = 0; pc < sc; pc++ )
 		if ( state->chain[pc] )
 		{
-//pr_debug("  sg %p\n", state->chain[pc]);
+			pr_trace("  sg %p\n", state->chain[pc]);
 			free_page((unsigned long)state->chain[pc]);
 		}
 
@@ -530,7 +553,7 @@ pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
 		down_read(&current->mm->mmap_sem);
 		ret = get_user_pages(current, current->mm, us_addr, want, rx, 0, us_pages, NULL);
 		up_read(&current->mm->mmap_sem);
-		pr_debug("get_user_pages(..., us_addr %08lx, want %04x, ...) returned %d\n",
+		pr_trace("get_user_pages(..., us_addr %08lx, want %04x, ...) returned %d\n",
 		         us_addr, want, ret);
 
 		if ( ret < want )
@@ -557,9 +580,9 @@ pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
 	// assumes that map_sg uses chain-aware iteration (sg_next/for_each_sg)
 	dma_map_sg(dsm_dev, state->chain[0], state->pages, state->dir);
 
-	pr_debug("Mapped scatterlist chain:\n");
+	pr_trace("Mapped scatterlist chain:\n");
 	for_each_sg(state->chain[0], sg_walk, state->pages, idx)
-		pr_debug("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
+		pr_trace("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
 		         (unsigned long)sg_dma_address(sg_walk));
 
 	pr_debug("done\n");
@@ -607,15 +630,19 @@ static void dsm_cleanup (void)
 	dsm_xfer_cleanup(dsm_adi1_state.rx);
 	dsm_xfer_cleanup(dsm_adi2_state.tx);
 	dsm_xfer_cleanup(dsm_adi2_state.rx);
-	dsm_xfer_cleanup(dsm_dsxx_state.tx);
-	dsm_xfer_cleanup(dsm_dsxx_state.rx);
+	dsm_xfer_cleanup(dsm_dsx0_state.tx);
+	dsm_xfer_cleanup(dsm_dsx0_state.rx);
+	dsm_xfer_cleanup(dsm_dsx1_state.tx);
+	dsm_xfer_cleanup(dsm_dsx1_state.rx);
 
 	dsm_adi1_state.tx = NULL;
 	dsm_adi1_state.rx = NULL;
 	dsm_adi2_state.tx = NULL;
 	dsm_adi2_state.rx = NULL;
-	dsm_dsxx_state.tx = NULL;
-	dsm_dsxx_state.rx = NULL;
+	dsm_dsx0_state.tx = NULL;
+	dsm_dsx0_state.rx = NULL;
+	dsm_dsx1_state.tx = NULL;
+	dsm_dsx1_state.rx = NULL;
 
 	atomic_set(&dsm_busy, 0);
 	dsm_mapped = 0;
@@ -659,11 +686,13 @@ static int dsm_start_all (int continuous)
 	// continuous option for TX only
 	if ( dsm_adi1_state.tx ) atomic_set(&dsm_adi1_state.tx->continuous, continuous);
 	if ( dsm_adi2_state.tx ) atomic_set(&dsm_adi2_state.tx->continuous, continuous);
-	if ( dsm_dsxx_state.tx ) atomic_set(&dsm_dsxx_state.tx->continuous, continuous);
+	if ( dsm_dsx0_state.tx ) atomic_set(&dsm_dsx0_state.tx->continuous, continuous);
+	if ( dsm_dsx1_state.tx ) atomic_set(&dsm_dsx1_state.tx->continuous, continuous);
 
 	if ( dsm_start_chan(&dsm_adi1_state) ) ret++;
 	if ( dsm_start_chan(&dsm_adi2_state) ) ret++;
-	if ( dsm_start_chan(&dsm_dsxx_state) ) ret++;
+	if ( dsm_start_chan(&dsm_dsx0_state) ) ret++;
+	if ( dsm_start_chan(&dsm_dsx1_state) ) ret++;
 
 	return ret;
 }
@@ -686,7 +715,8 @@ static void dsm_halt_all (void)
 {
 	dsm_halt_chan(&dsm_adi1_state);
 	dsm_halt_chan(&dsm_adi2_state);
-	dsm_halt_chan(&dsm_dsxx_state);
+	dsm_halt_chan(&dsm_dsx0_state);
+	dsm_halt_chan(&dsm_dsx1_state);
 }
 
 static void dsm_stop_chan (struct dsm_chan *chan)
@@ -699,7 +729,8 @@ static void dsm_stop_all (void)
 {
 	dsm_stop_chan(&dsm_adi1_state);
 	dsm_stop_chan(&dsm_adi2_state);
-	dsm_stop_chan(&dsm_dsxx_state);
+	dsm_stop_chan(&dsm_dsx0_state);
+	dsm_stop_chan(&dsm_dsx1_state);
 }
 
 static int dsm_wait_all (void)
@@ -762,6 +793,18 @@ static inline int dsm_setup (struct dsm_chan *chan, int adi, int dma,
 				return -1;
 			}
 			break;
+
+		case DSM_TARGT_DSX0:
+			pr_debug("Transfer to DSX0\n");
+			chan->dsrc_regs = dsm_dsrc0_regs;
+			chan->dsnk_regs = dsm_dsnk0_regs;
+			break;
+
+		case DSM_TARGT_DSX1:
+			pr_debug("Transfer to DSX1\n");
+			chan->dsrc_regs = dsm_dsrc1_regs;
+			chan->dsnk_regs = dsm_dsnk1_regs;
+			break;
 	}
 
 	if ( buff->tx.size && !(chan->tx = dsm_xfer_setup(0, adi, dma, &buff->tx)) )
@@ -793,7 +836,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 	int            ret = -ENOSYS;
 	int            max = 10;
 
-	pr_debug("%s(cmd %x, arg %08lx)\n", __func__, cmd, arg);
+	pr_trace("%s(cmd %x, arg %08lx)\n", __func__, cmd, arg);
 
 	if ( _IOC_TYPE(cmd) != DSM_IOCTL_MAGIC )
 		return -EINVAL;
@@ -826,7 +869,8 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 			if ( dsm_setup(&dsm_adi1_state, DSM_TARGT_ADI1, 0, &dsm_user_buffs.adi1) ||
 			     dsm_setup(&dsm_adi2_state, DSM_TARGT_ADI2, 1, &dsm_user_buffs.adi2) ||
-			     dsm_setup(&dsm_dsxx_state, DSM_TARGT_DSXX, 0, &dsm_user_buffs.dsxx) )
+			     dsm_setup(&dsm_dsx0_state, DSM_TARGT_DSX0, 0, &dsm_user_buffs.dsx0) ||
+			     dsm_setup(&dsm_dsx1_state, DSM_TARGT_DSX1, 1, &dsm_user_buffs.dsx1) )
 			{
 				dsm_cleanup();
 				return -EINVAL;
@@ -834,13 +878,15 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 			dsm_mapped = 1;
 			atomic_set(&dsm_busy, 0);
-			pr_debug("setup buffers: { %s%s%s%s%s%s}, ok\n", 
+			pr_debug("setup buffers: { %s%s%s%s%s%s%s%s}, ok\n", 
 			         dsm_adi1_state.tx ? "adi1_tx " : "",
 			         dsm_adi1_state.rx ? "adi1_rx " : "",
 			         dsm_adi2_state.tx ? "adi2_tx " : "",
 			         dsm_adi2_state.rx ? "adi2_rx " : "",
-			         dsm_dsxx_state.tx ? "dsxx_tx " : "",
-			         dsm_dsxx_state.rx ? "dsxx_rx " : "");
+			         dsm_dsx0_state.tx ? "dsx0_tx " : "",
+			         dsm_dsx0_state.rx ? "dsx0_rx " : "",
+			         dsm_dsx1_state.tx ? "dsx1_tx " : "",
+			         dsm_dsx1_state.rx ? "dsx1_rx " : "");
 
 			ret = 0;
 			break;
@@ -961,8 +1007,10 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			if ( dsm_adi1_state.rx ) dsm_user_stats.adi1.rx = dsm_adi1_state.rx->stats;
 			if ( dsm_adi2_state.tx ) dsm_user_stats.adi2.tx = dsm_adi2_state.tx->stats;
 			if ( dsm_adi2_state.rx ) dsm_user_stats.adi2.rx = dsm_adi2_state.rx->stats;
-			if ( dsm_dsxx_state.tx ) dsm_user_stats.dsxx.tx = dsm_dsxx_state.tx->stats;
-			if ( dsm_dsxx_state.rx ) dsm_user_stats.dsxx.rx = dsm_dsxx_state.rx->stats;
+			if ( dsm_dsx0_state.tx ) dsm_user_stats.dsx0.tx = dsm_dsx0_state.tx->stats;
+			if ( dsm_dsx0_state.rx ) dsm_user_stats.dsx0.rx = dsm_dsx0_state.rx->stats;
+			if ( dsm_dsx1_state.tx ) dsm_user_stats.dsx1.tx = dsm_dsx1_state.tx->stats;
+			if ( dsm_dsx1_state.rx ) dsm_user_stats.dsx1.rx = dsm_dsx1_state.rx->stats;
 
 			ret = copy_to_user((void *)arg, &dsm_user_stats, sizeof(dsm_user_stats));
 			if ( ret )
@@ -991,78 +1039,111 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 
 		// Access to data source regs
-		case DSM_IOCS_DSRC_CTRL:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCS_DSRC0_CTRL:
+			if ( dsm_dsrc0_regs )
 			{
-				pr_debug("DSM_IOCS_DSRC_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc_regs->ctrl, arg);
+				pr_debug("DSM_IOCS_DSRC0_CTRL %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc0_regs->ctrl, arg);
 				ret = 0;
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSRC_STAT:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCG_DSRC0_STAT:
+			if ( dsm_dsrc0_regs )
 			{
-				reg = REG_READ(&dsm_dsrc_regs->ctrl);
-				pr_debug("DSM_IOCG_DSRC_STAT %08lx\n", reg);
+				reg = REG_READ(&dsm_dsrc0_regs->ctrl);
+				pr_debug("DSM_IOCG_DSRC0_STAT %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSRC_BYTES:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCG_DSRC0_BYTES:
+			if ( dsm_dsrc0_regs )
 			{
-				reg = REG_READ(&dsm_dsrc_regs->bytes);
-				pr_debug("DSM_IOCG_DSRC_BYTES %08lx\n", reg);
+				reg = REG_READ(&dsm_dsrc0_regs->bytes);
+				pr_debug("DSM_IOCG_DSRC0_BYTES %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCS_DSRC_BYTES:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCS_DSRC0_BYTES:
+			if ( dsm_dsrc0_regs )
 			{
-				pr_debug("DSM_IOCS_DSRC_BYTES %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc_regs->bytes, arg);
+				pr_debug("DSM_IOCS_DSRC0_BYTES %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc0_regs->bytes, arg);
 				ret = 0;
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSRC_SENT:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCG_DSRC0_SENT:
+			if ( dsm_dsrc0_regs )
 			{
-				pr_debug("DSM_IOCG_DSRC_SENT %08lx\n", arg);
-				reg = REG_READ(&dsm_dsrc_regs->sent);
+				reg = REG_READ(&dsm_dsrc0_regs->sent);
+				pr_debug("DSM_IOCG_DSRC0_SENT %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSRC_TYPE:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCG_DSRC0_TYPE:
+			if ( dsm_dsrc0_regs )
 			{
-				reg = REG_READ(&dsm_dsrc_regs->type);
-				pr_debug("DSM_IOCG_DSRC_TYPE %08lx\n", reg);
+				reg = REG_READ(&dsm_dsrc0_regs->type);
+				pr_debug("DSM_IOCG_DSRC0_TYPE %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCS_DSRC_TYPE:
-			if ( dsm_dsrc_regs )
+		case DSM_IOCS_DSRC0_TYPE:
+			if ( dsm_dsrc0_regs )
 			{
-				pr_debug("DSM_IOCS_DSRC_TYPE %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc_regs->type, arg);
+				pr_debug("DSM_IOCS_DSRC0_TYPE %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc0_regs->type, arg);
 				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC0_REPS:
+			if ( dsm_dsrc0_regs )
+			{
+				reg = REG_READ(&dsm_dsrc0_regs->reps);
+				pr_debug("DSM_IOCG_DSRC0_REPS %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCS_DSRC0_REPS:
+			if ( dsm_dsrc0_regs )
+			{
+				pr_debug("DSM_IOCS_DSRC0_REPS %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc0_regs->reps, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC0_RSENT:
+			if ( dsm_dsrc0_regs )
+			{
+				reg = REG_READ(&dsm_dsrc0_regs->rsent);
+				pr_debug("DSM_IOCG_DSRC0_RSENT %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
@@ -1070,48 +1151,210 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 
 		// Access to data sink regs
-		case DSM_IOCS_DSNK_CTRL:
-			if ( dsm_dsnk_regs )
+		case DSM_IOCS_DSNK0_CTRL:
+			if ( dsm_dsnk0_regs )
 			{
-				pr_debug("DSM_IOCS_DSNK_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsnk_regs->ctrl, arg);
+				pr_debug("DSM_IOCS_DSNK0_CTRL %08lx\n", arg);
+				REG_WRITE(&dsm_dsnk0_regs->ctrl, arg);
 				ret = 0;
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSNK_STAT:
-			if ( dsm_dsnk_regs )
+		case DSM_IOCG_DSNK0_STAT:
+			if ( dsm_dsnk0_regs )
 			{
-				reg = REG_READ(&dsm_dsnk_regs->stat);
-				pr_debug("DSM_IOCG_DSNK_STAT %08lx\n", reg);
+				reg = REG_READ(&dsm_dsnk0_regs->stat);
+				pr_debug("DSM_IOCG_DSNK0_STAT %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSNK_BYTES:
-			if ( dsm_dsnk_regs )
+		case DSM_IOCG_DSNK0_BYTES:
+			if ( dsm_dsnk0_regs )
 			{
-				reg = REG_READ(&dsm_dsnk_regs->bytes);
-				pr_debug("DSM_IOCG_DSNK_BYTES %08lx\n", reg);
+				reg = REG_READ(&dsm_dsnk0_regs->bytes);
+				pr_debug("DSM_IOCG_DSNK0_BYTES %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
 			else
 				ret = -ENODEV;
 			break;
 
-		case DSM_IOCG_DSNK_SUM:
-			if ( dsm_dsnk_regs )
+		case DSM_IOCG_DSNK0_SUM:
+			if ( dsm_dsnk0_regs )
 			{
 				unsigned long sum[2];
 				
-				sum[0] = REG_READ(&dsm_dsnk_regs->sum_h);
-				sum[1] = REG_READ(&dsm_dsnk_regs->sum_l);
+				sum[0] = REG_READ(&dsm_dsnk0_regs->sum_h);
+				sum[1] = REG_READ(&dsm_dsnk0_regs->sum_l);
 
-				pr_debug("DSM_IOCG_DSNK_SUM %08lx.%08lx\n", sum[0], sum[1]);
+				pr_debug("DSM_IOCG_DSNK0_SUM %08lx.%08lx\n", sum[0], sum[1]);
+				ret = copy_to_user((void *)arg, sum, sizeof(sum));
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+
+		// Access to data source regs
+		case DSM_IOCS_DSRC1_CTRL:
+			if ( dsm_dsrc1_regs )
+			{
+				pr_debug("DSM_IOCS_DSRC1_CTRL %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc1_regs->ctrl, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_STAT:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->ctrl);
+				pr_debug("DSM_IOCG_DSRC1_STAT %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_BYTES:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->bytes);
+				pr_debug("DSM_IOCG_DSRC1_BYTES %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCS_DSRC1_BYTES:
+			if ( dsm_dsrc1_regs )
+			{
+				pr_debug("DSM_IOCS_DSRC1_BYTES %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc1_regs->bytes, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_SENT:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->sent);
+				pr_debug("DSM_IOCG_DSRC1_SENT %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_TYPE:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->type);
+				pr_debug("DSM_IOCG_DSRC1_TYPE %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCS_DSRC1_TYPE:
+			if ( dsm_dsrc1_regs )
+			{
+				pr_debug("DSM_IOCS_DSRC1_TYPE %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc1_regs->type, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_REPS:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->reps);
+				pr_debug("DSM_IOCG_DSRC1_REPS %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCS_DSRC1_REPS:
+			if ( dsm_dsrc1_regs )
+			{
+				pr_debug("DSM_IOCS_DSRC1_REPS %08lx\n", arg);
+				REG_WRITE(&dsm_dsrc1_regs->reps, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSRC1_RSENT:
+			if ( dsm_dsrc1_regs )
+			{
+				reg = REG_READ(&dsm_dsrc1_regs->rsent);
+				pr_debug("DSM_IOCG_DSRC1_RSENT %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+
+		// Access to data sink regs
+		case DSM_IOCS_DSNK1_CTRL:
+			if ( dsm_dsnk1_regs )
+			{
+				pr_debug("DSM_IOCS_DSNK1_CTRL %08lx\n", arg);
+				REG_WRITE(&dsm_dsnk1_regs->ctrl, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSNK1_STAT:
+			if ( dsm_dsnk1_regs )
+			{
+				reg = REG_READ(&dsm_dsnk1_regs->stat);
+				pr_debug("DSM_IOCG_DSNK1_STAT %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSNK1_BYTES:
+			if ( dsm_dsnk1_regs )
+			{
+				reg = REG_READ(&dsm_dsnk1_regs->bytes);
+				pr_debug("DSM_IOCG_DSNK1_BYTES %08lx\n", reg);
+				ret = put_user(reg, (unsigned long *)arg);
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case DSM_IOCG_DSNK1_SUM:
+			if ( dsm_dsnk1_regs )
+			{
+				unsigned long sum[2];
+				
+				sum[0] = REG_READ(&dsm_dsnk1_regs->sum_h);
+				sum[1] = REG_READ(&dsm_dsnk1_regs->sum_l);
+
+				pr_debug("DSM_IOCG_DSNK1_SUM %08lx.%08lx\n", sum[0], sum[1]);
 				ret = copy_to_user((void *)arg, sum, sizeof(sum));
 			}
 			else
@@ -1317,14 +1560,17 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		// Target list bitmap from xparameters
 		case DSM_IOCG_TARGET_LIST:
 			reg = 0;
-			if ( dsm_dsrc_regs ) reg |= DSM_TARGT_DSXX;
-			if ( dsm_dsnk_regs ) reg |= DSM_TARGT_DSXX;
+			if ( dsm_dsrc0_regs ) reg |= DSM_TARGT_DSX0;
+			if ( dsm_dsnk0_regs ) reg |= DSM_TARGT_DSX0;
+			if ( dsm_dsrc1_regs ) reg |= DSM_TARGT_DSX1;
+			if ( dsm_dsnk1_regs ) reg |= DSM_TARGT_DSX1;
 			if ( dsm_adi1_old_regs ) reg |= DSM_TARGT_ADI1;
 			if ( dsm_adi2_old_regs ) reg |= DSM_TARGT_ADI2;
 			if ( dsm_adi1_new_regs ) reg |= DSM_TARGT_ADI1|DSM_TARGT_NEW;
 			if ( dsm_adi2_new_regs ) reg |= DSM_TARGT_ADI2|DSM_TARGT_NEW;
-			pr_debug("DSM_IOCG_TARGET_LIST %08lx { %s%s%s%s}\n", reg, 
-			         reg & DSM_TARGT_DSXX ? "dsxx " : "",
+			pr_debug("DSM_IOCG_TARGET_LIST %08lx { %s%s%s%s%s}\n", reg, 
+			         reg & DSM_TARGT_DSX0 ? "dsx0 " : "",
+			         reg & DSM_TARGT_DSX1 ? "dsx1 " : "",
 			         reg & DSM_TARGT_NEW  ? "new: " : "",
 			         reg & DSM_TARGT_ADI1 ? "adi1 " : "",
 			         reg & DSM_TARGT_ADI2 ? "adi2 " : "");
@@ -1396,7 +1642,9 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 	}
 
-	pr_debug("%s(): return %d\n", __func__, ret);
+	if ( ret )
+		pr_debug("%s(): return %d\n", __func__, ret);
+
 	return ret;
 }
 
@@ -1449,7 +1697,8 @@ static int __init dma_streamer_mod_init(void)
 	init_waitqueue_head(&dsm_wait);
 	init_completion(&dsm_adi1_state.txrx);
 	init_completion(&dsm_adi2_state.txrx);
-	init_completion(&dsm_dsxx_state.txrx);
+	init_completion(&dsm_dsx0_state.txrx);
+	init_completion(&dsm_dsx1_state.txrx);
 
 	pr_info("registered successfully\n");
 	return 0;

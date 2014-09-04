@@ -24,7 +24,7 @@ void stop (const char *fmt, ...);
 void mesg (int volume, const char *fmt, ...);
 size_t size_bin (const char *str);
 size_t size_dec (const char *str);
-uint64_t dsnk_sum (void *buff, size_t size);
+uint64_t dsnk_sum (void *buff, size_t size, int dsxx);
 int posix_getopt (int argc, char **argv, const char *optstring);
 int terminal_pause (void);
 

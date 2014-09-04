@@ -38,10 +38,12 @@ LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 const char *dsa_argv0;
 int         dsa_dev = -1;
 int         dsa_adi_new = 0;
+int         dsa_dsxx = 0;
 
 size_t      dsa_opt_len      = 1000000; // 1MS default
 unsigned    dsa_opt_timeout  = 0; // auto-calculated now
 const char *dsa_opt_device   = DEF_DEVICE;
+long        dsa_opt_adjust   = 0;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];
@@ -94,8 +96,8 @@ static char *target_desc (int mask)
 		     mask & DSM_TARGT_ADI1 ? "adi1 " : "",
 		     mask & DSM_TARGT_ADI2 ? "adi2 " : "",
 		     mask & DSM_TARGT_NEW  ? "new: " : "",
-		     mask & DSM_TARGT_DSXX ? "dsrc " : "",
-		     mask & DSM_TARGT_DSXX ? "dsnk " : "");
+		     mask & DSM_TARGT_DSX0 ? "dsx0 " : "",
+		     mask & DSM_TARGT_DSX1 ? "dsx1 " : "");
 
 	return buff;
 }
@@ -105,6 +107,7 @@ int dsa_main_map (int reps)
 {
 	// pass to kernelspace and prepare DMA
 	struct dsm_user_buffs  buffs;
+	struct dsm_xfer_buff  *xfer;
 
 	if ( dsa_dev < 0 )
 		return -1;
@@ -113,38 +116,42 @@ int dsa_main_map (int reps)
 
 	if ( dsa_evt.tx[0] )
 	{
-		buffs.adi1.tx.addr = (unsigned long)dsa_evt.tx[0]->smp;
-		buffs.adi1.tx.size = dsa_evt.tx[0]->len * DSM_BUS_WIDTH;
-		buffs.adi1.tx.words = dsa_evt.tx[0]->len * reps;
+		xfer = dsa_dsxx ? &buffs.dsx0.tx : &buffs.adi1.tx;
+		xfer->addr  = (unsigned long)dsa_evt.tx[0]->smp;
+		xfer->size  = dsa_evt.tx[0]->len * DSM_BUS_WIDTH;
+		xfer->words = dsa_evt.tx[0]->len * reps;
 	}
 
 	if ( dsa_evt.tx[1] )
 	{
-		buffs.adi2.tx.addr = (unsigned long)dsa_evt.tx[1]->smp;
-		buffs.adi2.tx.size = dsa_evt.tx[1]->len * DSM_BUS_WIDTH;
-		buffs.adi2.tx.words = dsa_evt.tx[1]->len * reps;
+		xfer = dsa_dsxx ? &buffs.dsx1.tx : &buffs.adi2.tx;
+		xfer->addr  = (unsigned long)dsa_evt.tx[1]->smp;
+		xfer->size  = dsa_evt.tx[1]->len * DSM_BUS_WIDTH;
+		xfer->words = dsa_evt.tx[1]->len * reps;
 	}
 
 	if ( dsa_evt.rx[0] )
 	{
-		buffs.adi1.rx.addr = (unsigned long)dsa_evt.rx[0]->smp;
-		buffs.adi1.rx.size = dsa_evt.rx[0]->len * DSM_BUS_WIDTH;
-		buffs.adi1.rx.words = dsa_evt.rx[0]->len;
+		xfer = dsa_dsxx ? &buffs.dsx0.rx : &buffs.adi1.rx;
+		xfer->addr  = (unsigned long)dsa_evt.rx[0]->smp;
+		xfer->size  = dsa_evt.rx[0]->len * DSM_BUS_WIDTH;
+		xfer->words = dsa_evt.rx[0]->len * reps;
 	}
 
 	if ( dsa_evt.rx[1] )
 	{
-		buffs.adi2.rx.addr = (unsigned long)dsa_evt.rx[1]->smp;
-		buffs.adi2.rx.size = dsa_evt.rx[1]->len * DSM_BUS_WIDTH;
-		buffs.adi2.rx.words = dsa_evt.rx[1]->len;
+		xfer = dsa_dsxx ? &buffs.dsx1.rx : &buffs.adi2.rx;
+		xfer->addr  = (unsigned long)dsa_evt.rx[1]->smp;
+		xfer->size  = dsa_evt.rx[1]->len * DSM_BUS_WIDTH;
+		xfer->words = dsa_evt.rx[1]->len * reps;
 	}
 
 	// old: calculate FIFO control register ctrl value based on channel config
 	// new: calculate channel/TX/RX enable ctrl value based on channel config
 	if ( dsa_evt.tx[0] || dsa_evt.rx[0] )
-		buffs.adi1.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD1, !dsa_adi_new);
+		buffs.dsx0.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD1, !dsa_adi_new);
 	if ( dsa_evt.tx[1] || dsa_evt.rx[1] )
-		buffs.adi2.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD2, !dsa_adi_new);
+		buffs.dsx1.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD2, !dsa_adi_new);
 
 	return dsa_ioctl_map(&buffs);
 }
@@ -290,10 +297,10 @@ int main(int argc, char *argv[])
 		LOG_DEBUG("  argv[%d]: '%s'\n", i, argv[i]);
 
 	// Now that we're using the new API directly, init the HAL
-	if ( ad9361_hal_linux_init() < 0 )
-		stop("failed to init HAL");
-	if ( ad9361_hal_linux_attach() < 0 )
-		stop("failed to attach HAL");
+//	if ( ad9361_hal_linux_init() < 0 )
+//		stop("failed to init HAL");
+//	if ( ad9361_hal_linux_attach() < 0 )
+//		stop("failed to attach HAL");
 
 	// set global options - returns 0 on success, -1 on global options fail, -2 if '?'
 	// given, so print all the help
@@ -348,6 +355,7 @@ int main(int argc, char *argv[])
 		dsa_main_footer();
 		return 1;
 	}
+	dsa_channel_event_dump(&dsa_evt);
 
 	ofs--;
 	if ( dsa_command_trigger(argc - ofs, argv + ofs) < 0 )

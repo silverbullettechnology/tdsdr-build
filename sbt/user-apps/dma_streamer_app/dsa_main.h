@@ -32,10 +32,12 @@
 extern const char *dsa_argv0;
 extern int         dsa_dev;
 extern int         dsa_adi_new;
+extern int         dsa_dsxx;
 
 extern size_t      dsa_opt_len;
 extern unsigned    dsa_opt_timeout;
 extern const char *dsa_opt_device;
+extern long        dsa_opt_adjust;
 
 extern char  env_data_path[];
 

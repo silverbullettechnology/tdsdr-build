@@ -91,14 +91,26 @@ size_t size_dec (const char *str)
 	return ret;
 }
 
-uint64_t dsnk_sum (void *buff, size_t size)
+uint64_t dsnk_sum (void *buff, size_t size, int dsxx)
 {
 	uint64_t *end = (uint64_t *)(buff + size);
 	uint64_t *ptr = (uint64_t *)buff;
 	uint64_t  sum = 0;
+	int       cry;
 
 	while ( ptr < end )
+	{
+		// some PL versions rotate the sum before each words is added
+		if ( dsxx )
+		{
+			cry   = sum & 0x0000000000000001;
+			sum >>= 1;
+			sum  &= 0x7FFFFFFFFFFFFFFF;
+			if ( cry )
+				sum |= 0x8000000000000000;
+		}
 		sum += *ptr++;
+	}
 
 	return sum;
 }

@@ -27,6 +27,7 @@
 #include "dsa_ioctl.h"
 #include "dsa_ioctl_adi_old.h"
 #include "dsa_ioctl_adi_new.h"
+#include "dsa_ioctl_dsxx.h"
 #include "dsa_sample.h"
 #include "dsa_channel.h"
 #include "dsa_common.h"
@@ -54,7 +55,7 @@ int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:n:D:")) > -1 )
+	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:n:D:A:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -115,6 +116,14 @@ int dsa_command_options (int argc, char **argv)
 				*ptr++ = '\0';
 				opt = strtoul(ptr, NULL, 0);
 				log_set_module_level(optarg, opt);
+				break;
+
+			case 'A':
+				errno = 0;
+				dsa_opt_adjust = strtol(optarg, NULL, 0);
+				if ( errno )
+					return -1;
+				LOG_INFO("DMA adjust set to %ld words\n", dsa_opt_adjust);
 				break;
 
 			case '?':
@@ -456,7 +465,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	}
 
 	if ( exp )
-		dsa_channel_calc_exp(&dsa_evt, reps);
+		dsa_channel_calc_exp(&dsa_evt, reps, dsa_dsxx);
 
 	// try mapping once, first time through
 	if ( dsa_main_map(reps) )
@@ -473,6 +482,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		timeout = 100;
 	dsa_ioctl_set_timeout(timeout);
 
+#if 0
 	if ( dsa_evt.rx[0] || dsa_evt.rx[1] )
 	{
 		if ( reps > 1 )
@@ -480,6 +490,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		else if ( !reps )
 			LOG_WARN("Specified continuous transfer is TX only; RX will run once\n");
 	}
+#endif
 
 	// New FIFO controls: Reset only
 	if ( dsa_adi_new )
@@ -495,6 +506,19 @@ for ( ret = 0; ret <= argc; ret++ )
 			dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
 			                        ADI_NEW_RX_RSTN);
 		} 
+	
+	// Data source/sink module
+	else if ( dsa_dsxx )
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			// RX side
+			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+
+			// TX side
+			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+		}
 
 	// Old FIFO controls: Reset and stop all FIFO controls
 	else
@@ -540,6 +564,22 @@ for ( ret = 0; ret <= argc; ret++ )
 			}
 		} 
 
+	// Data source/sink module
+	else if ( dsa_dsxx )
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			// number of bytes the source should generate
+			if ( dsa_evt.rx[dev] )
+			{
+				unsigned long len = dsa_evt.rx[dev]->len - dsa_opt_adjust;
+				dsa_ioctl_dsrc_set_bytes(dev, len * DSM_BUS_WIDTH);
+				dsa_ioctl_dsrc_set_reps(dev, reps);
+			}
+
+			if ( dsa_evt.tx[dev] )
+				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_ENABLE);
+		}
+
 	// Old FIFO controls: Program FIFO counters with expected buffer size
 	else
 		for ( dev = 0; dev < 2; dev++ )
@@ -551,7 +591,7 @@ for ( ret = 0; ret <= argc; ret++ )
 				dsa_ioctl_adi_old_set_rx_cnt(dev, dsa_evt.rx[dev]->len, reps);
 		}
 
-	if ( ctrl && !dsa_adi_new ) 
+	if ( ctrl && !dsa_adi_new && !dsa_dsxx )
 	{
 		printf("Before run:\n");
 		int r;
@@ -575,7 +615,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	}
 
 	// Show FIFO numbers before transfer
-	if ( fifo )
+	if ( fifo && !dsa_adi_new && !dsa_dsxx )
 	{
 		struct dsm_fifo_counts fb;
 
@@ -585,7 +625,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 
 	// check AD9361s are in correct ENSM mode for TX/RX/FDD, wake from sleep if necessary
-	if ( (ret = dsa_channel_check_and_wake(&dsa_evt, ensm)) )
+	if ( !dsa_dsxx && (ret = dsa_channel_check_and_wake(&dsa_evt, ensm)) )
 	{
 		if ( ret < 0 )
 			LOG_ERROR("API call failed: %s\n", strerror(errno));
@@ -617,10 +657,20 @@ for ( ret = 0; ret <= argc; ret++ )
 
 					dsa_ioctl_get_stats(&sb);
 
-					if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
-					if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
-					if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
-					if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
+					if ( dsa_dsxx )
+					{
+						if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.dsx0.tx, "DSNK0");
+						if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.dsx0.rx, "DSRC0");
+						if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.dsx1.tx, "DSNK1");
+						if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.dsx1.rx, "DSRC1");
+					}
+					else
+					{
+						if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
+						if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
+						if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
+						if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
+					}
 				}
 				LOG_INFO("Ready to DMA, press Q or Esc to stop, any other key to trigger...\n");
 
@@ -648,7 +698,6 @@ for ( ret = 0; ret <= argc; ret++ )
 			break;
 	}
 
-
 	if ( !ensm && dsa_channel_ensm_wake )
 		dsa_channel_sleep();
 
@@ -663,16 +712,22 @@ for ( ret = 0; ret <= argc; ret++ )
 	}
 
 	// For TX transfers, check 
-	if ( exp && !dsa_adi_new ) 
+	if ( exp && !dsa_adi_new )
 		for ( dev = 0; dev < 2; dev++ )
 		{
 			if ( !dsa_evt.tx[dev] )
 				continue;
 
-			dsa_ioctl_adi_old_get_sum(dev, sum);
-			dsa_ioctl_adi_old_get_last(dev, last);
+			if ( dsa_dsxx )
+				dsa_ioctl_dsnk_get_sum(dev, sum);
 
-			printf("Last wrd: %08lx%08lx\n", last[0], last[1]);
+			else
+			{
+				dsa_ioctl_adi_old_get_sum(dev, sum);
+				dsa_ioctl_adi_old_get_last(dev, last);
+				printf("Last wrd: %08lx%08lx\n", last[0], last[1]);
+			}
+
 
 			u64   = sum[0];
 			u64 <<= 32;
@@ -685,6 +740,46 @@ for ( ret = 0; ret <= argc; ret++ )
 				printf("Larger  : %016llx\n", u64 - dsa_evt.tx[dev]->exp);
 			else if ( u64 < dsa_evt.tx[dev]->exp )
 				printf("Smaller : %016llx\n", dsa_evt.tx[dev]->exp - u64);
+		}
+
+
+	if ( dsa_dsxx )
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			unsigned long reg;
+
+			if ( dsa_evt.rx[dev] )
+			{
+				dsa_ioctl_dsrc_get_stat(dev, &reg);	
+				printf("DSRC%d: stat %lu { %s%s%s}\n", dev, reg,
+				       reg & DSM_DSXX_STAT_ENABLED ? "enabled " : "",
+				       reg & DSM_DSXX_STAT_DONE    ? "done "    : "",
+				       reg & DSM_DSXX_STAT_ERROR   ? "error "   : "");
+
+				dsa_ioctl_dsrc_get_sent(dev, &reg);	
+				printf ("DSRC%d: %lu bytes sent\n", dev, reg);
+
+				dsa_ioctl_dsrc_get_reps(dev, &reg);	
+				printf ("DSRC%d: %lu reps left\n", dev, reg);
+
+				dsa_ioctl_dsrc_get_rsent(dev, &reg);	
+				printf ("DSRC%d: %lu reps sent\n", dev, reg);
+			}
+
+			if ( dsa_evt.tx[dev] )
+			{
+				dsa_ioctl_dsnk_get_stat(dev, &reg);	
+				printf("DSNK%d: stat %lu { %s%s%s}\n", dev, reg,
+				       reg & DSM_DSXX_STAT_ENABLED ? "enabled " : "",
+				       reg & DSM_DSXX_STAT_DONE    ? "done "    : "",
+				       reg & DSM_DSXX_STAT_ERROR   ? "error "   : "");
+
+				dsa_ioctl_dsnk_get_bytes(dev, &reg);	
+				printf ("DSNK%d: %lu bytes received\n", dev, reg);
+			}
+
+			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
 		}
 
 	if ( ctrl && !dsa_adi_new ) 
@@ -711,10 +806,20 @@ for ( ret = 0; ret <= argc; ret++ )
 
 		dsa_ioctl_get_stats(&sb);
 
-		if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
-		if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
-		if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
-		if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
+		if ( dsa_dsxx )
+		{
+			if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.dsx0.tx, "DSNK0");
+			if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.dsx0.rx, "DSRC0");
+			if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.dsx1.tx, "DSNK1");
+			if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.dsx1.rx, "DSRC1");
+		}
+		else
+		{
+			if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
+			if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
+			if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
+			if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
+		}
 	}
 
 

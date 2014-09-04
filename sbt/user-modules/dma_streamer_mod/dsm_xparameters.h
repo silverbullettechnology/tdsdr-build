@@ -27,6 +27,8 @@ struct dsm_dsrc_regs
 	uint32_t  bytes; // DSRC_BYTES RW
 	uint32_t  sent;  // DSRC_BYTES_SENT R
 	uint32_t  type;  // DSRC_DATA_TYPE RW
+	uint32_t  reps;  // DSRC_REPS RW
+	uint32_t  rsent;  // DSRC_REPS_SENT R
 };
 
 struct dsm_dsnk_regs
@@ -51,8 +53,10 @@ struct dsm_lvds_regs
 };
 
 
-extern struct dsm_dsrc_regs __iomem *dsm_dsrc_regs;
-extern struct dsm_dsnk_regs __iomem *dsm_dsnk_regs;
+extern struct dsm_dsrc_regs __iomem *dsm_dsrc0_regs;
+extern struct dsm_dsnk_regs __iomem *dsm_dsnk0_regs;
+extern struct dsm_dsrc_regs __iomem *dsm_dsrc1_regs;
+extern struct dsm_dsnk_regs __iomem *dsm_dsnk1_regs;
 extern struct dsm_lvds_regs __iomem *dsm_adi1_old_regs;
 extern struct dsm_lvds_regs __iomem *dsm_adi2_old_regs;
 

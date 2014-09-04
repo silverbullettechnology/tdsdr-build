@@ -29,19 +29,25 @@
 // These seem to change names during work being done in the PL side, so map them to
 // shorter names used in this code.
 #if defined(XPAR_AXIS_DSRC_0_BASEADDR)
-#  define DSM_DSRC_BASE XPAR_AXIS_DSRC_0_BASEADDR
-#elif defined(XPAR_AXIS_DSRC_1_BASEADDR)
-#  define DSM_DSRC_BASE XPAR_AXIS_DSRC_1_BASEADDR
+#  define DSM_DSRC0_BASE XPAR_AXIS_DSRC_0_BASEADDR
 #else
-#  undef DSM_DSRC_BASE
+#  undef DSM_DSRC0_BASE
+#endif
+#if defined(XPAR_AXIS_DSRC_1_BASEADDR)
+#  define DSM_DSRC1_BASE XPAR_AXIS_DSRC_1_BASEADDR
+#else
+#  undef DSM_DSRC1_BASE
 #endif
 
 #if defined(XPAR_AXIS_DSNK_0_BASEADDR)
-#  define DSM_DSNK_BASE XPAR_AXIS_DSNK_0_BASEADDR
-#elif defined(XPAR_AXIS_DSNK_1_BASEADDR)
-#  define DSM_DSNK_BASE XPAR_AXIS_DSNK_1_BASEADDR
+#  define DSM_DSNK0_BASE XPAR_AXIS_DSNK_0_BASEADDR
 #else
-#  undef DSM_DSNK_BASE
+#  undef DSM_DSNK0_BASE
+#endif
+#if defined(XPAR_AXIS_DSNK_1_BASEADDR)
+#  define DSM_DSNK1_BASE XPAR_AXIS_DSNK_1_BASEADDR
+#else
+#  undef DSM_DSNK1_BASE
 #endif
 
 #if defined(XPAR_ADI_DPFD_1_BASEADDR)
@@ -76,22 +82,10 @@
 #endif
 
 
-// Now use either old or new PL xparameters
-#if defined(DSM_ADI1_NEW_BASE) || defined(DSM_ADI2_NEW_BASE)
-#warning Using new PL xparameters - experimental
-
-#elif defined(DSM_ADI1_OLD_BASE) || defined(DSM_ADI2_OLD_BASE)
-#warning Using old PL xparameters
-
-#else
-#error Missing definition for ADI1/ADI2 FIFO controls.  Usually this means you have 
-#error not set CONFIG_USER_MODULES_DMA_STREAMER_MOD_BSP to the source tree used to 
-#error build your PL image, using petalinux-config-apps
-#endif
-
-
-struct dsm_dsrc_regs __iomem *dsm_dsrc_regs = NULL;
-struct dsm_dsnk_regs __iomem *dsm_dsnk_regs = NULL;
+struct dsm_dsrc_regs __iomem *dsm_dsrc0_regs = NULL;
+struct dsm_dsnk_regs __iomem *dsm_dsnk0_regs = NULL;
+struct dsm_dsrc_regs __iomem *dsm_dsrc1_regs = NULL;
+struct dsm_dsnk_regs __iomem *dsm_dsnk1_regs = NULL;
 struct dsm_lvds_regs __iomem *dsm_adi1_old_regs = NULL;
 struct dsm_lvds_regs __iomem *dsm_adi2_old_regs = NULL;
 
@@ -113,15 +107,26 @@ static void __attribute__((unused)) dsm_unmap (void __iomem *mapped, unsigned lo
 
 void dsm_xparameters_exit (void)
 {
-#ifdef DSM_DSNK_BASE
-	if ( dsm_dsnk_regs )
-		dsm_unmap(dsm_dsnk_regs, DSM_DSNK_BASE, sizeof(struct dsm_dsnk_regs));
+#ifdef DSM_DSNK0_BASE
+	if ( dsm_dsnk0_regs )
+		dsm_unmap(dsm_dsnk0_regs, DSM_DSNK0_BASE, sizeof(struct dsm_dsnk_regs));
 #endif
 
-#ifdef DSM_DSRC_BASE
-	if ( dsm_dsrc_regs )
-		dsm_unmap(dsm_dsrc_regs, DSM_DSRC_BASE, sizeof(struct dsm_dsrc_regs));
+#ifdef DSM_DSNK1_BASE
+	if ( dsm_dsnk1_regs )
+		dsm_unmap(dsm_dsnk1_regs, DSM_DSNK1_BASE, sizeof(struct dsm_dsnk_regs));
 #endif
+
+#ifdef DSM_DSRC0_BASE
+	if ( dsm_dsrc0_regs )
+		dsm_unmap(dsm_dsrc0_regs, DSM_DSRC0_BASE, sizeof(struct dsm_dsrc_regs));
+#endif
+
+#ifdef DSM_DSRC1_BASE
+	if ( dsm_dsrc1_regs )
+		dsm_unmap(dsm_dsrc1_regs, DSM_DSRC1_BASE, sizeof(struct dsm_dsrc_regs));
+#endif
+
 
 #ifdef DSM_ADI1_OLD_BASE
 	if ( dsm_adi1_old_regs )
@@ -189,15 +194,30 @@ static void __attribute__((unused)) __iomem *dsm_iomap (unsigned long base, size
 
 int dsm_xparameters_init (void)
 {
-#ifdef DSM_DSNK_BASE
-	if ( !(dsm_dsnk_regs = dsm_iomap(DSM_DSNK_BASE, sizeof(struct dsm_dsnk_regs))) )
+#ifdef DSM_DSNK0_BASE
+	if ( !(dsm_dsnk0_regs = dsm_iomap(DSM_DSNK0_BASE, sizeof(struct dsm_dsnk_regs))) )
 		goto error;
+	pr_debug("DSNK0 regs %08x -> %p\n", DSM_DSNK0_BASE, dsm_dsnk0_regs);
 #endif
 
-#ifdef DSM_DSRC_BASE
-	if ( !(dsm_dsrc_regs = dsm_iomap(DSM_DSRC_BASE, sizeof(struct dsm_dsrc_regs))) )
+#ifdef DSM_DSNK1_BASE
+	if ( !(dsm_dsnk1_regs = dsm_iomap(DSM_DSNK1_BASE, sizeof(struct dsm_dsnk_regs))) )
 		goto error;
+	pr_debug("DSNK1 regs %08x -> %p\n", DSM_DSNK1_BASE, dsm_dsnk1_regs);
 #endif
+
+#ifdef DSM_DSRC0_BASE
+	if ( !(dsm_dsrc0_regs = dsm_iomap(DSM_DSRC0_BASE, sizeof(struct dsm_dsrc_regs))) )
+		goto error;
+	pr_debug("DSRC0 regs %08x -> %p\n", DSM_DSNK0_BASE, dsm_dsnk0_regs);
+#endif
+
+#ifdef DSM_DSRC1_BASE
+	if ( !(dsm_dsrc1_regs = dsm_iomap(DSM_DSRC1_BASE, sizeof(struct dsm_dsrc_regs))) )
+		goto error;
+	pr_debug("DSRC1 regs %08x -> %p\n", DSM_DSNK1_BASE, dsm_dsnk1_regs);
+#endif
+
 
 #ifdef DSM_ADI1_OLD_BASE
 	if ( !(dsm_adi1_old_regs = dsm_iomap(DSM_ADI1_OLD_BASE, DSM_ADI1_OLD_SIZE)) )

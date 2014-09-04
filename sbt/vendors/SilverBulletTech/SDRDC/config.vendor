@@ -1395,7 +1395,9 @@ CONFIG_USER_LIBS_READLINE=y
 # User Modules
 #
 CONFIG_USER_MODULES_DMA_STREAMER_MOD=y
+CONFIG_USER_MODULES_DMA_STREAMER_MOD_BSP="/Proj/SBT/Ziva/xdma_src_snk/100MHz/1/project_1.sdk/SDK/SDK_Export/hello_bsp/ps7_cortexa9_0/include"
 CONFIG_USER_MODULES_SPI_SHIM=y
+CONFIG_USER_MODULES_PL330_TEST=y
 
 #
 # PetaLinux Demo Applications
