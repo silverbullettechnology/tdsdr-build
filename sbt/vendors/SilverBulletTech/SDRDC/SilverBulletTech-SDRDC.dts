@@ -122,54 +122,15 @@
 			xlnx,sg-use-stsapp-length = <0x1>;
 			dma-channel@40400000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 59 4 >; // ??? -> IRQ 91 -> 59
+				interrupts = <0 29 4 >; // IRQF2P0 -> IRQ 61 -> 29
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x0>;
 			};
 			dma-channel@40400030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 58 4 >; // ??? -> IRQ 90 -> 58
+				interrupts = <0 30 4 >; // IRQF2P1 -> IRQ 62 -> 30
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x0>;
-			};
-		} ;
-		axi_dma_1: axi-dma@40420000 {
-			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = < 0 57 4 0 56 4 >;
-			reg = < 0x40420000 0x10000 >;
-			xlnx,dlytmr-resolution = <0x7d>;
-			xlnx,enable-multi-channel = <0x0>;
-			xlnx,family = "zynq";
-			xlnx,generic = <0x0>;
-			xlnx,include-mm2s = <0x1>;
-			xlnx,include-mm2s-dre = <0x1>;
-			xlnx,include-mm2s-sf = <0x1>;
-			xlnx,include-s2mm = <0x1>;
-			xlnx,include-s2mm-dre = <0x1>;
-			xlnx,include-s2mm-sf = <0x1>;
-			xlnx,include-sg = <0x1>;
-			xlnx,instance = "axi_dma_0";
-			xlnx,mm2s-burst-size = <0x10>;
-			xlnx,num-mm2s-channels = <0x1>;
-			xlnx,num-s2mm-channels = <0x1>;
-			xlnx,prmry-is-aclk-async = <0x0>;
-			xlnx,s2mm-burst-size = <0x10>;
-			xlnx,sg-include-desc-queue = <0x0>;
-			xlnx,sg-include-stscntrl-strm = <0x1>;
-			xlnx,sg-length-width = <0xe>;
-			xlnx,sg-use-stsapp-length = <0x1>;
-			dma-channel@40420000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 57 4 >; // ??? -> IRQ 89 -> 57
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x1>;
-			};
-			dma-channel@40420030 {
-				compatible = "xlnx,axi-dma-s2mm-channel";
-				interrupts = <0 56 4 >; // ??? -> IRQ 88 -> 56
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x1>;
 			};
 		} ;
 
