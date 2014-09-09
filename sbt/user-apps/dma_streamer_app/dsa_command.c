@@ -772,6 +772,29 @@ for ( ret = 0; ret <= argc; ret++ )
 				printf ("DSRC%d: %lu reps sent\n", dev, reg);
 
 				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+
+				uint64_t *ptr = (uint64_t *)dsa_evt.rx[dev]->smp;
+				uint64_t  val = 0;
+				size_t    idx = 0;
+				uint32_t  cnt = 0;
+
+				printf("Analyzing %d words in buffer\n", dsa_evt.rx[dev]->len);
+				while ( idx < dsa_evt.rx[dev]->len )
+				{
+					if ( *ptr != val )
+					{
+						printf("Idx %zu: want %llx, got %llx instead\n",
+						       idx,
+						       (unsigned long long)val,
+						       (unsigned long long)*ptr);
+						val = *ptr;
+						cnt++;
+					}
+					ptr++;
+					val++;
+					idx++;
+				}
+				printf("%u deviations\n", cnt);
 			}
 
 			if ( dsa_evt.tx[dev] )
