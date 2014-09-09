@@ -59,8 +59,9 @@ obj-m += dsm.o
 
 dsm-y := dma_streamer_mod.o dsm_xparameters.o
 
-CFLAGS_dma_streamer_mod.o += -DDEBUG
+#CFLAGS_dma_streamer_mod.o += -DDEBUG
 CFLAGS_dsm_xparameters.o += -I $(BOARD_DIR)
+#CFLAGS_dsm_xparameters.o += -DDEBUG
 
 all:  modules
 
