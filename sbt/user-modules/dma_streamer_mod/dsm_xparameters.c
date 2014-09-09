@@ -30,8 +30,11 @@
 // shorter names used in this code.
 #if defined(XPAR_AXIS_DSRC_0_BASEADDR)
 #  define DSM_DSRC0_BASE XPAR_AXIS_DSRC_0_BASEADDR
+#elif defined(XPAR_DSRC_0_BASEADDR)
+#  define DSM_DSRC0_BASE XPAR_DSRC_0_BASEADDR
 #else
 #  undef DSM_DSRC0_BASE
+#  error need a DSM_DSRC0_BASE
 #endif
 #if defined(XPAR_AXIS_DSRC_1_BASEADDR)
 #  define DSM_DSRC1_BASE XPAR_AXIS_DSRC_1_BASEADDR
@@ -41,8 +44,11 @@
 
 #if defined(XPAR_AXIS_DSNK_0_BASEADDR)
 #  define DSM_DSNK0_BASE XPAR_AXIS_DSNK_0_BASEADDR
+#elif defined(XPAR_DSNK_0_BASEADDR)
+#  define DSM_DSNK0_BASE XPAR_DSNK_0_BASEADDR
 #else
 #  undef DSM_DSNK0_BASE
+#  error need a DSM_DSNK0_BASE
 #endif
 #if defined(XPAR_AXIS_DSNK_1_BASEADDR)
 #  define DSM_DSNK1_BASE XPAR_AXIS_DSNK_1_BASEADDR
@@ -198,24 +204,32 @@ int dsm_xparameters_init (void)
 	if ( !(dsm_dsnk0_regs = dsm_iomap(DSM_DSNK0_BASE, sizeof(struct dsm_dsnk_regs))) )
 		goto error;
 	pr_debug("DSNK0 regs %08x -> %p\n", DSM_DSNK0_BASE, dsm_dsnk0_regs);
+#else
+	pr_debug("DSNK0 regs unset, no DSM_DSNK0_BASE\n");
 #endif
 
 #ifdef DSM_DSNK1_BASE
 	if ( !(dsm_dsnk1_regs = dsm_iomap(DSM_DSNK1_BASE, sizeof(struct dsm_dsnk_regs))) )
 		goto error;
 	pr_debug("DSNK1 regs %08x -> %p\n", DSM_DSNK1_BASE, dsm_dsnk1_regs);
+#else
+	pr_debug("DSNK1 regs unset, no DSM_DSNK1_BASE\n");
 #endif
 
 #ifdef DSM_DSRC0_BASE
 	if ( !(dsm_dsrc0_regs = dsm_iomap(DSM_DSRC0_BASE, sizeof(struct dsm_dsrc_regs))) )
 		goto error;
-	pr_debug("DSRC0 regs %08x -> %p\n", DSM_DSNK0_BASE, dsm_dsnk0_regs);
+	pr_debug("DSRC0 regs %08x -> %p\n", DSM_DSRC0_BASE, dsm_dsrc0_regs);
+#else
+	pr_debug("DSRC0 regs unset, no DSM_DSRC0_BASE\n");
 #endif
 
 #ifdef DSM_DSRC1_BASE
 	if ( !(dsm_dsrc1_regs = dsm_iomap(DSM_DSRC1_BASE, sizeof(struct dsm_dsrc_regs))) )
 		goto error;
-	pr_debug("DSRC1 regs %08x -> %p\n", DSM_DSNK1_BASE, dsm_dsnk1_regs);
+	pr_debug("DSRC1 regs %08x -> %p\n", DSM_DSRC1_BASE, dsm_dsrc1_regs);
+#else
+	pr_debug("DSRC1 regs unset, no DSM_DSRC1_BASE\n");
 #endif
 
 
