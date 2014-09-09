@@ -1053,7 +1053,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		case DSM_IOCG_DSRC0_STAT:
 			if ( dsm_dsrc0_regs )
 			{
-				reg = REG_READ(&dsm_dsrc0_regs->ctrl);
+				reg = REG_READ(&dsm_dsrc0_regs->stat);
 				pr_debug("DSM_IOCG_DSRC0_STAT %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
@@ -1215,7 +1215,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		case DSM_IOCG_DSRC1_STAT:
 			if ( dsm_dsrc1_regs )
 			{
-				reg = REG_READ(&dsm_dsrc1_regs->ctrl);
+				reg = REG_READ(&dsm_dsrc1_regs->stat);
 				pr_debug("DSM_IOCG_DSRC1_STAT %08lx\n", reg);
 				ret = put_user(reg, (unsigned long *)arg);
 			}
