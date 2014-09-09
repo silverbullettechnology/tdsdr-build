@@ -35,9 +35,9 @@
 #define DSM_DSXX_CTRL_ENABLE      0x01
 #define DSM_DSXX_CTRL_RESET       0x02
 #define DSM_DSXX_CTRL_DISABLE     0x03
-#define DSM_DSXX_STAT_ENABLED     0
-#define DSM_DSXX_STAT_DONE        1
-#define DSM_DSXX_STAT_ERROR       2
+#define DSM_DSXX_STAT_ENABLED     (1 << 0)
+#define DSM_DSXX_STAT_DONE        (1 << 1)
+#define DSM_DSXX_STAT_ERROR       (1 << 2)
 #define DSM_DSRC_TYPE_INCREMENT   0x00
 #define DSM_DSRC_TYPE_DECREMENT   0x01
 
