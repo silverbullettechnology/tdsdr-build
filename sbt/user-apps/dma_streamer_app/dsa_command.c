@@ -512,12 +512,18 @@ for ( ret = 0; ret <= argc; ret++ )
 		for ( dev = 0; dev < 2; dev++ )
 		{
 			// RX side
-			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
-			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+			if ( dsa_evt.rx[dev] )
+			{
+				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+			}
 
 			// TX side
-			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
-			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+			if ( dsa_evt.tx[dev] )
+			{
+				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+			}
 		}
 
 	// Old FIFO controls: Reset and stop all FIFO controls
@@ -764,6 +770,8 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				dsa_ioctl_dsrc_get_rsent(dev, &reg);	
 				printf ("DSRC%d: %lu reps sent\n", dev, reg);
+
+				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
 			}
 
 			if ( dsa_evt.tx[dev] )
@@ -776,10 +784,9 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				dsa_ioctl_dsnk_get_bytes(dev, &reg);	
 				printf ("DSNK%d: %lu bytes received\n", dev, reg);
-			}
 
-			dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
-			dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+			}
 		}
 
 	if ( ctrl && !dsa_adi_new ) 
