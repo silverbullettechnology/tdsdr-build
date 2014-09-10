@@ -38,6 +38,7 @@ static int  ADI_S_RX_CNT[2] = { FD_IOCS_ADI1_OLD_RX_CNT, FD_IOCS_ADI2_OLD_RX_CNT
 static int  ADI_G_RX_CNT[2] = { FD_IOCG_ADI1_OLD_RX_CNT, FD_IOCG_ADI2_OLD_RX_CNT };
 static int  ADI_G_SUM[2]    = { FD_IOCG_ADI1_OLD_SUM,    FD_IOCG_ADI2_OLD_SUM    };
 static int  ADI_G_LAST[2]   = { FD_IOCG_ADI1_OLD_LAST,   FD_IOCG_ADI2_OLD_LAST   };
+static int  ADI_S_CS_RST[2] = { FD_IOCS_ADI1_OLD_CS_RST, FD_IOCS_ADI2_OLD_CS_RST };
 
 
 int dsa_ioctl_adi_old_set_ctrl (int dev, unsigned long reg)
@@ -132,6 +133,16 @@ int dsa_ioctl_adi_old_get_last (int dev, unsigned long *last)
 	if ( (ret = ioctl(dsa_fifo_dev, ADI_G_LAST[dev], last)) )
 		printf("ADI_G_LAST[%d]: %d: %08lx.%08lx: %s\n",
 		       dev, ret, last[0], last[1], strerror(errno));
+
+	return ret;
+}
+
+int dsa_ioctl_adi_old_chksum_reset (int dev)
+{
+	int ret;
+
+	if ( (ret = ioctl(dsa_fifo_dev, ADI_S_CS_RST[dev], 0xFFFFFFFF)) )
+		printf("ADI_S_CS_RST[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

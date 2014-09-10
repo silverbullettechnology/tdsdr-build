@@ -546,6 +546,17 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -ENODEV;
 			break;
 
+		case FD_IOCS_ADI1_OLD_CS_RST:
+			if ( fd_adi1_old_regs )
+			{
+				pr_debug("FD_IOCS_ADI1_OLD_CS_RST %08lx\n", arg);
+				REG_WRITE(&fd_adi1_old_regs->cs_rst, arg);
+				ret = 0;
+			}
+			else
+				ret = -ENODEV;
+			break;
+
 
 		case FD_IOCS_ADI2_OLD_CTRL:
 			if ( fd_adi2_old_regs )
@@ -638,6 +649,17 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 				pr_debug("FD_IOCG_ADI2_OLD_LAST %08lx.%08lx\n", last[0], last[1]);
 				ret = copy_to_user((void *)arg, last, sizeof(last));
+			}
+			else
+				ret = -ENODEV;
+			break;
+
+		case FD_IOCS_ADI2_OLD_CS_RST:
+			if ( fd_adi2_old_regs )
+			{
+				pr_debug("FD_IOCS_ADI2_OLD_CS_RST %08lx\n", arg);
+				REG_WRITE(&fd_adi2_old_regs->cs_rst, arg);
+				ret = 0;
 			}
 			else
 				ret = -ENODEV;

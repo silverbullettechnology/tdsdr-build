@@ -84,30 +84,36 @@ struct dsm_user_stats
 // DSM_BUS_WIDTH.  
 #define  DSM_IOCS_MAP  _IOW(DSM_IOCTL_MAGIC, 0, struct dsm_user_buffs *)
 
-// Trigger a transaction, after setting up the buffers with a successful DSM_IOCS_MAP.  If
-// the mapped buffers have a nonzero tx_size, a TX transfer is started.  If the mapped
-// buffers have a nonzero rx_size, a RX transfer is started.  The two directions may be
-// run in parallel.  The calling process will block until both transfers are complete, or
-// a timeout occurs.
-#define  DSM_IOCS_TRIGGER  _IOW(DSM_IOCTL_MAGIC, 1, unsigned long)
+
+// Start a one-shot transaction, after setting up the buffers with a successful
+// DSM_IOCS_MAP.  Returns immediately to the calling process, which should issue 
+// DSM_IOCS_ONESHOT_WAIT to wait for the transaction to complete or timeout
+#define  DSM_IOCS_ONESHOT_START  _IOW(DSM_IOCTL_MAGIC, 1, unsigned long)
+
+// Wait for a oneshot transaction started with DSM_IOCS_ONESHOT_START.  The
+// calling process blocks until all transfers are complete, or timeout.
+#define  DSM_IOCS_ONESHOT_WAIT  _IOW(DSM_IOCTL_MAGIC, 2, unsigned long)
+
+
+// Start a transaction, after setting up the buffers with a successful DSM_IOCS_MAP. The
+// calling process does not block, which is only really useful with a continuous transfer.
+// The calling process should stop those with DSM_IOCS_CONTINUOUS_STOP before unmapping
+// the buffers. 
+#define  DSM_IOCS_CONTINUOUS_START  _IOW(DSM_IOCTL_MAGIC, 3, unsigned long)
+
+// Stop a running transaction started with DSM_IOCS_CONTINUOUS_START.  The calling process
+// blocks until both transfers are complete, or timeout.
+#define  DSM_IOCS_CONTINUOUS_STOP  _IOW(DSM_IOCTL_MAGIC, 4, unsigned long)
+
 
 // Read statistics from the transfer triggered with DSM_IOCS_TRIGGER
-#define  DSM_IOCG_STATS  _IOR(DSM_IOCTL_MAGIC, 2, struct dsm_user_stats *)
+#define  DSM_IOCG_STATS  _IOR(DSM_IOCTL_MAGIC, 5, struct dsm_user_stats *)
 
 // Unmap the buffers buffer mapped with DSM_IOCS_MAP, before DSM_IOCS_TRIGGER.  
-#define  DSM_IOCS_UNMAP  _IOW(DSM_IOCTL_MAGIC, 3, unsigned long)
+#define  DSM_IOCS_UNMAP  _IOW(DSM_IOCTL_MAGIC, 6, unsigned long)
 
 // Set a timeout in jiffies on the DMA transfer
-#define  DSM_IOCS_TIMEOUT  _IOW(DSM_IOCTL_MAGIC, 4, unsigned long)
-
-// Start a continuous transaction, after setting up the buffers with a successful
-// DSM_IOCS_MAP.  The calling process does not block, and should stop the transfer with
-// DSM_IOCS_STOP before unmapping the buffers.
-#define  DSM_IOCS_START  _IOW(DSM_IOCTL_MAGIC, 5, unsigned long)
-
-// Stop a running transaction started with DSM_IOCS_START.  The calling process will block
-// until all transfers are complete, or a timeout occurs.
-#define  DSM_IOCS_STOP  _IOW(DSM_IOCTL_MAGIC, 6, unsigned long)
+#define  DSM_IOCS_TIMEOUT  _IOW(DSM_IOCTL_MAGIC, 7, unsigned long)
 
 
 #endif // _INCLUDE_DMA_STREAMER_MOD_H

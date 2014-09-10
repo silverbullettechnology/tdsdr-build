@@ -387,6 +387,44 @@ typedef enum
 }
 trigger_t;
 
+static void dsa_command_trigger_start (void)
+{
+	unsigned long reg;
+	int           dev;
+
+	// New FIFO controls
+	if ( dsa_adi_new )
+	{
+		for ( dev = 0; dev < 2; dev++ )
+			if ( dsa_evt.tx[dev] )
+			{
+				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);
+				reg |= ADI_NEW_TX_ENABLE;
+				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, reg);
+			}
+	}
+
+	// Data source/sink module
+	else if ( dsa_dsxx )
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			if ( dsa_evt.tx[dev] )
+				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
+
+			if ( dsa_evt.rx[dev] )
+				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
+		}
+
+	// Old FIFO controls
+	else
+		for ( dev = 0; dev < 2; dev++ )
+		{
+			reg = dsa_channel_ctrl(&dsa_evt, dev, 1);
+			if ( dsa_evt.tx[dev] || dsa_evt.rx[dev] )
+				dsa_ioctl_adi_old_set_ctrl(dev, reg);
+		}
+}
+
 int dsa_command_trigger (int argc, char **argv)
 {
 	unsigned long long  u64;
@@ -535,6 +573,9 @@ for ( ret = 0; ret <= argc; ret++ )
 		{
 			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_RESET);
 			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_STOP);
+
+			if ( dsa_evt.tx[dev] )
+				dsa_ioctl_adi_old_chksum_reset(dev);
 		}
 
 	// New FIFO controls: Setup channels based on transfer setup
@@ -657,7 +698,12 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				LOG_INFO("Triggering DMA...\n");
 				errno = 0;
-				if ( !dsa_ioctl_dsm_trigger() && !stats )
+				if ( !dsa_ioctl_dsm_oneshot_start() && !stats )
+					LOG_INFO("DMA triggered\n");
+
+				dsa_command_trigger_start();
+
+				if ( !dsa_ioctl_dsm_oneshot_wait() && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				if ( stats )
@@ -692,18 +738,24 @@ for ( ret = 0; ret <= argc; ret++ )
 		case TRIG_ONCE:
 			LOG_INFO("Triggering DMA...\n");
 			errno = 0;
-			if ( !dsa_ioctl_dsm_trigger() && !stats )
+			if ( !dsa_ioctl_dsm_oneshot_start() && !stats )
+				LOG_INFO("DMA triggered\n");
+
+			dsa_command_trigger_start();
+
+			if ( !dsa_ioctl_dsm_oneshot_wait() && !stats )
 				LOG_INFO("DMA triggered\n");
 			break;
 
 		case TRIG_CONT:
 			LOG_INFO("Starting DMA, press any key to stop...\n");
-			dsa_ioctl_dsm_start();
+			dsa_ioctl_dsm_continuous_start();
+			dsa_command_trigger_start();
 
 			terminal_pause();
 
 			LOG_INFO("Stopping DMA...\n");
-			dsa_ioctl_dsm_stop();
+			dsa_ioctl_dsm_continuous_stop();
 			break;
 	}
 

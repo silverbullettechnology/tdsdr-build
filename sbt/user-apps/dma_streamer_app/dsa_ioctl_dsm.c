@@ -74,12 +74,22 @@ int dsa_ioctl_dsm_set_timeout (unsigned long timeout)
 	return ret;
 }
 
-int dsa_ioctl_dsm_trigger (void)
+int dsa_ioctl_dsm_oneshot_start (void)
 {
 	int ret;
 
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_TRIGGER, 0)) )
-		printf("DSM_IOCS_TRIGGER: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_START, 0)) )
+		printf("DSM_IOCS_ONESHOT_START: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+int dsa_ioctl_dsm_oneshot_wait (void)
+{
+	int ret;
+
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_WAIT, 0)) )
+		printf("DSM_IOCS_ONESHOT_WAIT: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -94,22 +104,22 @@ int dsa_ioctl_dsm_get_stats (struct dsm_user_stats *sb)
 	return ret;
 }
 
-int dsa_ioctl_dsm_stop (void)
+int dsa_ioctl_dsm_continuous_stop (void)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_STOP, 0)) )
-		printf("DSM_IOCS_STOP: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_STOP, 0)) )
+		printf("DSM_IOCS_CONTINUOUS_STOP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_dsm_start (void)
+int dsa_ioctl_dsm_continuous_start (void)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_START, 0)) )
-		printf("DSM_IOCS_START: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_START, 0)) )
+		printf("DSM_IOCS_CONTINUOUS_START: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

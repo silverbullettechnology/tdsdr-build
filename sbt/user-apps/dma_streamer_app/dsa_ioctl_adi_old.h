@@ -30,6 +30,7 @@ int dsa_ioctl_adi_old_get_rx_cnt   (int dev, unsigned long *reg);
 int dsa_ioctl_adi_old_get_sum      (int dev, unsigned long *sum);
 int dsa_ioctl_adi_old_get_last     (int dev, unsigned long *last);
 int dsa_ioctl_adi_old_get_fifo_cnt (struct fd_fifo_counts *fb);
+int dsa_ioctl_adi_old_chksum_reset (int dev);
 
 
 #endif // _INCLUDE_DSA_IOCTL_ADI_OLD_H_

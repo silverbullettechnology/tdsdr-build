@@ -94,6 +94,8 @@ struct fd_new_adi_regs
 #define  FD_IOCG_ADI1_OLD_RX_CNT  _IOR(FD_IOCTL_MAGIC, 15, unsigned long *)
 #define  FD_IOCG_ADI1_OLD_SUM     _IOR(FD_IOCTL_MAGIC, 16, unsigned long *)
 #define  FD_IOCG_ADI1_OLD_LAST    _IOR(FD_IOCTL_MAGIC, 17, unsigned long *)
+#define  FD_IOCS_ADI1_OLD_CS_RST  _IOW(FD_IOCTL_MAGIC, 18, unsigned long)
+
 #define  FD_IOCS_ADI2_OLD_CTRL    _IOW(FD_IOCTL_MAGIC, 20, unsigned long)
 #define  FD_IOCG_ADI2_OLD_CTRL    _IOR(FD_IOCTL_MAGIC, 21, unsigned long *)
 #define  FD_IOCS_ADI2_OLD_TX_CNT  _IOW(FD_IOCTL_MAGIC, 22, unsigned long)
@@ -102,6 +104,7 @@ struct fd_new_adi_regs
 #define  FD_IOCG_ADI2_OLD_RX_CNT  _IOR(FD_IOCTL_MAGIC, 25, unsigned long *)
 #define  FD_IOCG_ADI2_OLD_SUM     _IOR(FD_IOCTL_MAGIC, 26, unsigned long *)
 #define  FD_IOCG_ADI2_OLD_LAST    _IOR(FD_IOCTL_MAGIC, 27, unsigned long *)
+#define  FD_IOCS_ADI2_OLD_CS_RST  _IOW(FD_IOCTL_MAGIC, 28, unsigned long)
 
 // Arbitrary register access for now 
 #define  FD_IOCG_ADI_NEW_REG      _IOR(FD_IOCTL_MAGIC, 30, struct fd_new_adi_regs *)

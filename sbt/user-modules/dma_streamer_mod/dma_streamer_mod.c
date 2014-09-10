@@ -766,33 +766,34 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 
-		// Trigger a transaction, after setting up the buffers with a successful
-		// DSM_IOCS_MAP.  If the mapped buffers have a nonzero tx_size, a TX transfer is
-		// started.  If the mapped buffers have a nonzero rx_size, a RX transfer is
-		// started.  The two directions may be run in parallel.  The calling process will
-		// block until both transfers are complete, or a timeout occurs. 
-		case  DSM_IOCS_TRIGGER:
-			pr_debug("DSM_IOCS_TRIGGER\n");
-
+		// Start a one-shot transaction, after setting up the buffers with a successful
+		// DSM_IOCS_MAP.  Returns immediately to the calling process, which should issue
+		// DSM_IOCS_ONESHOT_WAIT to wait for the transaction to complete or timeout
+		case DSM_IOCS_ONESHOT_START:
+			pr_debug("DSM_IOCS_ONESHOT_START\n");
+			ret = 0;
 			if ( dsm_start_all(0) )
 			{
 				dsm_halt_all();
 				ret = -EBUSY;
 			}
-			else
-				ret = dsm_wait_all();
+			break;
 
+		// Wait for a oneshot transaction started with DSM_IOCS_ONESHOT_START.  The
+		// calling process blocks until all transfers are complete, or timeout.
+		case DSM_IOCS_ONESHOT_WAIT:
+			pr_debug("DSM_IOCS_WAIT\n");
+			ret = dsm_wait_all();
 			break;
 
 
 		// Start a transaction, after setting up the buffers with a successful
 		// DSM_IOCS_MAP. The calling process does not block, which is only really useful
 		// with a continuous transfer.  The calling process should stop those with
-		// DSM_IOCS_STOP before unmapping the buffers. 
-		case DSM_IOCS_START:
-			pr_debug("DSM_IOCS_START\n");
+		// DSM_IOCS_CONTINUOUS_STOP before unmapping the buffers. 
+		case DSM_IOCS_CONTINUOUS_START:
+			pr_debug("DSM_IOCS_CONTINUOUS_START\n");
 			ret = 0;
-
 			if ( dsm_start_all(1) )
 			{
 				dsm_halt_all();
@@ -800,16 +801,13 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 			break;
 
-		// Stop a running transaction started with DSM_IOCS_START.  The calling process
-		// will block until both transfers are complete, or a timeout occurs.
-		case DSM_IOCS_STOP:
-			pr_debug("DSM_IOCS_STOP\n");
-
+		// Stop a running transaction started with DSM_IOCS_CONTINUOUS_START.  The calling
+		// process blocks until both transfers are complete, or timeout.
+		case DSM_IOCS_CONTINUOUS_STOP:
+			pr_debug("DSM_IOCS_CONTINUOUS_STOP\n");
 			dsm_stop_all();
 			ret = dsm_wait_all();
 			break;
-
-
 
 
 		// Read statistics from the transfer triggered with DSM_IOCS_TRIGGER

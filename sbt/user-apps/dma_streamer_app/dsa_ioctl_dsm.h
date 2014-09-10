@@ -20,13 +20,14 @@
 
 #include <dma_streamer_mod.h>
 
-int dsa_ioctl_dsm_map         (struct dsm_user_buffs *buffs);
-int dsa_ioctl_dsm_unmap       (void);
-int dsa_ioctl_dsm_set_timeout (unsigned long timeout);
-int dsa_ioctl_dsm_trigger     (void);
-int dsa_ioctl_dsm_get_stats   (struct dsm_user_stats *sb);
-int dsa_ioctl_dsm_stop        (void);
-int dsa_ioctl_dsm_start       (void);
+int dsa_ioctl_dsm_map              (struct dsm_user_buffs *buffs);
+int dsa_ioctl_dsm_unmap            (void);
+int dsa_ioctl_dsm_set_timeout      (unsigned long timeout);
+int dsa_ioctl_dsm_oneshot_start    (void);
+int dsa_ioctl_dsm_oneshot_wait     (void);
+int dsa_ioctl_dsm_get_stats        (struct dsm_user_stats *sb);
+int dsa_ioctl_dsm_continuous_stop  (void);
+int dsa_ioctl_dsm_continuous_start (void);
 
 
 #endif // _INCLUDE_DSA_IOCTL_DSM_H_
