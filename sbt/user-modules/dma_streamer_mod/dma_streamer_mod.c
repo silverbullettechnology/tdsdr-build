@@ -36,7 +36,6 @@
 #include <linux/amba/xilinx_dma.h>
 
 #include "dma_streamer_mod.h"
-#include "dsm_xparameters.h"
 
 
 #define pr_trace(fmt,...) do{ }while(0)
@@ -106,15 +105,6 @@ struct dsm_chan
 	struct dsm_xfer   *tx;
 	struct dsm_xfer   *rx;
 	struct completion  txrx;
-
-	// pointer to old and new FIFO control registers
-	struct dsm_lvds_regs __iomem *old_regs;
-	struct dsm_dsrc_regs __iomem *dsrc_regs;
-	struct dsm_dsnk_regs __iomem *dsnk_regs;
-	u32 __iomem                  *new_regs;
-
-	// register value (old) and direction/channel mask (new)
-	unsigned long                 ctrl;
 };
 
 static struct dsm_chan  dsm_adi1_state = { .name = "adi1" };
@@ -152,19 +142,7 @@ static int dsm_thread (void *data)
 	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
 	spin_lock_init(&irq_lock);
 	pr_debug("%s: dsm_thread() starts:\n", state->name);
-	if ( parent->old_regs )
-		pr_debug("\told_regs %p\n", parent->old_regs);
-	else if ( parent->new_regs )
-		pr_debug("\tnew_regs %p\n", parent->new_regs);
-	else if ( parent->dsrc_regs )
-		pr_debug("\tdsrc_regs %p\n", parent->dsrc_regs);
-	else if ( parent->dsnk_regs )
-		pr_debug("\tdsnk_regs %p\n", parent->dsnk_regs);
-	pr_debug("\tctrl %02lx\n", parent->ctrl);
 
-	// reset TX checksum register
-	if ( parent->old_regs && state->dir == DMA_MEM_TO_DEV )
-		REG_WRITE(&parent->old_regs->cs_rst, 0xFFFFFFFF);
 
 	state->left = state->chunk;
 	memset(&state->stats, 0, sizeof(struct dsm_xfer_stats));
@@ -212,63 +190,6 @@ static int dsm_thread (void *data)
 		pr_debug("%s: dma_async_issue_pending()...\n", state->name);
 		dma_async_issue_pending(chan);
 
-		// the first rep through, start the FIFO controls
-		if ( state->start )
-		{
-			// old TX-only: start FIFO; FD is started by RX thread
-			if ( parent->old_regs && state->dir == DMA_MEM_TO_DEV && !state->fd_peer )
-			{
-				pr_debug("%s: set ADI old ctrl to TX\n", state->name);
-				REG_WRITE(&parent->old_regs->ctrl, parent->ctrl);
-			}
-			// new TX-enabled: enable TX FIFOs (seems to be one bit for both)
-			else if ( parent->new_regs && state->dir == DMA_MEM_TO_DEV )
-			{
-				if ( parent->ctrl & (DSM_NEW_CTRL_TX1 | DSM_NEW_CTRL_TX2) )
-				{
-					reg = REG_READ(ADI_NEW_RT_ADDR(parent->new_regs,
-					               ADI_NEW_TX_REG_CNTRL_1, 1));
-					pr_debug("TX: ADI_NEW_TX_REG_CNTRL_1 %08x -> %08x\n",
-					         reg, reg | ADI_NEW_TX_ENABLE);
-					reg |= ADI_NEW_TX_ENABLE;
-					REG_WRITE(ADI_NEW_RT_ADDR(parent->new_regs,
-					          ADI_NEW_TX_REG_CNTRL_1, 1), reg);
-				}
-				else
-					pr_debug("No TX: ADI_NEW_TX_REG_CNTRL_1 unchanged\n");
-			}
-			// TX to DSNK 
-			else if ( parent->dsnk_regs && state->dir == DMA_MEM_TO_DEV )
-			{
-				REG_WRITE(&parent->dsnk_regs->ctrl, DSM_DSXX_CTRL_ENABLE);
-				pr_debug("TX: ctrl = DSM_DSXX_CTRL_ENABLE\n");
-			}
-			else
-				pr_debug("%s: skip start TX\n", state->name);
-
-			// old RX-only or FD: start FIFO after DMA
-			if ( parent->old_regs && state->dir == DMA_DEV_TO_MEM )
-			{
-				pr_debug("%s: set ADI old ctrl to RX\n", state->name);
-				REG_WRITE(&parent->old_regs->ctrl, parent->ctrl);
-			}
-			// new RX enabled: enable RX FIFOS - seem to be separate, may have to combine 
-			// like TX FIFOs above
-			else if ( parent->new_regs && state->dir == DMA_DEV_TO_MEM )
-			{
-				pr_debug("%s: skip new RX ctrl: handled in userspace\n", state->name);
-			}
-			// RX from DSRC
-			else if ( parent->dsrc_regs && state->dir == DMA_DEV_TO_MEM )
-			{
-				pr_debug("RX: ctrl = DSM_DSXX_CTRL_ENABLE\n");
-				REG_WRITE(&parent->dsrc_regs->ctrl, DSM_DSXX_CTRL_ENABLE);
-			}
-			else
-				pr_debug("%s: skip start RX\n", state->name);
-
-			state->start = 0;
-		}
 
 		// experimental: re-enable interrupts after DMA/FIFO start
 		spin_unlock_irqrestore(&irq_lock, irq_flags);
@@ -417,8 +338,7 @@ static bool xdma_filter(struct dma_chan *chan, void *param)
 
 
 //TODO: pass channel number here for AD1/AD2, rip buffs struct down to single set
-static struct dsm_xfer *dsm_xfer_setup (int rx, int adi, int dma, 
-                                        const struct dsm_xfer_buff *buff)
+static struct dsm_xfer *dsm_xfer_setup (int rx, int dma, const struct dsm_xfer_buff *buff)
 {
 	dma_cap_mask_t       mask;
 	struct dma_chan     *chan;
@@ -437,8 +357,8 @@ static struct dsm_xfer *dsm_xfer_setup (int rx, int adi, int dma,
 	int                  ret;
 	u32                  match;
 
-	pr_debug("dsm_state_setup(rx %d, adi %d, dma %d, buff.addr %08lx, .size %08lx)\n",
-	         rx, adi, dma, buff->addr, buff->size);
+	pr_debug("dsm_state_setup(rx %d, dma %d, buff.addr %08lx, .size %08lx)\n",
+	         rx, dma, buff->addr, buff->size);
 
 	// simplify calling logic
 	if ( !buff->size )
@@ -756,61 +676,17 @@ static int dsm_wait_all (void)
 }
 
 
-static inline int dsm_setup (struct dsm_chan *chan, int adi, int dma, 
+static inline int dsm_setup (struct dsm_chan *chan, int dma, 
                              const struct dsm_chan_buffs *buff)
 {
 	// no action needed for this channel
 	if ( !buff->tx.size && !buff->rx.size )
 		return 0;
 	
-	// Checks for channel/direction mask
-	if ( !buff->ctrl )
+	if ( buff->tx.size && !(chan->tx = dsm_xfer_setup(0, dma, &buff->tx)) )
 		return -1;
 
-	// Get pointers to register maps for FIFO control
-	switch ( adi )
-	{
-		case DSM_TARGT_ADI1:
-			if ( (chan->old_regs = dsm_adi1_old_regs) )
-				pr_debug("Transfer to AD1 via old FIFOs\n");
-			else if ( (chan->new_regs = dsm_adi1_new_regs) )
-				pr_debug("Transfer to AD1 via new FIFOs\n");
-			else
-			{
-				pr_err("AD1 transfer but no FIFO regs, check your USER_MODULES_DMA_STREAMER_MOD_BSP\n");
-				return -1;
-			}
-			break;
-
-		case DSM_TARGT_ADI2:
-			if ( (chan->old_regs = dsm_adi2_old_regs) )
-				pr_debug("Transfer to AD1 via old FIFOs\n");
-			else if ( (chan->new_regs = dsm_adi2_new_regs) )
-				pr_debug("Transfer to AD1 via new FIFOs\n");
-			else
-			{
-				pr_err("AD2 transfer but no FIFO regs, check your USER_MODULES_DMA_STREAMER_MOD_BSP\n");
-				return -1;
-			}
-			break;
-
-		case DSM_TARGT_DSX0:
-			pr_debug("Transfer to DSX0\n");
-			chan->dsrc_regs = dsm_dsrc0_regs;
-			chan->dsnk_regs = dsm_dsnk0_regs;
-			break;
-
-		case DSM_TARGT_DSX1:
-			pr_debug("Transfer to DSX1\n");
-			chan->dsrc_regs = dsm_dsrc1_regs;
-			chan->dsnk_regs = dsm_dsnk1_regs;
-			break;
-	}
-
-	if ( buff->tx.size && !(chan->tx = dsm_xfer_setup(0, adi, dma, &buff->tx)) )
-		return -1;
-
-	if ( buff->rx.size && !(chan->rx = dsm_xfer_setup(1, adi, dma, &buff->rx)) )
+	if ( buff->rx.size && !(chan->rx = dsm_xfer_setup(1, dma, &buff->rx)) )
 		return -1;
 
 	if ( chan->tx ) chan->tx->parent = chan;
@@ -822,9 +698,6 @@ static inline int dsm_setup (struct dsm_chan *chan, int adi, int dma,
 		chan->tx->fd_peer = chan->rx;
 		chan->rx->fd_peer = chan->tx;
 	}
-
-	// FIFO trigger value now passed from userspace
-	chan->ctrl = buff->ctrl;
 
 	return 0;
 }
@@ -867,10 +740,10 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 				return -EFAULT;
 			}
 
-			if ( dsm_setup(&dsm_adi1_state, DSM_TARGT_ADI1, 0, &dsm_user_buffs.adi1) ||
-			     dsm_setup(&dsm_adi2_state, DSM_TARGT_ADI2, 1, &dsm_user_buffs.adi2) ||
-			     dsm_setup(&dsm_dsx0_state, DSM_TARGT_DSX0, 0, &dsm_user_buffs.dsx0) ||
-			     dsm_setup(&dsm_dsx1_state, DSM_TARGT_DSX1, 1, &dsm_user_buffs.dsx1) )
+			if ( dsm_setup(&dsm_adi1_state, 0, &dsm_user_buffs.adi1) ||
+			     dsm_setup(&dsm_adi2_state, 1, &dsm_user_buffs.adi2) ||
+			     dsm_setup(&dsm_dsx0_state, 0, &dsm_user_buffs.dsx0) ||
+			     dsm_setup(&dsm_dsx1_state, 1, &dsm_user_buffs.dsx1) )
 			{
 				dsm_cleanup();
 				return -EINVAL;
@@ -920,11 +793,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			pr_debug("DSM_IOCS_START\n");
 			ret = 0;
 
-			// continuous mode not supported with old PL
-			if ( dsm_adi1_old_regs )
-				ret = -EBUSY;
-
-			else if ( dsm_start_all(1) )
+			if ( dsm_start_all(1) )
 			{
 				dsm_halt_all();
 				ret = -EBUSY;
@@ -941,59 +810,6 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 
 
-		case  DSM_IOCG_FIFO_CNT:
-		{
-			struct dsm_fifo_counts buff;
-			pr_debug("DSM_IOCG_FIFO_CNT\n");
-
-			memset(&buff, 0xFF, sizeof(buff));
-			if ( dsm_rx_fifo1_cnt )
-			{
-				buff.rx_1_ins = REG_READ(dsm_rx_fifo1_cnt);
-				buff.rx_1_ext = REG_READ(&dsm_rx_fifo1_cnt[1]);
-			}
-			if ( dsm_rx_fifo2_cnt )
-			{
-				buff.rx_2_ins = REG_READ(dsm_rx_fifo2_cnt);
-				buff.rx_2_ext = REG_READ(&dsm_rx_fifo2_cnt[1]);
-			}
-			if ( dsm_tx_fifo1_cnt )
-			{
-				buff.tx_1_ins = REG_READ(dsm_tx_fifo1_cnt);
-				buff.tx_1_ext = REG_READ(&dsm_tx_fifo1_cnt[1]);
-			}
-			if ( dsm_tx_fifo2_cnt )
-			{
-				buff.tx_2_ins = REG_READ(dsm_tx_fifo2_cnt);
-				buff.tx_2_ext = REG_READ(&dsm_tx_fifo2_cnt[1]);
-			}
-
-			ret = copy_to_user((void *)arg, &buff, sizeof(buff));
-			break;
-		}
-
-
-		case DSM_IOCG_ADI1_OLD_CLK_CNT:
-			pr_debug("DSM_IOCG_CLK_CNT\n");
-			if ( dsm_adi1_old_regs )
-			{
-				reg = REG_READ(&dsm_adi1_old_regs->cs_rst);
-				ret = arg ? put_user(reg, (unsigned long *)arg) : 0;
-			}
-			else
-				printk ("dsm_adi1_old_regs NULL, no clk\n");
-			break;
-
-		case DSM_IOCG_ADI2_OLD_CLK_CNT:
-			pr_debug("DSM_IOCG_CLK_CNT\n");
-			if ( dsm_adi2_old_regs )
-			{
-				reg = REG_READ(&dsm_adi2_old_regs->cs_rst);
-				ret = arg ? put_user(reg, (unsigned long *)arg) : 0;
-			}
-			else
-				printk ("dsm_adi2_old_regs NULL, no clk\n");
-			break;
 
 
 		// Read statistics from the transfer triggered with DSM_IOCS_TRIGGER
@@ -1038,526 +854,13 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 
 
-		// Access to data source regs
-		case DSM_IOCS_DSRC0_CTRL:
-			if ( dsm_dsrc0_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC0_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc0_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_STAT:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->stat);
-				pr_debug("DSM_IOCG_DSRC0_STAT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_BYTES:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->bytes);
-				pr_debug("DSM_IOCG_DSRC0_BYTES %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC0_BYTES:
-			if ( dsm_dsrc0_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC0_BYTES %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc0_regs->bytes, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_SENT:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->sent);
-				pr_debug("DSM_IOCG_DSRC0_SENT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_TYPE:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->type);
-				pr_debug("DSM_IOCG_DSRC0_TYPE %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC0_TYPE:
-			if ( dsm_dsrc0_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC0_TYPE %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc0_regs->type, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_REPS:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->reps);
-				pr_debug("DSM_IOCG_DSRC0_REPS %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC0_REPS:
-			if ( dsm_dsrc0_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC0_REPS %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc0_regs->reps, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC0_RSENT:
-			if ( dsm_dsrc0_regs )
-			{
-				reg = REG_READ(&dsm_dsrc0_regs->rsent);
-				pr_debug("DSM_IOCG_DSRC0_RSENT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
 
 
-		// Access to data sink regs
-		case DSM_IOCS_DSNK0_CTRL:
-			if ( dsm_dsnk0_regs )
-			{
-				pr_debug("DSM_IOCS_DSNK0_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsnk0_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
 
-		case DSM_IOCG_DSNK0_STAT:
-			if ( dsm_dsnk0_regs )
-			{
-				reg = REG_READ(&dsm_dsnk0_regs->stat);
-				pr_debug("DSM_IOCG_DSNK0_STAT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSNK0_BYTES:
-			if ( dsm_dsnk0_regs )
-			{
-				reg = REG_READ(&dsm_dsnk0_regs->bytes);
-				pr_debug("DSM_IOCG_DSNK0_BYTES %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSNK0_SUM:
-			if ( dsm_dsnk0_regs )
-			{
-				unsigned long sum[2];
-				
-				sum[0] = REG_READ(&dsm_dsnk0_regs->sum_h);
-				sum[1] = REG_READ(&dsm_dsnk0_regs->sum_l);
-
-				pr_debug("DSM_IOCG_DSNK0_SUM %08lx.%08lx\n", sum[0], sum[1]);
-				ret = copy_to_user((void *)arg, sum, sizeof(sum));
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-
-		// Access to data source regs
-		case DSM_IOCS_DSRC1_CTRL:
-			if ( dsm_dsrc1_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC1_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc1_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_STAT:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->stat);
-				pr_debug("DSM_IOCG_DSRC1_STAT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_BYTES:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->bytes);
-				pr_debug("DSM_IOCG_DSRC1_BYTES %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC1_BYTES:
-			if ( dsm_dsrc1_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC1_BYTES %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc1_regs->bytes, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_SENT:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->sent);
-				pr_debug("DSM_IOCG_DSRC1_SENT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_TYPE:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->type);
-				pr_debug("DSM_IOCG_DSRC1_TYPE %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC1_TYPE:
-			if ( dsm_dsrc1_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC1_TYPE %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc1_regs->type, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_REPS:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->reps);
-				pr_debug("DSM_IOCG_DSRC1_REPS %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_DSRC1_REPS:
-			if ( dsm_dsrc1_regs )
-			{
-				pr_debug("DSM_IOCS_DSRC1_REPS %08lx\n", arg);
-				REG_WRITE(&dsm_dsrc1_regs->reps, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSRC1_RSENT:
-			if ( dsm_dsrc1_regs )
-			{
-				reg = REG_READ(&dsm_dsrc1_regs->rsent);
-				pr_debug("DSM_IOCG_DSRC1_RSENT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-
-		// Access to data sink regs
-		case DSM_IOCS_DSNK1_CTRL:
-			if ( dsm_dsnk1_regs )
-			{
-				pr_debug("DSM_IOCS_DSNK1_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_dsnk1_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSNK1_STAT:
-			if ( dsm_dsnk1_regs )
-			{
-				reg = REG_READ(&dsm_dsnk1_regs->stat);
-				pr_debug("DSM_IOCG_DSNK1_STAT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSNK1_BYTES:
-			if ( dsm_dsnk1_regs )
-			{
-				reg = REG_READ(&dsm_dsnk1_regs->bytes);
-				pr_debug("DSM_IOCG_DSNK1_BYTES %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_DSNK1_SUM:
-			if ( dsm_dsnk1_regs )
-			{
-				unsigned long sum[2];
-				
-				sum[0] = REG_READ(&dsm_dsnk1_regs->sum_h);
-				sum[1] = REG_READ(&dsm_dsnk1_regs->sum_l);
-
-				pr_debug("DSM_IOCG_DSNK1_SUM %08lx.%08lx\n", sum[0], sum[1]);
-				ret = copy_to_user((void *)arg, sum, sizeof(sum));
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-
-		// Access to ADI LVDS regs
-		case DSM_IOCS_ADI1_OLD_CTRL:
-			if ( dsm_adi1_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI1_OLD_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_adi1_old_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI1_OLD_CTRL:
-			if ( dsm_adi1_old_regs )
-			{
-				reg = REG_READ(&dsm_adi1_old_regs->ctrl);
-				pr_debug("DSM_IOCG_ADI1_OLD_CTRL %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_ADI1_OLD_TX_CNT:
-			if ( dsm_adi1_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI1_OLD_TX_CNT %08lx (%d)\n", arg, max);
-				REG_WRITE(&dsm_adi1_old_regs->tx_cnt, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI1_OLD_TX_CNT:
-			if ( dsm_adi1_old_regs )
-			{
-				reg = REG_READ(&dsm_adi1_old_regs->tx_cnt);
-				pr_debug("DSM_IOCG_ADI1_OLD_TX_CNT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_ADI1_OLD_RX_CNT:
-			if ( dsm_adi1_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI1_OLD_RX_CNT %08lx\n", arg);
-				REG_WRITE(&dsm_adi1_old_regs->rx_cnt, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI1_OLD_RX_CNT:
-			if ( dsm_adi1_old_regs )
-			{
-				reg = REG_READ(&dsm_adi1_old_regs->rx_cnt);
-				pr_debug("DSM_IOCG_ADI1_OLD_RX_CNT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI1_OLD_SUM:
-			if ( dsm_adi1_old_regs )
-			{
-				unsigned long sum[2];
-				
-				sum[0] = REG_READ(&dsm_adi1_old_regs->cs_hi);
-				sum[1] = REG_READ(&dsm_adi1_old_regs->cs_low);
-
-				pr_debug("DSM_IOCG_ADI1_OLD_SUM %08lx.%08lx\n", sum[0], sum[1]);
-				ret = copy_to_user((void *)arg, sum, sizeof(sum));
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI1_OLD_LAST:
-			if ( dsm_adi1_old_regs )
-			{
-				unsigned long last[2];
-				
-				last[0] = REG_READ(&dsm_adi1_old_regs->tx_hi);
-				last[1] = REG_READ(&dsm_adi1_old_regs->tx_low);
-
-				pr_debug("DSM_IOCG_ADI1_OLD_LAST %08lx.%08lx\n", last[0], last[1]);
-				ret = copy_to_user((void *)arg, last, sizeof(last));
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-
-		case DSM_IOCS_ADI2_OLD_CTRL:
-			if ( dsm_adi2_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI2_OLD_CTRL %08lx\n", arg);
-				REG_WRITE(&dsm_adi2_old_regs->ctrl, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI2_OLD_CTRL:
-			if ( dsm_adi2_old_regs )
-			{
-				reg = REG_READ(&dsm_adi2_old_regs->ctrl);
-				pr_debug("DSM_IOCG_ADI2_OLD_CTRL %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_ADI2_OLD_TX_CNT:
-			if ( dsm_adi2_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI2_OLD_TX_CNT %08lx (%d)\n", arg, max);
-				REG_WRITE(&dsm_adi2_old_regs->tx_cnt, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI2_OLD_TX_CNT:
-			if ( dsm_adi2_old_regs )
-			{
-				reg = REG_READ(&dsm_adi2_old_regs->tx_cnt);
-				pr_debug("DSM_IOCG_ADI2_OLD_TX_CNT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCS_ADI2_OLD_RX_CNT:
-			if ( dsm_adi2_old_regs )
-			{
-				pr_debug("DSM_IOCS_ADI2_OLD_RX_CNT%08lx\n", arg);
-				REG_WRITE(&dsm_adi2_old_regs->rx_cnt, arg);
-				ret = 0;
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI2_OLD_RX_CNT:
-			if ( dsm_adi2_old_regs )
-			{
-				reg = REG_READ(&dsm_adi2_old_regs->rx_cnt);
-				pr_debug("DSM_IOCG_ADI2_OLD_RX_CNT %08lx\n", reg);
-				ret = put_user(reg, (unsigned long *)arg);
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI2_OLD_SUM:
-			if ( dsm_adi2_old_regs )
-			{
-				unsigned long sum[2];
-				
-				sum[0] = REG_READ(&dsm_adi2_old_regs->cs_hi);
-				sum[1] = REG_READ(&dsm_adi2_old_regs->cs_low);
-
-				pr_debug("DSM_IOCG_ADI2_OLD_SUM %08lx.%08lx\n", sum[0], sum[1]);
-				ret = copy_to_user((void *)arg, sum, sizeof(sum));
-			}
-			else
-				ret = -ENODEV;
-			break;
-
-		case DSM_IOCG_ADI2_OLD_LAST:
-			if ( dsm_adi2_old_regs )
-			{
-				unsigned long last[2];
-				
-				last[0] = REG_READ(&dsm_adi2_old_regs->tx_hi);
-				last[1] = REG_READ(&dsm_adi2_old_regs->tx_low);
-
-				pr_debug("DSM_IOCG_ADI2_OLD_LAST %08lx.%08lx\n", last[0], last[1]);
-				ret = copy_to_user((void *)arg, last, sizeof(last));
-			}
-			else
-				ret = -ENODEV;
-			break;
 
 
 		// Target list bitmap from xparameters
+#if 0
 		case DSM_IOCG_TARGET_LIST:
 			reg = 0;
 			if ( dsm_dsrc0_regs ) reg |= DSM_TARGT_DSX0;
@@ -1576,70 +879,8 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			         reg & DSM_TARGT_ADI2 ? "adi2 " : "");
 			ret = put_user(reg, (unsigned long *)arg);
 			break;
+#endif
 
-
-		// Arbitrary register access for now 
-		case DSM_IOCG_ADI_NEW_REG:
-		case DSM_IOCS_ADI_NEW_REG_SO:
-		case DSM_IOCS_ADI_NEW_REG_RB:
-		{
-			struct dsm_new_adi_regs  regs;
-			void __iomem            *addr = NULL;
-
-			if ( (ret = copy_from_user(&regs, (void *)arg, sizeof(regs))) )
-			{
-				pr_err("failed to copy %d bytes, stop\n", ret);
-				return -EFAULT;
-			}
-
-			// validate device and regs pointer
-			switch ( regs.adi )
-			{
-				case 0: addr = dsm_adi1_new_regs; break;
-				case 1: addr = dsm_adi2_new_regs; break;
-				default:
-					pr_err("regs.dev %lu invalid, stop\n", regs.adi);
-					return -EINVAL;
-			}
-			if ( !addr )
-			{
-				pr_err("register access pointers not setup, stop.\n");
-				return -ENODEV;
-			}
-
-			switch ( cmd )
-			{
-				case DSM_IOCS_ADI_NEW_REG_SO:
-				case DSM_IOCS_ADI_NEW_REG_RB:
-					REG_WRITE(ADI_NEW_RT_ADDR(addr, regs.ofs, regs.tx), regs.val);
-					pr_debug("DSM_IOCS_ADI_NEW_REG AD%c %cX +%04lx WRITE %08lx\n",
-					         (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R',
-					         regs.ofs, regs.val);
-					// DSM_IOCS_ADI_NEW_REG_SO: set-only, break here
-					// DSM_IOCS_ADI_NEW_REG_RB: fall-through, readback
-					if ( cmd == DSM_IOCS_ADI_NEW_REG_SO )
-						break;
-
-				case DSM_IOCG_ADI_NEW_REG:
-					regs.val = REG_READ(ADI_NEW_RT_ADDR(addr, regs.ofs, regs.tx));
-					pr_debug("DSM_IOCG_ADI_NEW_REG AD%c %cX +%04lx READ %08lx\n",
-					         (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R',
-					         regs.ofs, regs.val);
-					break;
-
-			}
-
-			// set-only: no need to copy back to userspace
-			if ( cmd == DSM_IOCS_ADI_NEW_REG_SO )
-				ret = 0;
-			// read or write/readback: copy back to userspace
-			else if ( (ret = copy_to_user((void *)arg, &regs, sizeof(regs))) )
-			{
-				pr_err("failed to copy %d bytes, stop\n", ret);
-				return -EFAULT;
-			}
-			break;
-		}
 	}
 
 	if ( ret )
@@ -1683,9 +924,6 @@ static int __init dma_streamer_mod_init(void)
 {
 	int ret = 0;
 
-	if ( (ret = dsm_xparameters_init()) )
-		return ret;
-
 	if ( misc_register(&mdev) < 0 )
 	{
 		pr_err("misc_register() failed\n");
@@ -1704,7 +942,6 @@ static int __init dma_streamer_mod_init(void)
 	return 0;
 
 error2:
-	dsm_xparameters_exit();
 	return ret;
 }
 
@@ -1715,8 +952,6 @@ static void __exit dma_streamer_mod_exit(void)
 
 	dsm_dev = NULL;
 	misc_deregister(&mdev);
-
-	dsm_xparameters_exit();
 }
 
 module_init(dma_streamer_mod_init);

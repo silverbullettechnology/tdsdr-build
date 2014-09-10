@@ -3,7 +3,7 @@ include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
 APP      := dma_streamer_app dsa_format
 APP_OBJS := dsa_main.o dsa_format.o dsa_channel.o dsa_command.o dsa_common.o log.o
-APP_OBJS += dsa_ioctl.o dsa_ioctl_adi_old.o dsa_ioctl_adi_new.o dsa_ioctl_dsxx.o
+APP_OBJS += dsa_ioctl_dma.o dsa_ioctl_adi_old.o dsa_ioctl_adi_new.o dsa_ioctl_dsxx.o
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 else
 APP      := dsa_format
