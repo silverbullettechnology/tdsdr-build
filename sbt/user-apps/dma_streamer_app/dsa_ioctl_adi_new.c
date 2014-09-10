@@ -21,7 +21,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#include <dma_streamer_mod.h>
+#include <fd_main.h>
 
 #include "dsa_main.h"
 #include "dsa_ioctl_adi_new.h"
@@ -32,16 +32,16 @@ LOG_MODULE_STATIC("ioctl_adi_new", LOG_LEVEL_INFO);
 
 int dsa_ioctl_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *val)
 {
-	struct dsm_new_adi_regs  regs;
-	int                      ret;
+	struct fd_new_adi_regs  regs;
+	int                     ret;
 
 	regs.adi = dev;
 	regs.tx  = tx;
 	regs.ofs = ofs;
 
 	// on failure print same error as kernelspace
-	if ( (ret = ioctl(dsa_dev, DSM_IOCG_ADI_NEW_REG, &regs)) )
-		printf("DSM_IOCG_ADI_NEW_REG AD%c %cX OFS %04lx READ %08lx: %d: %s\n",
+	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCG_ADI_NEW_REG, &regs)) )
+		printf("FD_IOCG_ADI_NEW_REG AD%c %cX OFS %04lx READ %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));
 
@@ -55,8 +55,8 @@ int dsa_ioctl_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *v
 
 int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long val)
 {
-	struct dsm_new_adi_regs  regs;
-	int                      ret;
+	struct fd_new_adi_regs  regs;
+	int                     ret;
 
 	regs.adi = dev;
 	regs.tx  = tx;
@@ -64,33 +64,11 @@ int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long v
 	regs.val = val;
 
 	// on failure print same error as kernelspace
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_ADI_NEW_REG_RB, &regs)) )
-		printf("DSM_IOCS_ADI_NEW_REG_RB AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
+	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCS_ADI_NEW_REG_RB, &regs)) )
+		printf("FD_IOCS_ADI_NEW_REG_RB AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));
 
 	return ret;
 }
-
-int dsa_ioctl_adi_new_stop (void)
-{
-	int  ret;
-
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_STOP, 0)) )
-		printf("DSM_IOCS_STOP: %d: %s\n", ret, strerror(errno));
-
-	return ret;
-}
-
-int dsa_ioctl_adi_new_start (void)
-{
-	int  ret;
-
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_START, 0)) )
-		printf("DSM_IOCS_START: %d: %s\n", ret, strerror(errno));
-
-	return ret;
-}
-
-
 

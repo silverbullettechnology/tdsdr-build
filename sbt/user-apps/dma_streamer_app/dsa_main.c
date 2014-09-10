@@ -26,7 +26,8 @@
 #include <ad9361.h>
 
 #include "dsa_main.h"
-#include "dsa_ioctl.h"
+#include "dsa_ioctl_dsm.h"
+#include "dsa_ioctl_fifo_dev.h"
 #include "dsa_command.h"
 #include "dsa_common.h"
 
@@ -36,13 +37,15 @@ LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 #define LIB_DIR "/usr/lib/ad9361"
 
 const char *dsa_argv0;
-int         dsa_dev = -1;
+int         dsa_dsm_dev = -1;
+int         dsa_fifo_dev = -1;
 int         dsa_adi_new = 0;
 int         dsa_dsxx = 0;
 
 size_t      dsa_opt_len      = 1000000; // 1MS default
 unsigned    dsa_opt_timeout  = 0; // auto-calculated now
-const char *dsa_opt_device   = DEF_DEVICE;
+const char *dsa_opt_dsm_dev  = DEF_DSM_DEVICE;
+const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
 long        dsa_opt_adjust   = 0;
 
 char *opt_lib_dir   = NULL;
@@ -79,7 +82,7 @@ void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir)
 	printf("  timeouts : %lu\n",       st->timeouts);
 }
 
-void dsa_main_show_fifos (const struct dsm_fifo_counts *buff)
+void dsa_main_show_fifos (const struct fd_fifo_counts *buff)
 {
 	printf("  RX 1: %08lx/%08lx\n", buff->rx_1_ins, buff->rx_1_ext);
 	printf("  RX 2: %08lx/%08lx\n", buff->rx_2_ins, buff->rx_2_ext);
@@ -93,11 +96,11 @@ static char *target_desc (int mask)
 	static char buff[64];
 
 	snprintf(buff, sizeof(buff), "{ %s%s%s%s%s}",
-		     mask & DSM_TARGT_ADI1 ? "adi1 " : "",
-		     mask & DSM_TARGT_ADI2 ? "adi2 " : "",
-		     mask & DSM_TARGT_NEW  ? "new: " : "",
-		     mask & DSM_TARGT_DSX0 ? "dsx0 " : "",
-		     mask & DSM_TARGT_DSX1 ? "dsx1 " : "");
+		     mask & FD_TARGT_ADI1 ? "adi1 " : "",
+		     mask & FD_TARGT_ADI2 ? "adi2 " : "",
+		     mask & FD_TARGT_NEW  ? "new: " : "",
+		     mask & FD_TARGT_DSX0 ? "dsx0 " : "",
+		     mask & FD_TARGT_DSX1 ? "dsx1 " : "");
 
 	return buff;
 }
@@ -109,7 +112,7 @@ int dsa_main_map (int reps)
 	struct dsm_user_buffs  buffs;
 	struct dsm_xfer_buff  *xfer;
 
-	if ( dsa_dev < 0 )
+	if ( dsa_dsm_dev < 0 )
 		return -1;
 
 	memset (&buffs, 0, sizeof(struct dsm_user_buffs));
@@ -146,33 +149,28 @@ int dsa_main_map (int reps)
 		xfer->words = dsa_evt.rx[1]->len * reps;
 	}
 
-	// old: calculate FIFO control register ctrl value based on channel config
-	// new: calculate channel/TX/RX enable ctrl value based on channel config
-	if ( dsa_evt.tx[0] || dsa_evt.rx[0] )
-		buffs.dsx0.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD1, !dsa_adi_new);
-	if ( dsa_evt.tx[1] || dsa_evt.rx[1] )
-		buffs.dsx1.ctrl = dsa_channel_ctrl(&dsa_evt, DC_DEV_AD2, !dsa_adi_new);
-
-	return dsa_ioctl_map(&buffs);
+	return dsa_ioctl_dsm_map(&buffs);
 }
 
 
 int dsa_main_unmap (void)
 {
-	if ( dsa_dev < 0 )
+	if ( dsa_dsm_dev < 0 )
 		return -1;
 
-	return dsa_ioctl_unmap();
+	return dsa_ioctl_dsm_unmap();
 }
 
 
 void dsa_main_dev_close (void)
 {
-	if ( dsa_dev < 0 )
-		return;
+	if ( dsa_dsm_dev >= 0 )
+		close(dsa_dsm_dev);
+	dsa_dsm_dev = -1;
 
-	close(dsa_dev);
-	dsa_dev = -1;
+	if ( dsa_fifo_dev >= 0 )
+		close(dsa_fifo_dev);
+	dsa_fifo_dev = -1;
 }
 
 
@@ -180,9 +178,16 @@ int dsa_main_dev_reopen (unsigned long *mask)
 {
 	dsa_main_dev_close();
 
-	if ( (dsa_dev = open(dsa_opt_device, O_RDWR)) < 0 )
+	if ( (dsa_dsm_dev = open(dsa_opt_dsm_dev, O_RDWR)) < 0 )
 	{
-		LOG_DEBUG("open(%s): %s\n", dsa_opt_device, strerror(errno));
+		LOG_DEBUG("open(%s): %s\n", dsa_opt_dsm_dev, strerror(errno));
+		return -1;
+	}
+
+	if ( (dsa_fifo_dev = open(dsa_opt_fifo_dev, O_RDWR)) < 0 )
+	{
+		LOG_DEBUG("open(%s): %s\n", dsa_opt_fifo_dev, strerror(errno));
+		close(dsa_dsm_dev);
 		return -1;
 	}
 
@@ -320,8 +325,8 @@ int main(int argc, char *argv[])
 
 	unsigned long  mask;
 	if ( dsa_main_dev_reopen(&mask) < 0 )
-		stop("failed to open: %s", dsa_opt_device);
-	dsa_adi_new = mask & DSM_TARGT_NEW;
+		stop("failed to open device nodes");
+	dsa_adi_new = mask & FD_TARGT_NEW;
 	LOG_INFO("Using %s ADI access\n", dsa_adi_new ? "new" : "old");
 
 	// iterative buffer setup of new dsa_channel_event struct

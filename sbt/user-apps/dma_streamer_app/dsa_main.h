@@ -18,25 +18,29 @@
 #ifndef _INCLUDE_DSA_MAIN_H_
 #define _INCLUDE_DSA_MAIN_H_
 #include <dma_streamer_mod.h>
+#include <fd_main.h>
 #include "dsa_channel.h"
 
-#define DEF_SIZE     1048576
-#define DEF_REPS     1
-#define DEF_DEVICE   "/dev/" DSM_DRIVER_NODE
-#define DEF_FORMAT   "iqw"
+#define DEF_SIZE         1048576
+#define DEF_REPS         1
+#define DEF_DSM_DEVICE   "/dev/" DSM_DRIVER_NODE
+#define DEF_FIFO_DEVICE  "/dev/" FD_DRIVER_NODE
+#define DEF_FORMAT       "iqw"
 
 #define VOL_QUIET    0
 #define VOL_NORMAL   1
 #define VOL_VERBOSE  2
 
 extern const char *dsa_argv0;
-extern int         dsa_dev;
+extern int         dsa_dsm_dev;
+extern int         dsa_fifo_dev;
 extern int         dsa_adi_new;
 extern int         dsa_dsxx;
 
 extern size_t      dsa_opt_len;
 extern unsigned    dsa_opt_timeout;
-extern const char *dsa_opt_device;
+extern const char *dsa_opt_dsm_dev;
+extern const char *dsa_opt_fifo_dev;
 extern long        dsa_opt_adjust;
 
 extern char  env_data_path[];
@@ -45,7 +49,7 @@ extern struct format            *dsa_opt_format;
 extern struct dsa_channel_event  dsa_evt;
 
 void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir);
-void dsa_main_show_fifos (const struct dsm_fifo_counts *buff);
+void dsa_main_show_fifos (const struct fd_fifo_counts *buff);
 void dsa_main_dev_close (void);
 int dsa_main_dev_reopen (unsigned long *mask);
 

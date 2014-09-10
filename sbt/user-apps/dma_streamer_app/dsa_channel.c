@@ -800,6 +800,7 @@ int dsa_channel_sleep (void)
 
 unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 {
+#if 0
 	struct dsa_channel_xfer **xfer;
 	struct dsa_channel_sxx  **sxx;
 	unsigned char             need;
@@ -926,6 +927,9 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 	}
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 

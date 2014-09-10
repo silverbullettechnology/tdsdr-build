@@ -184,8 +184,5 @@ enum {
 int dsa_ioctl_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
 int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
 
-int dsa_ioctl_adi_new_stop  (void);
-int dsa_ioctl_adi_new_start (void);
-
 
 #endif // _INCLUDE_DSA_IOCTL_ADI_NEW_H_

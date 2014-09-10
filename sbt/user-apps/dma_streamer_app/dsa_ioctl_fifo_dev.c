@@ -1,5 +1,5 @@
-/** \file      dsa_ioctl.h
- *  \brief     interface declarations for common FIFO / DSM controls
+/** \file      dsa_ioctl_fifo_dev.c
+ *  \brief     implementation of FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,17 +15,27 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_H_
-#define _INCLUDE_DSA_IOCTL_H_
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <errno.h>
 
-#include <dma_streamer_mod.h>
+#include <fd_main.h>
 
-int dsa_ioctl_map (struct dsm_user_buffs *buffs);
-int dsa_ioctl_unmap (void);
-int dsa_ioctl_target_list (unsigned long *mask);
-int dsa_ioctl_set_timeout (unsigned long timeout);
-int dsa_ioctl_trigger (void);
-int dsa_ioctl_get_stats (struct dsm_user_stats *sb);
+#include "dsa_main.h"
+
+#include "log.h"
+LOG_MODULE_STATIC("ioctl_fifo_dev", LOG_LEVEL_INFO);
 
 
-#endif // _INCLUDE_DSA_IOCTL_H_
+int dsa_ioctl_target_list (unsigned long *mask)
+{
+	int ret;
+
+	errno = 0;
+	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCG_TARGET_LIST, mask)) )
+		printf("FD_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
+
+	return ret;
+}
+

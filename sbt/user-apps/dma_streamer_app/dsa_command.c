@@ -24,7 +24,8 @@
 #include <dma_streamer_mod.h>
 
 #include "dsa_main.h"
-#include "dsa_ioctl.h"
+#include "dsa_ioctl_dsm.h"
+#include "dsa_ioctl_fifo_dev.h"
 #include "dsa_ioctl_adi_old.h"
 #include "dsa_ioctl_adi_new.h"
 #include "dsa_ioctl_dsxx.h"
@@ -39,7 +40,7 @@ LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
 void dsa_command_options_usage (void)
 {
 	printf("\nGlobal options: [-qv] [-D mod:lvl] [-s bytes[K|M]] [-S samples[K|M]]\n"
-	       "                [-f format] [-t timeout] [-n node]\n"
+	       "                [-f format] [-t timeout] [-n node] [-N node]\n"
 	       "Where:\n"
 	       "-q          Quiet messages: warnings and errors only\n"
 	       "-v          Verbose messages: enable debugging\n"
@@ -48,14 +49,15 @@ void dsa_command_options_usage (void)
 	       "-S samples  Set buffer size in samples, add K/M for kilo-samples/mega-samples\n"
 	       "-f format   Set data format for sample data\n"
 	       "-t timeout  Set timeout in jiffies\n"
-	       "-n node     Device node for kernelspace module\n\n");
+	       "-n node     Device node for DMA module\n"
+	       "-N node     Device node for FIFO module\n\n");
 }
 
 int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:n:D:A:")) > -1 )
+	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:n:N:D:A:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -98,7 +100,8 @@ int dsa_command_options (int argc, char **argv)
 				LOG_INFO("DMA timeout set to %u jiffies\n", dsa_opt_timeout);
 				break;
 
-			case 'n': dsa_opt_device  = optarg; break;
+			case 'n': dsa_opt_dsm_dev  = optarg; break;
+			case 'N': dsa_opt_fifo_dev = optarg; break;
 
 			case 'f':
 				if ( !(dsa_opt_format = format_find(optarg)) )
@@ -480,7 +483,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		timeout = dsa_channel_timeout(&dsa_evt, 4);
 	if ( timeout < 100 )
 		timeout = 100;
-	dsa_ioctl_set_timeout(timeout);
+	dsa_ioctl_dsm_set_timeout(timeout);
 
 #if 0
 	if ( dsa_evt.rx[0] || dsa_evt.rx[1] )
@@ -514,15 +517,15 @@ for ( ret = 0; ret <= argc; ret++ )
 			// RX side
 			if ( dsa_evt.rx[dev] )
 			{
-				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
-				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_RESET);
 			}
 
 			// TX side
 			if ( dsa_evt.tx[dev] )
 			{
-				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
-				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_RESET);
+				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_RESET);
 			}
 		}
 
@@ -530,8 +533,8 @@ for ( ret = 0; ret <= argc; ret++ )
 	else
 		for ( dev = 0; dev < 2; dev++ )
 		{
-			dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_RESET);
-			dsa_ioctl_adi_old_set_ctrl(dev, DSM_LVDS_CTRL_STOP);
+			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_RESET);
+			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_STOP);
 		}
 
 	// New FIFO controls: Setup channels based on transfer setup
@@ -583,7 +586,7 @@ for ( ret = 0; ret <= argc; ret++ )
 			}
 
 			if ( dsa_evt.tx[dev] )
-				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_ENABLE);
+				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
 		}
 
 	// Old FIFO controls: Program FIFO counters with expected buffer size
@@ -623,7 +626,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	// Show FIFO numbers before transfer
 	if ( fifo && !dsa_adi_new && !dsa_dsxx )
 	{
-		struct dsm_fifo_counts fb;
+		struct fd_fifo_counts fb;
 
 		dsa_ioctl_adi_old_get_fifo_cnt(&fb);
 		dsa_main_show_fifos(&fb);
@@ -654,14 +657,14 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				LOG_INFO("Triggering DMA...\n");
 				errno = 0;
-				if ( !dsa_ioctl_trigger() && !stats )
+				if ( !dsa_ioctl_dsm_trigger() && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				if ( stats )
 				{
 					struct dsm_user_stats  sb;
 
-					dsa_ioctl_get_stats(&sb);
+					dsa_ioctl_dsm_get_stats(&sb);
 
 					if ( dsa_dsxx )
 					{
@@ -689,18 +692,18 @@ for ( ret = 0; ret <= argc; ret++ )
 		case TRIG_ONCE:
 			LOG_INFO("Triggering DMA...\n");
 			errno = 0;
-			if ( !dsa_ioctl_trigger() && !stats )
+			if ( !dsa_ioctl_dsm_trigger() && !stats )
 				LOG_INFO("DMA triggered\n");
 			break;
 
 		case TRIG_CONT:
 			LOG_INFO("Starting DMA, press any key to stop...\n");
-			dsa_ioctl_adi_new_start();
+			dsa_ioctl_dsm_start();
 
 			terminal_pause();
 
 			LOG_INFO("Stopping DMA...\n");
-			dsa_ioctl_adi_new_stop();
+			dsa_ioctl_dsm_stop();
 			break;
 	}
 
@@ -711,7 +714,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	// Show FIFO numbers before transfer
 	if ( fifo )
 	{
-		struct dsm_fifo_counts fb;
+		struct fd_fifo_counts fb;
 
 		dsa_ioctl_adi_old_get_fifo_cnt(&fb);
 		dsa_main_show_fifos(&fb);
@@ -758,9 +761,9 @@ for ( ret = 0; ret <= argc; ret++ )
 			{
 				dsa_ioctl_dsrc_get_stat(dev, &reg);	
 				printf("DSRC%d: stat %lu { %s%s%s}\n", dev, reg,
-				       reg & DSM_DSXX_STAT_ENABLED ? "enabled " : "",
-				       reg & DSM_DSXX_STAT_DONE    ? "done "    : "",
-				       reg & DSM_DSXX_STAT_ERROR   ? "error "   : "");
+				       reg & FD_DSXX_STAT_ENABLED ? "enabled " : "",
+				       reg & FD_DSXX_STAT_DONE    ? "done "    : "",
+				       reg & FD_DSXX_STAT_ERROR   ? "error "   : "");
 
 				dsa_ioctl_dsrc_get_sent(dev, &reg);	
 				printf ("DSRC%d: %lu bytes sent\n", dev, reg);
@@ -771,7 +774,7 @@ for ( ret = 0; ret <= argc; ret++ )
 				dsa_ioctl_dsrc_get_rsent(dev, &reg);	
 				printf ("DSRC%d: %lu reps sent\n", dev, reg);
 
-				dsa_ioctl_dsrc_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
 
 				uint64_t *ptr = (uint64_t *)dsa_evt.rx[dev]->smp;
 				uint64_t  val = 0;
@@ -801,14 +804,14 @@ for ( ret = 0; ret <= argc; ret++ )
 			{
 				dsa_ioctl_dsnk_get_stat(dev, &reg);	
 				printf("DSNK%d: stat %lu { %s%s%s}\n", dev, reg,
-				       reg & DSM_DSXX_STAT_ENABLED ? "enabled " : "",
-				       reg & DSM_DSXX_STAT_DONE    ? "done "    : "",
-				       reg & DSM_DSXX_STAT_ERROR   ? "error "   : "");
+				       reg & FD_DSXX_STAT_ENABLED ? "enabled " : "",
+				       reg & FD_DSXX_STAT_DONE    ? "done "    : "",
+				       reg & FD_DSXX_STAT_ERROR   ? "error "   : "");
 
 				dsa_ioctl_dsnk_get_bytes(dev, &reg);	
 				printf ("DSNK%d: %lu bytes received\n", dev, reg);
 
-				dsa_ioctl_dsnk_set_ctrl(dev, DSM_DSXX_CTRL_DISABLE);
+				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
 			}
 		}
 
@@ -834,7 +837,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	{
 		struct dsm_user_stats  sb;
 
-		dsa_ioctl_get_stats(&sb);
+		dsa_ioctl_dsm_get_stats(&sb);
 
 		if ( dsa_dsxx )
 		{

@@ -1,5 +1,5 @@
-/** \file      dsa_ioctl.c
- *  \brief     implementation of common FIFO / DSM controls
+/** \file      dsa_ioctl_dsm.c
+ *  \brief     implementation of DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -28,67 +28,91 @@
 LOG_MODULE_STATIC("ioctl", LOG_LEVEL_INFO);
 
 
-int dsa_ioctl_map (struct dsm_user_buffs *buffs)
+int dsa_ioctl_dsm_map (struct dsm_user_buffs *buffs)
 {
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_MAP, buffs)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_MAP, buffs)) )
 		printf("DSM_IOCS_MAP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_unmap (void)
+int dsa_ioctl_dsm_unmap (void)
 {
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_UNMAP, 0)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_UNMAP, 0)) )
 		printf("DSM_IOCS_UNMAP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
+#if 0
 int dsa_ioctl_target_list (unsigned long *mask)
 {
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_dev, DSM_IOCG_TARGET_LIST, mask)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_TARGET_LIST, mask)) )
 		printf("DSM_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
 
 	return ret;
 }
+#endif
 
-int dsa_ioctl_set_timeout (unsigned long timeout)
+int dsa_ioctl_dsm_set_timeout (unsigned long timeout)
 {
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_TIMEOUT, timeout)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_TIMEOUT, timeout)) )
 		printf("DSM_IOCS_TIMEOUT %d: %d: %s\n", timeout, ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_trigger (void)
+int dsa_ioctl_dsm_trigger (void)
 {
 	int ret;
 
-	if ( (ret = ioctl(dsa_dev, DSM_IOCS_TRIGGER, 0)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_TRIGGER, 0)) )
 		printf("DSM_IOCS_TRIGGER: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_get_stats (struct dsm_user_stats *sb)
+int dsa_ioctl_dsm_get_stats (struct dsm_user_stats *sb)
 {
 	int ret;
 
-	if ( (ret = ioctl(dsa_dev, DSM_IOCG_STATS, sb)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_STATS, sb)) )
 		printf("DSM_IOCG_STATS: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
+
+int dsa_ioctl_dsm_stop (void)
+{
+	int  ret;
+
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_STOP, 0)) )
+		printf("DSM_IOCS_STOP: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+int dsa_ioctl_dsm_start (void)
+{
+	int  ret;
+
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_START, 0)) )
+		printf("DSM_IOCS_START: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+
 
