@@ -708,6 +708,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				if ( stats )
 				{
+#if 0
 					struct dsm_user_stats  sb;
 
 					dsa_ioctl_dsm_get_stats(&sb);
@@ -726,6 +727,7 @@ for ( ret = 0; ret <= argc; ret++ )
 						if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
 						if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
 					}
+#endif
 				}
 				LOG_INFO("Ready to DMA, press Q or Esc to stop, any other key to trigger...\n");
 
@@ -887,6 +889,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	if ( stats && trig != TRIG_PRESS )
 	{
+#if 0
 		struct dsm_user_stats  sb;
 
 		dsa_ioctl_dsm_get_stats(&sb);
@@ -905,6 +908,7 @@ for ( ret = 0; ret <= argc; ret++ )
 			if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
 			if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
 		}
+#endif
 	}
 
 

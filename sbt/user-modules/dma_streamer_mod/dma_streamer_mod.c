@@ -59,6 +59,14 @@ static atomic_t            dsm_busy;
 static wait_queue_head_t   dsm_wait;
 
 
+// private per-user state struct
+struct dsm_user
+{
+	struct dsm_chan_list *channels;
+};
+
+
+
 // Per-thread state
 struct dsm_chan;
 struct dsm_xfer
@@ -136,7 +144,6 @@ static int dsm_thread (void *data)
 	struct timespec                 beg, end;
 	spinlock_t                      irq_lock;
 	int                             ret = 0;
-	u32                             reg;
 
 	smp_rmb();
 	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
@@ -144,7 +151,7 @@ static int dsm_thread (void *data)
 	pr_debug("%s: dsm_thread() starts:\n", state->name);
 
 
-	state->left = state->chunk;
+	state->left = state->words;
 	memset(&state->stats, 0, sizeof(struct dsm_xfer_stats));
 	while ( state->left > 0 )
 	{
@@ -230,7 +237,7 @@ static int dsm_thread (void *data)
 		if ( !state->left && atomic_read(&state->continuous) )
 		{
 			pr_debug("continuous: reset\n");
-			state->left = state->chunk;
+			state->left = state->words;
 		}
 	}
 
@@ -338,6 +345,7 @@ static bool xdma_filter(struct dma_chan *chan, void *param)
 
 
 //TODO: pass channel number here for AD1/AD2, rip buffs struct down to single set
+#if 0
 static struct dsm_xfer *dsm_xfer_setup (int rx, int dma, const struct dsm_xfer_buff *buff)
 {
 	dma_cap_mask_t       mask;
@@ -345,6 +353,7 @@ static struct dsm_xfer *dsm_xfer_setup (int rx, int dma, const struct dsm_xfer_b
 	struct dsm_xfer     *state;
 
 	unsigned long        us_bytes;
+	unsigned long        us_words;
 	unsigned long        us_addr;
 	struct page        **us_pages;
 	int                  us_count;
@@ -387,17 +396,10 @@ static struct dsm_xfer *dsm_xfer_setup (int rx, int dma, const struct dsm_xfer_b
 	}
 	us_addr = buff->addr;
 
-	// size / granularity check
-	pr_debug("size 0x%lx vs align %d\n",
-	         buff->size, 1 << chan->device->copy_align);
-	if ( buff->size & ((1 << chan->device->copy_align) - 1) )
-	{
-		pr_err("bad size alignment: size %08lx must be a multiple of %u\n",
-		       buff->size, 1 << chan->device->copy_align);
-		goto release;
-	}
-	us_bytes = buff->size;
-	pr_debug("%lu bytes per DMA\n", us_bytes);
+	// size / granularity check unnecessary now that size is specified in words
+	us_bytes = buff->size << chan->device->copy_align;
+	us_words = buff->size;
+	pr_debug("%lu bytes / %lu words per DMA\n", us_bytes, us_words);
 
 	// pagelist for looped get_user_pages() to fill
 	if ( !(us_pages = (struct page **)__get_free_page(GFP_KERNEL)) )
@@ -432,18 +434,13 @@ static struct dsm_xfer *dsm_xfer_setup (int rx, int dma, const struct dsm_xfer_b
 	state->chan    = chan;
 	state->name    = kstrdup(rx ? "rx" : "tx", GFP_KERNEL);
 	state->bytes   = us_bytes;
-	state->words   = us_bytes >> chan->device->copy_align;
+	state->words   = us_words;
 	state->start   = 1;
 
 pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
-         state->words, buff->words, 
-		 buff->words / state->words,
-		 buff->words % state->words);
-
-	state->chunk = buff->words;
-	if ( state->chunk < buff->words )
-		state->chunk = buff->words;
-	state->left = state->chunk;
+         state->words, us_words, 
+		 us_words / state->words,
+		 us_words % state->words);
 
 	// default is non-continuous
 	atomic_set(&state->continuous, 0);
@@ -519,13 +516,14 @@ release:
 	dma_release_channel(chan);
 	return NULL;
 }
+#endif
 
 
 
 
 /******** Userspace interface ********/
 
-static int dsm_open (struct inode *inode_p, struct file *file_p)
+static int dsm_open (struct inode *inode_p, struct file *f)
 {
 	unsigned long  flags;
 	int            ret = -EACCES;
@@ -534,9 +532,15 @@ static int dsm_open (struct inode *inode_p, struct file *file_p)
 	if ( !dsm_users )
 	{
 		pr_debug("%s()\n", __func__);
+
+		if ( !(f->private_data = kzalloc(sizeof(struct dsm_user), GFP_KERNEL)) )
+		{
+			spin_unlock_irqrestore(&dsm_lock, flags);
+			return -ENOMEM;
+		}
+
 		// other init as needed
 		dsm_users = 1;
-
 		ret = 0;
 	}
 	spin_unlock_irqrestore(&dsm_lock, flags);
@@ -679,6 +683,7 @@ static int dsm_wait_all (void)
 static inline int dsm_setup (struct dsm_chan *chan, int dma, 
                              const struct dsm_chan_buffs *buff)
 {
+#if 0
 	// no action needed for this channel
 	if ( !buff->tx.size && !buff->rx.size )
 		return 0;
@@ -699,29 +704,172 @@ static inline int dsm_setup (struct dsm_chan *chan, int dma,
 		chan->rx->fd_peer = chan->tx;
 	}
 
+#endif
 	return 0;
 }
 
 
-static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
+static bool dsm_scan_channels_size (struct dma_chan *chan, void *param)
 {
-	unsigned long  reg;
-	int            ret = -ENOSYS;
-	int            max = 10;
+	if ( chan->device && chan->device->dev && chan->device->dev->driver )
+		(*(unsigned long *)param)++;
+
+	return 0;
+}
+
+static bool dsm_scan_channels_desc (struct dma_chan *chan, void *param)
+{
+	struct dma_slave_caps  caps;
+	struct dsm_chan_desc **cdpp = param;
+	struct dsm_chan_desc  *cdp  = *cdpp;
+	int                    ret;
+
+	if ( !chan->device || !chan->device->dev || !chan->device->dev->driver )
+		return 0;
+
+	cdp->ident   = (unsigned long)chan->device->dev + chan->chan_id;
+
+	// Linux DMA infrastructure doesn't seem to have the concept of a DMA channel being
+	// tied to a particular endpoint, so various drivers check the private pointer.  The
+	// two which have been used in the Xilinx AXI-DMA world are to cast the pointer to a
+	// u32 or to point it at an actual u32 variable in the driver's internal state...
+	// In the case of multiple DMA controllers, we put the ID of the attached endpoint
+	// into the top nibble of the private value
+	if ( (unsigned long)chan->private > 0x80000000 )
+		cdp->private = *(u32 *)chan->private;
+	else
+		cdp->private = (u32)chan->private;
+
+	// prefer to get the direction capabilities from slave_caps if possible, otherwise
+	// infer from the private value
+	cdp->flags = 0;
+	if ( !(ret = dma_get_slave_caps(chan, &caps)) )
+	{
+		cdp->flags |= DSM_CHAN_SLAVE_CAPS;
+		if ( caps.directions & (1 << DMA_MEM_TO_DEV) ) cdp->flags |= DSM_CHAN_DIR_TX;
+		if ( caps.directions & (1 << DMA_DEV_TO_MEM) ) cdp->flags |= DSM_CHAN_DIR_RX;
+	}
+	else
+	{
+		switch ( cdp->private & 0xFF )
+		{
+			case DMA_MEM_TO_DEV:
+				cdp->flags |= DSM_CHAN_DIR_TX;
+				break;
+			case DMA_DEV_TO_MEM:
+				cdp->flags |= DSM_CHAN_DIR_RX;
+				break;
+		}
+	}
+
+	if ( dma_has_cap(DMA_MEMCPY,     chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_MEMCPY;
+	if ( dma_has_cap(DMA_XOR,        chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_XOR;
+	if ( dma_has_cap(DMA_PQ,         chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_PQ;
+	if ( dma_has_cap(DMA_XOR_VAL,    chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_XOR_VAL;
+	if ( dma_has_cap(DMA_PQ_VAL,     chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_PQ_VAL;
+	if ( dma_has_cap(DMA_INTERRUPT,  chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_INTERRUPT;
+	if ( dma_has_cap(DMA_SG,         chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_SG;
+	if ( dma_has_cap(DMA_PRIVATE,    chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_PRIVATE;
+	if ( dma_has_cap(DMA_ASYNC_TX,   chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_ASYNC_TX;
+	if ( dma_has_cap(DMA_SLAVE,      chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_SLAVE;
+	if ( dma_has_cap(DMA_CYCLIC,     chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_CYCLIC;
+	if ( dma_has_cap(DMA_INTERLEAVE, chan->device->cap_mask) )  cdp->flags |= DSM_CHAN_CAP_INTERLEAVE;
+
+	cdp->width = chan->device->copy_align;
+	cdp->align = chan->device->copy_align;
+	strncpy(cdp->device, dev_name(chan->device->dev), sizeof(cdp->device) - 1);
+	strncpy(cdp->driver, chan->device->dev->driver->name, sizeof(cdp->driver) - 1);
+
+	(*cdpp)++;
+	return 0;
+}
+
+static struct dsm_chan_list *dsm_scan_channels (struct dsm_user *du)
+{
+	struct dsm_chan_desc *cdp;
+	unsigned long         cnt = 0;
+	dma_cap_mask_t        mask;
+//	int                   i;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
+	BUG_ON(dma_request_channel(mask, dsm_scan_channels_size, &cnt) != NULL);
+
+	if ( !du->channels || cnt != du->channels->chan_cnt )
+	{
+		kfree(du->channels);
+		du->channels = kzalloc(offsetof(struct dsm_chan_list, chan_lst) +
+		                       sizeof(struct dsm_chan_desc) * cnt,
+		                       GFP_KERNEL);
+		if ( !du->channels )
+			return NULL;
+	}
+	else
+		memset(du->channels, 0, offsetof(struct dsm_chan_list, chan_lst) +
+		                        sizeof(struct dsm_chan_desc) * cnt);
+
+	du->channels->chan_cnt = cnt;
+	cdp = du->channels->chan_lst;
+	BUG_ON(dma_request_channel(mask, dsm_scan_channels_desc, &cdp) != NULL);
+
+//	for ( i = 0; i < du->channels->chan_cnt; i++ )
+//		printk("%2d: ident:%08lx flags:%08lx width:%02u align:%02u driver:%s\n", i,
+//		       du->channels->chan_lst[i].ident,
+//		       du->channels->chan_lst[i].flags,
+//		       (1 << (du->channels->chan_lst[i].width + 3)),
+//		       (1 << (du->channels->chan_lst[i].align + 3)),
+//		       du->channels->chan_lst[i].name);
+
+	return du->channels;
+}
+
+
+static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
+{
+	struct dsm_chan_list  clb;
+	struct dsm_chan_list *clp;
+	struct dsm_user      *du = f->private_data;
+	size_t                max;
+	int                   ret = 0;
 
 	pr_trace("%s(cmd %x, arg %08lx)\n", __func__, cmd, arg);
-
-	if ( _IOC_TYPE(cmd) != DSM_IOCTL_MAGIC )
-		return -EINVAL;
+	BUG_ON(du == NULL);
+	BUG_ON( _IOC_TYPE(cmd) != DSM_IOCTL_MAGIC);
 
 	switch ( cmd )
 	{
+		/* DMA Channel Description: DSM_IOCG_CHANNELS should be called with a pointer to a
+		 * buffer to a dsm_chan_list, which it will fill in.  dsm_chan_list.chan_cnt
+		 * should be set to the number of dsm_chan_desc structs the dsm_chan_list has room
+		 * for before the ioctl call.  The driver code will not write more than chan_cnt
+		 * elements into the array, but will set chan_cnt to the actual number available
+		 * before returning to the caller. */
+		case DSM_IOCG_CHANNELS:
+			ret = copy_from_user(&clb, (void *)arg,
+			                     offsetof(struct dsm_chan_list, chan_lst));
+			if ( ret )
+				return -EFAULT;
+
+			if ( !(clp = dsm_scan_channels(du)) )
+				return -ENODEV;
+
+			max = min(clp->chan_cnt, clb.chan_cnt);
+			ret = copy_to_user((void *)arg, clp, 
+			                   offsetof(struct dsm_chan_list, chan_lst) +
+			                   sizeof(struct dsm_chan_desc) * max);
+			if ( ret )
+				return -EFAULT;
+			break;
+
+
+
 		// Set the (userspace) addresses and sizes of the buffers.  These must be page-
 		// aligned (ie allocated with posix_memalign()), locked in with mlock(), and sized
 		// in full pages.  Set either of tx_size or rx_size for a simplex transfer, or
 		// both for a full-duplex. tx_reps and rx_reps give the number of times to loop 
 		// through the respective buffers, if greater than 1.  Currently (rx_reps *
 		// rx_size) and (tx_reps * tx_size) must be equal.  
+#if 0
 		case DSM_IOCS_MAP:
 		{
 			struct dsm_user_buffs dsm_user_buffs;
@@ -764,6 +912,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = 0;
 			break;
 		}
+#endif
 
 
 		// Start a one-shot transaction, after setting up the buffers with a successful
@@ -813,6 +962,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		// Read statistics from the transfer triggered with DSM_IOCS_TRIGGER
 		case DSM_IOCG_STATS:
 		{
+#if 0
 			struct dsm_user_stats dsm_user_stats;
 			pr_debug("DSM_IOCG_STATS %08lx\n", arg);
 
@@ -835,6 +985,8 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 			ret = 0;
 			break;
+#endif
+			return -ENOSYS;
 		}
 
 		// Unmap the buffers buffer mapped with DSM_IOCS_MAP, before DSM_IOCS_TRIGGER.
@@ -879,6 +1031,8 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 #endif
 
+		default:
+			ret = -ENOSYS;
 	}
 
 	if ( ret )
@@ -887,7 +1041,7 @@ static long dsm_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
-static int dsm_release (struct inode *inode_p, struct file *file_p)
+static int dsm_release (struct inode *inode_p, struct file *f)
 {
 	unsigned long  flags;
 	int            ret = -EBADF;
@@ -895,9 +1049,14 @@ static int dsm_release (struct inode *inode_p, struct file *file_p)
 	spin_lock_irqsave(&dsm_lock, flags);
 	if ( dsm_users )
 	{
+		struct dsm_user *du = f->private_data;
+
 		pr_debug("%s()\n", __func__);
 		dsm_halt_all();
 		dsm_cleanup();
+
+		kfree(du->channels);
+		kfree(du);
 
 		dsm_users = 0;
 

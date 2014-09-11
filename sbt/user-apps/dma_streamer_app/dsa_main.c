@@ -54,6 +54,8 @@ char  env_data_path[PATH_MAX];
 struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
+struct dsm_chan_list *dsa_dsm_channels = NULL;
+
 
 void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir)
 {
@@ -108,8 +110,9 @@ static char *target_desc (int mask)
 
 int dsa_main_map (int reps)
 {
+#if 0
 	// pass to kernelspace and prepare DMA
-	struct dsm_user_buffs  buffs;
+	struct dsm_chan_buffs  buffs;
 	struct dsm_xfer_buff  *xfer;
 
 	if ( dsa_dsm_dev < 0 )
@@ -121,35 +124,38 @@ int dsa_main_map (int reps)
 	{
 		xfer = dsa_dsxx ? &buffs.dsx0.tx : &buffs.adi1.tx;
 		xfer->addr  = (unsigned long)dsa_evt.tx[0]->smp;
-		xfer->size  = dsa_evt.tx[0]->len * DSM_BUS_WIDTH;
-		xfer->words = dsa_evt.tx[0]->len * reps;
+		xfer->size  = dsa_evt.tx[0]->len;
+		xfer->reps  = reps;
 	}
 
 	if ( dsa_evt.tx[1] )
 	{
 		xfer = dsa_dsxx ? &buffs.dsx1.tx : &buffs.adi2.tx;
 		xfer->addr  = (unsigned long)dsa_evt.tx[1]->smp;
-		xfer->size  = dsa_evt.tx[1]->len * DSM_BUS_WIDTH;
-		xfer->words = dsa_evt.tx[1]->len * reps;
+		xfer->size  = dsa_evt.tx[1]->len;
+		xfer->reps  = reps;
 	}
 
 	if ( dsa_evt.rx[0] )
 	{
 		xfer = dsa_dsxx ? &buffs.dsx0.rx : &buffs.adi1.rx;
 		xfer->addr  = (unsigned long)dsa_evt.rx[0]->smp;
-		xfer->size  = dsa_evt.rx[0]->len * DSM_BUS_WIDTH;
-		xfer->words = dsa_evt.rx[0]->len * reps;
+		xfer->size  = dsa_evt.rx[0]->len;
+		xfer->reps  = 1;
 	}
 
 	if ( dsa_evt.rx[1] )
 	{
 		xfer = dsa_dsxx ? &buffs.dsx1.rx : &buffs.adi2.rx;
 		xfer->addr  = (unsigned long)dsa_evt.rx[1]->smp;
-		xfer->size  = dsa_evt.rx[1]->len * DSM_BUS_WIDTH;
-		xfer->words = dsa_evt.rx[1]->len * reps;
+		xfer->size  = dsa_evt.rx[1]->len;
+		xfer->reps  = 1;
 	}
 
 	return dsa_ioctl_dsm_map(&buffs);
+#endif
+	errno = ENOSYS;
+	return -1;
 }
 
 
@@ -184,15 +190,31 @@ int dsa_main_dev_reopen (unsigned long *mask)
 		return -1;
 	}
 
+	free(dsa_dsm_channels);
+	if ( !(dsa_dsm_channels = dsa_ioctl_dsm_channels()) )
+		stop("DSM_IOCG_CHANNELS");
+
+	int i;
+	printf("dsa_ioctl_dsm_channels() gave %d channels:\n", dsa_dsm_channels->chan_cnt);
+	for ( i = 0; i < dsa_dsm_channels->chan_cnt; i++ )
+		printf("%2d: ident:%08lx private:%08lx flags:%08lx width:%02u align:%02u device:%s driver:%s\n", i,
+		       dsa_dsm_channels->chan_lst[i].ident,
+		       dsa_dsm_channels->chan_lst[i].private,
+		       dsa_dsm_channels->chan_lst[i].flags,
+		       (1 << (dsa_dsm_channels->chan_lst[i].width + 3)),
+		       (1 << (dsa_dsm_channels->chan_lst[i].align + 3)),
+		       dsa_dsm_channels->chan_lst[i].device,
+		       dsa_dsm_channels->chan_lst[i].driver);
+
 	if ( (dsa_fifo_dev = open(dsa_opt_fifo_dev, O_RDWR)) < 0 )
 	{
 		LOG_DEBUG("open(%s): %s\n", dsa_opt_fifo_dev, strerror(errno));
-		close(dsa_dsm_dev);
+		dsa_main_dev_close();
 		return -1;
 	}
 
-	if ( dsa_ioctl_target_list(mask) )
-		stop("DSM_IOCG_TARGET_LIST");
+	if ( dsa_ioctl_fifo_dev_target_list(mask) )
+		stop("FD_IOCG_TARGET_LIST");
 
 	LOG_DEBUG("Supported targets: %s\n", target_desc(*mask));
 	if ( !*mask )

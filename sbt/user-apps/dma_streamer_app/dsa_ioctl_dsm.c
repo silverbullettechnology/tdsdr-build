@@ -16,6 +16,8 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -28,8 +30,44 @@
 LOG_MODULE_STATIC("ioctl", LOG_LEVEL_INFO);
 
 
-int dsa_ioctl_dsm_map (struct dsm_user_buffs *buffs)
+struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
 {
+	struct dsm_chan_list  tmp;
+	struct dsm_chan_list *ret;
+
+	// first call to size list
+	errno = 0;
+	memset(&tmp, 0, sizeof(tmp));
+	if ( ioctl(dsa_dsm_dev, DSM_IOCG_CHANNELS, &tmp) < 0 )
+	{
+		printf("DSM_IOCG_CHANNELS: %s", strerror(errno));
+		return NULL;
+	}
+
+	// allocate correct size now
+	ret = calloc(offsetof(struct dsm_chan_list, chan_lst) + 
+	             sizeof(struct dsm_chan_desc) * tmp.chan_cnt, 1);
+	if ( !ret )
+		return NULL;
+
+	// second call with big-enough buffer
+	errno = 0;
+	ret->chan_cnt = tmp.chan_cnt;
+	if ( ioctl(dsa_dsm_dev, DSM_IOCG_CHANNELS, ret) < 0 )
+	{
+		int err = errno;
+		printf("DSM_IOCG_CHANNELS: %s", strerror(err));
+		free(ret);
+		errno = err;
+		return NULL;
+	}
+
+	return ret;
+}
+
+int dsa_ioctl_dsm_map (struct dsm_chan_buffs *buffs)
+{
+#if 0
 	int ret;
 
 	errno = 0;
@@ -37,6 +75,9 @@ int dsa_ioctl_dsm_map (struct dsm_user_buffs *buffs)
 		printf("DSM_IOCS_MAP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
+#endif
+	errno = ENOSYS;
+	return -1;
 }
 
 int dsa_ioctl_dsm_unmap (void)
@@ -49,19 +90,6 @@ int dsa_ioctl_dsm_unmap (void)
 
 	return ret;
 }
-
-#if 0
-int dsa_ioctl_target_list (unsigned long *mask)
-{
-	int ret;
-
-	errno = 0;
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_TARGET_LIST, mask)) )
-		printf("DSM_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
-
-	return ret;
-}
-#endif
 
 int dsa_ioctl_dsm_set_timeout (unsigned long timeout)
 {
@@ -94,7 +122,7 @@ int dsa_ioctl_dsm_oneshot_wait (void)
 	return ret;
 }
 
-int dsa_ioctl_dsm_get_stats (struct dsm_user_stats *sb)
+int dsa_ioctl_dsm_get_stats (struct dsm_chan_stats *sb)
 {
 	int ret;
 

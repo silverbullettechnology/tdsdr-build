@@ -20,7 +20,7 @@
 
 #include <fd_main.h>
 
-int dsa_ioctl_target_list (unsigned long *mask);
+int dsa_ioctl_fifo_dev_target_list (unsigned long *mask);
 
 
 #endif // _INCLUDE_DSA_IOCTL_FIFO_DEV_H_

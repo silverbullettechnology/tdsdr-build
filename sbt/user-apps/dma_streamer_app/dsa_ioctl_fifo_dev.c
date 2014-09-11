@@ -28,7 +28,7 @@
 LOG_MODULE_STATIC("ioctl_fifo_dev", LOG_LEVEL_INFO);
 
 
-int dsa_ioctl_target_list (unsigned long *mask)
+int dsa_ioctl_fifo_dev_target_list (unsigned long *mask)
 {
 	int ret;
 
