@@ -13,7 +13,7 @@
 
 # Linux kernel source
 SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
-SBT_KERNEL_GIT_BRANCH := sdrdc-devel
+SBT_KERNEL_GIT_BRANCH := dma-refactor
 #SBT_KERNEL_GIT_USER   := 
 #SBT_KERNEL_GIT_EMAIL  := 
 export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
