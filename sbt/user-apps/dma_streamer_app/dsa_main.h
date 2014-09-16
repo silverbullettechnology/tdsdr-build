@@ -48,7 +48,11 @@ extern char  env_data_path[];
 extern struct format            *dsa_opt_format;
 extern struct dsa_channel_event  dsa_evt;
 
-void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir);
+extern struct dsm_chan_list *dsa_dsm_channels;
+extern unsigned long         dsa_dsm_rx_channels[];
+extern unsigned long         dsa_dsm_tx_channels[];
+
+void dsa_main_show_stats (const struct dsm_xfer_stats *st, int slot);
 void dsa_main_show_fifos (const struct fd_fifo_counts *buff);
 void dsa_main_dev_close (void);
 int dsa_main_dev_reopen (unsigned long *mask);

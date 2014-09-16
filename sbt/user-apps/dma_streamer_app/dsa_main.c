@@ -55,14 +55,30 @@ struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
 struct dsm_chan_list *dsa_dsm_channels = NULL;
-unsigned long dsa_dsm_tx_channels[2] = { 0, 0 };
-unsigned long dsa_dsm_rx_channels[2] = { 0, 0 };
+unsigned long         dsa_dsm_rx_channels[2] = { 0, 2 };
+unsigned long         dsa_dsm_tx_channels[2] = { 1, 3 };
 
 
-void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir)
+static const char *dsa_main_dev_name (int slot)
 {
-	printf("%s stats:\n", dir);
-	if ( !st->bytes )
+	int  dev = dsa_dsm_channels->list[slot].private >> 28 ? DC_DEV_AD2 : DC_DEV_AD1;
+	dev |= (dsa_dsm_channels->list[slot].flags & DSM_CHAN_DIR_TX) ? DC_DIR_TX : DC_DIR_RX;
+
+	switch ( dev )
+	{
+		case DC_DEV_AD1 | DC_DIR_TX: return dsa_dsxx ? "DSNK1" : "AD1 TX";
+		case DC_DEV_AD1 | DC_DIR_RX: return dsa_dsxx ? "DSRC1" : "AD1 RX";
+		case DC_DEV_AD2 | DC_DIR_TX: return dsa_dsxx ? "DSNK2" : "AD2 TX";
+		case DC_DEV_AD2 | DC_DIR_RX: return dsa_dsxx ? "DSRC2" : "AD2 RX";
+	}
+
+	return "???";
+}
+
+void dsa_main_show_stats (const struct dsm_xfer_stats *st, int slot)
+{
+	printf("%s stats:\n", dsa_main_dev_name(slot));
+	if ( !st->starts )
 	{
 		printf ("  not run\n");
 		return;
@@ -81,6 +97,7 @@ void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir)
 	printf("  total    : %lu.%09lu\n", st->total.tv_sec, st->total.tv_nsec);
 	printf("  rate     : %llu MB/s\n", rate);
 
+	printf("  starts   : %lu\n",       st->starts);
 	printf("  completes: %lu\n",       st->completes);
 	printf("  errors   : %lu\n",       st->errors);
 	printf("  timeouts : %lu\n",       st->timeouts);
@@ -184,53 +201,45 @@ int dsa_main_dev_reopen (unsigned long *mask)
 		stop("DSM_IOCG_CHANNELS");
 
 	int i;
-	printf("dsa_ioctl_dsm_channels() gave %d channels:\n", dsa_dsm_channels->chan_cnt);
-	for ( i = 0; i < dsa_dsm_channels->chan_cnt; i++ )
+	printf("dsa_ioctl_dsm_channels() gave %d channels:\n", dsa_dsm_channels->size);
+	for ( i = 0; i < dsa_dsm_channels->size; i++ )
 	{
-		printf("%2d: ident:%08lx private:%08lx flags:%08lx width:%02u align:%02u device:%s driver:%s\n", i,
-		       dsa_dsm_channels->chan_lst[i].ident,
-		       dsa_dsm_channels->chan_lst[i].private,
-		       dsa_dsm_channels->chan_lst[i].flags,
-		       (1 << (dsa_dsm_channels->chan_lst[i].width + 3)),
-		       (1 << (dsa_dsm_channels->chan_lst[i].align + 3)),
-		       dsa_dsm_channels->chan_lst[i].device,
-		       dsa_dsm_channels->chan_lst[i].driver);
+		LOG_DEBUG("%2d: private:%08lx flags:%08lx width:%02u align:%02u "
+		          "device:%s driver:%s\n", i,
+		          dsa_dsm_channels->list[i].private,
+		          dsa_dsm_channels->list[i].flags,
+		          (1 << (dsa_dsm_channels->list[i].width + 3)),
+		          (1 << (dsa_dsm_channels->list[i].align + 3)),
+		          dsa_dsm_channels->list[i].device,
+		          dsa_dsm_channels->list[i].driver);
 
-		switch ( dsa_dsm_channels->chan_lst[i].flags & DSM_CHAN_DIR_MASK )
+		switch ( dsa_dsm_channels->list[i].flags & DSM_CHAN_DIR_MASK )
 		{
 			case DSM_CHAN_DIR_RX:
-				switch ( dsa_dsm_channels->chan_lst[i].private & 0xF0000000 )
+				switch ( dsa_dsm_channels->list[i].private & 0xF0000000 )
 				{
 					case 0x00000000:
-						if ( dsa_dsm_rx_channels[0] )
-							stop("RX1 already mapped, stop\n");
-						dsa_dsm_rx_channels[0] = dsa_dsm_channels->chan_lst[i].ident;
+						dsa_dsm_rx_channels[0] = i;
 						printf("    using for RX1\n");
 						break;
 
 					case 0x10000000:
-						if ( dsa_dsm_rx_channels[1] )
-							stop("RX2 already mapped, stop\n");
-						dsa_dsm_rx_channels[1] = dsa_dsm_channels->chan_lst[i].ident;
+						dsa_dsm_rx_channels[1] = i;
 						printf("    using for RX2\n");
 						break;
 				}
 				break;
 
 			case DSM_CHAN_DIR_TX:
-				switch ( dsa_dsm_channels->chan_lst[i].private & 0xF0000000 )
+				switch ( dsa_dsm_channels->list[i].private & 0xF0000000 )
 				{
 					case 0x00000000:
-						if ( dsa_dsm_tx_channels[0] )
-							stop("TX1 already mapped, stop\n");
-						dsa_dsm_tx_channels[0] = dsa_dsm_channels->chan_lst[i].ident;
+						dsa_dsm_tx_channels[0] = i;
 						printf("    using for TX1\n");
 						break;
 
 					case 0x10000000:
-						if ( dsa_dsm_tx_channels[1] )
-							stop("TX2 already mapped, stop\n");
-						dsa_dsm_tx_channels[1] = dsa_dsm_channels->chan_lst[i].ident;
+						dsa_dsm_tx_channels[1] = i;
 						printf("    using for TX2\n");
 						break;
 				}

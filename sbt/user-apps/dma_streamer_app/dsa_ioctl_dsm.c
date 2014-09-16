@@ -31,6 +31,18 @@
 LOG_MODULE_STATIC("ioctl", LOG_LEVEL_DEBUG);
 
 
+int dsa_ioctl_dsm_limits (struct dsm_limits *limits)
+{
+	int ret;
+
+	errno = 0;
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_LIMITS, limits)) )
+		printf("DSM_IOCG_LIMITS: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+
 struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
 {
 	struct dsm_chan_list  tmp;
@@ -46,14 +58,14 @@ struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
 	}
 
 	// allocate correct size now
-	ret = calloc(offsetof(struct dsm_chan_list, chan_lst) + 
-	             sizeof(struct dsm_chan_desc) * tmp.chan_cnt, 1);
+	ret = calloc(offsetof(struct dsm_chan_list, list) + 
+	             sizeof(struct dsm_chan_desc) * tmp.size, 1);
 	if ( !ret )
 		return NULL;
 
 	// second call with big-enough buffer
 	errno = 0;
-	ret->chan_cnt = tmp.chan_cnt;
+	ret->size = tmp.size;
 	if ( ioctl(dsa_dsm_dev, DSM_IOCG_CHANNELS, ret) < 0 )
 	{
 		int err = errno;
@@ -66,33 +78,22 @@ struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
 	return ret;
 }
 
-int dsa_ioctl_dsm_limits (struct dsm_limits *limits)
-{
-	int ret;
-
-	errno = 0;
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_LIMITS, limits)) )
-		printf("DSM_IOCG_LIMITS: %d: %s\n", ret, strerror(errno));
-
-	return ret;
-}
-
-int dsa_ioctl_dsm_map_chan (unsigned long ident,    unsigned long tx,
-                            unsigned long buff_cnt, struct dsm_xfer_buff *buff_lst)
+int dsa_ioctl_dsm_map_chan (unsigned long slot, unsigned long tx,
+                            unsigned long size, struct dsm_xfer_buff *list)
 {
 	struct dsm_chan_buffs *buffs;
 	int                    ret;
 
 	errno = 0;
-	buffs = malloc(offsetof(struct dsm_chan_buffs, buff_lst) +
-	               sizeof(struct dsm_xfer_buff) * buff_cnt);
+	buffs = malloc(offsetof(struct dsm_chan_buffs, list) +
+	               sizeof(struct dsm_xfer_buff) * size);
 	if ( !buffs )
 		return -1;
 
-	buffs->ident    = ident;
-	buffs->tx       = tx;
-	buffs->buff_cnt = buff_cnt;
-	memcpy(buffs->buff_lst, buff_lst, sizeof(struct dsm_xfer_buff) * buff_cnt);
+	buffs->slot = slot;
+	buffs->tx   = tx;
+	buffs->size = size;
+	memcpy(buffs->list, list, sizeof(struct dsm_xfer_buff) * size);
 	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_MAP_CHAN, buffs)) )
 		printf("DSM_IOCS_MAP_CHAN: %d: %s\n", ret, strerror(errno));
 
@@ -142,12 +143,37 @@ int dsa_ioctl_dsm_oneshot_wait (unsigned long mask)
 	return ret;
 }
 
-int dsa_ioctl_dsm_get_stats (struct dsm_chan_stats *sb)
+struct dsm_chan_stats *dsa_ioctl_dsm_get_stats (void)
 {
-	int ret;
+	struct dsm_chan_stats  tmp;
+	struct dsm_chan_stats *ret;
 
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_STATS, sb)) )
-		printf("DSM_IOCG_STATS: %d: %s\n", ret, strerror(errno));
+	// first call to size list
+	errno = 0;
+	memset(&tmp, 0, sizeof(tmp));
+	if ( ioctl(dsa_dsm_dev, DSM_IOCG_STATS, &tmp) < 0 )
+	{
+		printf("DSM_IOCG_STATS: %s", strerror(errno));
+		return NULL;
+	}
+
+	// allocate correct size now
+	ret = malloc(offsetof(struct dsm_chan_stats, list) + 
+	             sizeof(struct dsm_xfer_stats) * tmp.size);
+	if ( !ret )
+		return NULL;
+
+	// second call with big-enough buffer
+	errno = 0;
+	ret->size = tmp.size;
+	if ( ioctl(dsa_dsm_dev, DSM_IOCG_STATS, ret) < 0 )
+	{
+		int err = errno;
+		printf("DSM_IOCG_STATS: %s", strerror(err));
+		free(ret);
+		errno = err;
+		return NULL;
+	}
 
 	return ret;
 }

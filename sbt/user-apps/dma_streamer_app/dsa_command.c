@@ -708,26 +708,17 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				if ( stats )
 				{
-#if 0
-					struct dsm_user_stats  sb;
-
-					dsa_ioctl_dsm_get_stats(&sb);
-
-					if ( dsa_dsxx )
+					struct dsm_chan_stats *sb = dsa_ioctl_dsm_get_stats();
+					if ( sb )
 					{
-						if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.dsx0.tx, "DSNK0");
-						if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.dsx0.rx, "DSRC0");
-						if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.dsx1.tx, "DSNK1");
-						if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.dsx1.rx, "DSRC1");
+						int slot;
+						for ( slot = 0; slot < dsa_dsm_channels->size; slot++ )
+							if ( sb->mask & (1 << slot) )
+								dsa_main_show_stats(&sb->list[slot], slot);
 					}
 					else
-					{
-						if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
-						if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
-						if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
-						if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
-					}
-#endif
+						LOG_ERROR("Failed to get stats: %s\n", strerror(errno));
+					free(sb);
 				}
 				LOG_INFO("Ready to DMA, press Q or Esc to stop, any other key to trigger...\n");
 
@@ -889,26 +880,17 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	if ( stats && trig != TRIG_PRESS )
 	{
-#if 0
-		struct dsm_user_stats  sb;
-
-		dsa_ioctl_dsm_get_stats(&sb);
-
-		if ( dsa_dsxx )
+		struct dsm_chan_stats *sb = dsa_ioctl_dsm_get_stats();
+		if ( sb )
 		{
-			if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.dsx0.tx, "DSNK0");
-			if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.dsx0.rx, "DSRC0");
-			if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.dsx1.tx, "DSNK1");
-			if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.dsx1.rx, "DSRC1");
+			int slot;
+			for ( slot = 0; slot < dsa_dsm_channels->size; slot++ )
+				if ( sb->mask & (1 << slot) )
+					dsa_main_show_stats(&sb->list[slot], slot);
 		}
 		else
-		{
-			if ( dsa_evt.tx[0] )  dsa_main_show_stats(&sb.adi1.tx, "AD1 TX");
-			if ( dsa_evt.rx[0] )  dsa_main_show_stats(&sb.adi1.rx, "AD1 RX");
-			if ( dsa_evt.tx[1] )  dsa_main_show_stats(&sb.adi2.tx, "AD2 TX");
-			if ( dsa_evt.rx[1] )  dsa_main_show_stats(&sb.adi2.rx, "AD2 RX");
-		}
-#endif
+			LOG_ERROR("Failed to get stats: %s\n", strerror(errno));
+		free(sb);
 	}
 
 
