@@ -38,14 +38,12 @@
 #include "dma_streamer_mod.h"
 
 
-#define pr_trace(fmt,...) do{ }while(0)
-//#define pr_trace pr_debug
+//#define pr_trace(fmt,...) do{ }while(0)
+#define pr_trace pr_debug
 
 
 
 static int                 dsm_users;
-static int                 dsm_mapped;
-static unsigned long       dsm_timeout = 100;
 static struct device      *dsm_dev;
 
 
@@ -78,9 +76,9 @@ struct dsm_chan
 	struct task_struct *task;
 
 	// transfer specifications
-	size_t                 xfer_cnt;
-	struct dsm_xfer       *xfer_list;
-	struct dsm_chan_buffs *chan_buffs;
+	size_t                  xfer_cnt;
+	struct dsm_xfer       **xfer_list;
+	struct dsm_chan_buffs  *user_buffs;
 
 	// transfer order control
 	size_t    xfer_curr;
@@ -109,10 +107,460 @@ struct dsm_user
 	atomic_t           busy;
 	wait_queue_head_t  wait;
 
+	unsigned long          chan_mask;
 	size_t                 chan_cnt;
 	struct dsm_chan       *chan_list;
 	struct dsm_chan_list  *desc_list;
+
+	unsigned long  timeout;
 };
+
+
+
+static void dsm_thread_cb (void *cmp)
+{
+	pr_debug("completion\n");
+	complete(cmp);
+}
+
+static int dsm_thread (void *data)
+{
+	struct dsm_chan                *chan = (struct dsm_chan *)data;
+	struct dsm_user                *user = chan->user;
+	struct dsm_xfer                *xfer = chan->xfer_list[0];
+	struct dma_device              *dma_dev = chan->dma_chan->device;
+	struct dma_async_tx_descriptor *dma_desc;
+	enum dma_ctrl_flags             flags;
+	struct completion               cmp;
+	dma_cookie_t                    cookie;
+	enum dma_status                 status;
+	unsigned long                   timeout;
+	unsigned long                   irq_flags;
+	struct timespec                 beg, end;
+	spinlock_t                      irq_lock;
+	int                             ret = 0;
+
+	smp_rmb();
+	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
+	spin_lock_init(&irq_lock);
+	pr_debug("%s: dsm_thread() starts:\n", chan->name);
+
+
+	xfer->left = xfer->words;
+	memset(&chan->stats, 0, sizeof(struct dsm_xfer_stats));
+	while ( xfer->left > 0 )
+	{
+		pr_debug("%s: left %lu\n", chan->name, xfer->left);
+
+		// prepare DMA transaction using scatterlist prepared by dsm_state_setup
+		// TODO: try this in _xfer_setup()
+		dma_desc = dma_dev->device_prep_slave_sg(chan->dma_chan, xfer->chain[0],
+		                                         xfer->pages, chan->dma_dir, flags,
+		                                         NULL);
+		if ( !dma_desc )
+		{
+			pr_err("device_prep_slave_sg() failed, stop\n");
+			goto done;
+		}
+		pr_debug("%s: device_prep_slave_sg() ok\n", chan->name);
+
+		// prepare completion and callback and submit descriptor to get cookie
+		init_completion(&cmp);
+		dma_desc->callback       = dsm_thread_cb;
+		dma_desc->callback_param = &cmp;
+		cookie = dma_desc->tx_submit(dma_desc);
+		if ( dma_submit_error(cookie) )
+		{
+			pr_err("tx_submit() failed, stop\n");
+			goto done;
+		}
+		pr_debug("%s: tx_submit() ok, cookie %lx\n", chan->name, (unsigned long)cookie);
+
+		// in FD, tx thread should start after RX
+//		if ( chan->dir == DMA_MEM_TO_DEV && chan->fd_peer )
+//			wait_for_completion(&parent->txrx);
+
+		// experimental: get start time a little earlier, then disable interrupts while
+		// starting the FIFO and DMA
+		getrawmonotonic(&beg);
+		spin_lock_irqsave(&irq_lock, irq_flags);
+
+		// start the DMA and wait for completion
+		pr_debug("%s: dma_async_issue_pending()...\n", chan->name);
+		dma_async_issue_pending(chan->dma_chan);
+
+
+		// experimental: re-enable interrupts after DMA/FIFO start
+		spin_unlock_irqrestore(&irq_lock, irq_flags);
+
+		// in FD, tx thread should start after RX
+//		if ( chan->dir == DMA_DEV_TO_MEM && chan->fd_peer )
+//			complete(&parent->txrx);
+
+		timeout = wait_for_completion_timeout(&cmp, user->timeout);
+		getrawmonotonic(&end);
+		status  = dma_async_is_tx_complete(chan->dma_chan, cookie, NULL, NULL);
+
+		// check status
+		if ( timeout == 0 )
+		{
+			pr_warn("DMA timeout, stop\n");
+			chan->stats.timeouts++;
+			goto done;
+		}
+		else if ( status != DMA_SUCCESS)
+		{
+			pr_warn("tx got completion callback, but status is \'%s\'\n",
+		       	status == DMA_ERROR ? "error" : "in progress");
+			chan->stats.errors++;
+			goto done;
+		}
+		else
+			pr_debug("%s: no timeout, status DMA_SUCCESS\n", chan->name);
+
+		chan->stats.total  = timespec_add(chan->stats.total, timespec_sub(end, beg));
+		chan->stats.bytes += xfer->bytes;
+		chan->stats.completes++;
+
+		pr_debug("%s: left %lu - %lu -> ", chan->name, xfer->left, xfer->words);
+		xfer->left -= xfer->words;
+		pr_debug("%lu\n", xfer->left);
+
+		if ( !xfer->left && atomic_read(&chan->continuous) )
+		{
+			pr_debug("continuous: reset\n");
+			xfer->left = xfer->words;
+		}
+	}
+
+done:
+	// thread's done, decrement counter and wakeup caller
+	atomic_sub(1, &user->busy);
+	wake_up_interruptible(&user->wait);
+	return ret;
+}
+
+
+
+static void dsm_xfer_cleanup (struct dsm_chan *chan, struct dsm_xfer *xfer)
+{
+	struct scatterlist *sg;
+	struct page        *pg;
+	int                 sc;
+	int                 pc;
+
+	dma_unmap_sg(dsm_dev, xfer->chain[0], xfer->pages, chan->dma_dir);
+
+	pc = xfer->pages;
+	sg = xfer->chain[0];
+	sc = pc / (SG_MAX_SINGLE_ALLOC - 1);
+	if ( pc % (SG_MAX_SINGLE_ALLOC - 1) )
+		sc++;
+
+pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
+
+	pr_trace("put_page() on %d user pages:\n", pc);
+	while ( pc > 0 )
+	{
+		pg = sg_page(sg);
+		pr_trace("  sg %p -> pg %p\n", sg, pg);
+		if ( chan->dma_dir == DMA_DEV_TO_MEM && !PageReserved(pg) )
+			set_page_dirty(pg);
+
+		// equivalent to page_cache_release()
+		put_page(pg);
+
+		sg = sg_next(sg);
+		pc--;
+	}
+
+	pr_trace("free_page() on %d sg pages:\n", sc);
+	for ( pc = 0; pc < sc; pc++ )
+		if ( xfer->chain[pc] )
+		{
+			pr_trace("  sg %p\n", xfer->chain[pc]);
+			free_page((unsigned long)xfer->chain[pc]);
+		}
+}
+
+static void dsm_chan_cleanup (struct dsm_chan *chan)
+{
+	int i;
+
+	for ( i = 0; i < chan->xfer_cnt; i++ )
+		dsm_xfer_cleanup(chan, chan->xfer_list[i]);
+
+	kfree(chan->xfer_list);
+	chan->xfer_list = NULL;
+
+	dma_release_channel(chan->dma_chan);
+	chan->dma_chan = NULL;
+}
+
+
+
+static int dsm_find_ident (struct dsm_user *user, unsigned long ident)
+{
+	int i;
+	for ( i = 0; i < user->desc_list->chan_cnt; i++ )
+		if ( user->desc_list->chan_lst[i].ident == ident )
+			return i;
+
+	return -1;
+}
+
+
+
+static struct dsm_xfer *dsm_xfer_setup (struct dsm_chan            *chan,
+                                        struct dsm_chan_desc       *desc,
+                                        const struct dsm_xfer_buff *buff)
+{
+	struct dsm_xfer     *xfer;
+
+	unsigned long        us_bytes;
+	unsigned long        us_words;
+	unsigned long        us_addr;
+	struct page        **us_pages;
+	int                  us_count;
+
+	struct scatterlist  *sg_walk;
+	int                  sg_count;
+	int                  sg_index;
+
+	int                  idx;
+	int                  ret;
+
+	pr_debug("dsm_xfer_setup(chan %p, desc %s, buff.addr %08lx, .size %08lx, .reps %lu)\n",
+	         chan, desc->device, buff->addr, buff->size, buff->reps);
+
+	// address alignment check
+	if ( buff->addr & ~PAGE_MASK )
+	{
+		pr_err("bad page alignment: addr %08lx\n", buff->addr);
+		return NULL;
+	}
+	us_addr = buff->addr;
+
+	// size / granularity check unnecessary now that size is specified in words
+	us_bytes = buff->size << desc->width;
+	us_words = buff->size;
+	pr_debug("%lu bytes / %lu words per DMA\n", us_bytes, us_words);
+
+	// pagelist for looped get_user_pages() to fill
+	if ( !(us_pages = (struct page **)__get_free_page(GFP_KERNEL)) )
+	{
+		pr_err("out of memory getting userspace page list\n");
+		return NULL;
+	}
+
+	// count userspace pages, the last may be partial
+	us_count = us_bytes >> PAGE_SHIFT;
+	if ( us_bytes & ~PAGE_MASK )
+		us_count++;
+	pr_debug("%d user pages\n", us_count);
+
+	// count of scatterlist pages, allowing an extra entry per page for chaining
+	sg_count = us_count / (SG_MAX_SINGLE_ALLOC - 1);
+	if ( us_count % (SG_MAX_SINGLE_ALLOC - 1) )
+		sg_count++;
+
+	// single struct with variable-sized chain[] array following fixed members; each array
+	// element is a single page-sized scatterlist
+	xfer = kzalloc(offsetof(struct dsm_xfer, chain) +
+	                sizeof(struct scatterlist *) * sg_count,
+	                GFP_KERNEL);
+	if ( !xfer )
+	{
+		pr_err("failed to kmalloc dsm_xfer\n");
+		goto free;
+	}
+	xfer->pages = us_count;
+	xfer->bytes = us_bytes;
+	xfer->words = us_words;
+
+	pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
+	         xfer->words, us_words, us_words / xfer->words, us_words % xfer->words);
+
+	// allocate scatterlists and init
+	pr_debug("%d sg pages\n", sg_count);
+	for ( idx = 0; idx < sg_count; idx++ )
+		if ( !(xfer->chain[idx] = (struct scatterlist *)__get_free_page(GFP_KERNEL)) )
+		{
+			pr_err("failed to get page for chain[%d]\n", idx);
+			goto free;
+		}
+		else
+			sg_init_table(xfer->chain[idx], SG_MAX_SINGLE_ALLOC);
+
+	// chain together before adding pages
+	for ( idx = 1; idx < sg_count; idx++ )
+		sg_chain(xfer->chain[idx - 1], SG_MAX_SINGLE_ALLOC, xfer->chain[idx]);
+
+	// get_user_pages in blocks and convert to chained scatterlists
+	sg_index = 0;;
+	sg_walk  = xfer->chain[0];
+	while ( us_count )
+	{
+		int want = min_t(int, us_count, SG_MAX_SINGLE_ALLOC - 1);
+
+		down_read(&current->mm->mmap_sem);
+		ret = get_user_pages(current, current->mm, us_addr, want, 
+		                     (chan->dma_dir == DMA_DEV_TO_MEM),
+		                     0, us_pages, NULL);
+		up_read(&current->mm->mmap_sem);
+		pr_trace("get_user_pages(..., us_addr %08lx, want %04x, ...) returned %d\n",
+		         us_addr, want, ret);
+
+		if ( ret < want )
+		{
+			pr_err("get_user_pages(): want %d, got %d, stop\n", want, ret);
+			goto free;
+		}
+
+		for ( idx = 0; idx < ret; idx++ )
+		{
+			unsigned int len = min_t(unsigned int, us_bytes, PAGE_SIZE);
+			sg_set_page(sg_walk, us_pages[idx], len, 0);
+			us_bytes -= len;
+			if ( us_bytes )
+				sg_walk = sg_next(sg_walk);
+			else
+				sg_mark_end(sg_walk);
+		}
+
+		us_addr  += ret << PAGE_SHIFT;
+		us_count -= ret;
+	}
+
+	// assumes that map_sg uses chain-aware iteration (sg_next/for_each_sg)
+	dma_map_sg(dsm_dev, xfer->chain[0], xfer->pages, chan->dma_dir);
+
+	pr_trace("Mapped scatterlist chain:\n");
+	for_each_sg(xfer->chain[0], sg_walk, xfer->pages, idx)
+		pr_trace("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
+		         (unsigned long)sg_dma_address(sg_walk));
+
+	pr_debug("done\n");
+	free_page((unsigned long)us_pages);
+	return xfer;
+
+free:
+	free_page((unsigned long)us_pages);
+	for ( idx = 0; idx < sg_count; idx++ )
+		if ( xfer->chain[idx] )
+			free_page((unsigned long)xfer->chain[idx]);
+	kfree(xfer);
+	return NULL;
+}
+
+
+static bool dsm_chan_setup_find (struct dma_chan *chan, void *param)
+{
+	u32  criterion = *(unsigned long *)param;
+	u32  candidate = ~criterion;
+
+	candidate = *((u32 *)chan->private);
+
+	pr_trace("%s: chan %p -> %08x vs %08x\n", __func__, chan, candidate, criterion);
+	return candidate == criterion;
+}
+
+static int dsm_chan_setup (struct dsm_user *user, struct dsm_chan_buffs *ucb)
+{
+	struct dsm_chan_desc *desc;
+	struct dsm_chan      *chan;
+	dma_cap_mask_t        mask;
+	int                   slot;
+	int                   xfer;
+
+	// map requested ident first to locate dma details
+	if ( (slot = dsm_find_ident(user, ucb->ident)) < 0 )
+	{
+		pr_err("dsm_find_ident(%08lx) failed, stop\n", ucb->ident);
+		return -EINVAL;
+	}
+
+	// illegal to map the same channel twice
+	if ( user->chan_mask & (1 << slot) )
+	{
+		pr_err("dsm_find_ident(%08lx) failed, stop\n", ucb->ident);
+		return -EINVAL;
+	}
+
+	user->chan_mask &= ~(1 << slot);
+	desc = &user->desc_list->chan_lst[slot];
+	chan = &user->chan_list[slot];
+	chan->user = user;
+	pr_debug("%s: using channel %s for chan_list[%d]\n", __func__, desc->device, slot);
+
+	// temporary limitation
+	if ( ucb->buff_cnt > 1 )
+	{
+		pr_err("%s multiple buffers not yet supported\n", __func__);
+		return -ENOSYS;
+	}
+
+	// check requested channel can operate in requested direction
+	if ( !(desc->flags & (ucb->tx ? DSM_CHAN_DIR_TX : DSM_CHAN_DIR_RX)) )
+	{
+		pr_err("%s xfer, channel %08lx supports { %s%s}, stop\n", 
+		       ucb->tx ? "TX" : "RX", ucb->ident,
+		       desc->flags & DSM_CHAN_DIR_TX ? "TX " : "",
+		       desc->flags & DSM_CHAN_DIR_RX ? "RX " : "");
+		return -EINVAL;
+	}
+	pr_debug("%s: flags match for %s\n", __func__, ucb->tx ? "TX" : "RX");
+
+	// get DMA device - the xilinx_axidma puts a "device-id" in the top nibble
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
+	chan->dma_chan = dma_request_channel(mask, dsm_chan_setup_find, &desc->private);
+	if ( !chan->dma_chan )
+	{
+		pr_err("dma_request_channel(%08lx) failed, stop\n", ucb->ident);
+		return -ENOSYS;
+	}
+	pr_debug("dma channel %p\n", chan->dma_chan);
+
+//		/* Only one interrupt */
+//		xil_conf.coalesc = 1;
+//		xil_conf.delay   = 0;
+//		dev->device_control(chan->dma_chan, DMA_SLAVE_CONFIG, (unsigned long)&xil_conf);
+
+	// memory alloc
+	chan->xfer_cnt  = ucb->buff_cnt;
+	chan->xfer_list = kzalloc(sizeof(struct dsm_xfer *) * chan->xfer_cnt, GFP_KERNEL);
+	if ( !chan->xfer_list )
+	{
+		pr_err("%s: failed to alloc xfer_list %zu\n", __func__, 
+		       sizeof(struct dsm_xfer *) * chan->xfer_cnt);
+//		kfree(chan->xfer_list);
+		chan->xfer_cnt = 0;
+		return -ENOMEM;
+	}
+
+	// setup channel 
+	chan->dma_dir = ucb->tx ? DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
+	chan->name    = kstrdup(ucb->tx ? "tx" : "rx", GFP_KERNEL);
+	atomic_set(&chan->continuous, 0);
+
+	// setup xfer buffs
+	for ( xfer = 0; xfer < chan->xfer_cnt; xfer++ )
+	{
+		chan->xfer_list[xfer] = dsm_xfer_setup(chan, desc, &ucb->buff_lst[xfer]);
+		if ( !chan->xfer_list[xfer] )
+		{
+			pr_err("%s: failed to setup xfer_list[%d]\n", __func__, xfer);
+			dsm_chan_cleanup(chan);
+			return -ENOMEM;  // dsm_chan_cleanup() frees xfer_list and releases dma_chan
+		}
+	}
+
+	// ready to go
+	user->chan_mask |= 1 << slot;
+	return 0;
+}
+
 
 
 // callback for first pass: just count channels registered with dmaengine
@@ -193,479 +641,51 @@ static bool dsm_scan_channels_desc (struct dma_chan *chan, void *param)
 }
 
 // probe channels registered with dmaengine
-static struct dsm_chan_list *dsm_scan_channels (struct dsm_user *du)
+static struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user)
 {
 	struct dsm_chan_desc *cdp;
 	dma_cap_mask_t        mask;
 //	int                   i;
 
-	if ( du->desc_list )
+	if ( user->desc_list )
 		return NULL;
 
 	// first pass: just count channels registered with dmaengine
-	du->chan_cnt = 0;
+	user->chan_cnt = 0;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-	BUG_ON(dma_request_channel(mask, dsm_scan_channels_size, &du->chan_cnt) != NULL);
+	BUG_ON(dma_request_channel(mask, dsm_scan_channels_size, &user->chan_cnt) != NULL);
 
 	// allocate desc struct in same format exposed to userspace
-	du->desc_list = kzalloc(offsetof(struct dsm_chan_list, chan_lst) +
-	                       sizeof(struct dsm_chan_desc) * du->chan_cnt,
+	user->desc_list = kzalloc(offsetof(struct dsm_chan_list, chan_lst) +
+	                       sizeof(struct dsm_chan_desc) * user->chan_cnt,
 	                       GFP_KERNEL);
 
 	// allocate channel state list
-	du->chan_list = kzalloc(sizeof(struct dsm_chan) * du->chan_cnt, GFP_KERNEL);
+	user->chan_list = kzalloc(sizeof(struct dsm_chan) * user->chan_cnt, GFP_KERNEL);
 
-	if ( !du->desc_list || !du->chan_list )
+	if ( !user->desc_list || !user->chan_list )
 	{
-		kfree(du->chan_list);
-		kfree(du->desc_list);
-		du->chan_cnt = 0;
+		kfree(user->chan_list);
+		kfree(user->desc_list);
+		user->chan_cnt = 0;
 		return NULL;
 	}
 
 	// second pass: record particulars of registered dma channels
-	du->desc_list->chan_cnt = du->chan_cnt;
-	cdp = du->desc_list->chan_lst;
+	user->desc_list->chan_cnt = user->chan_cnt;
+	cdp = user->desc_list->chan_lst;
 	BUG_ON(dma_request_channel(mask, dsm_scan_channels_desc, &cdp) != NULL);
 
-//	for ( i = 0; i < du->desc_list->chan_cnt; i++ )
+//	for ( i = 0; i < user->desc_list->chan_cnt; i++ )
 //		printk("%2d: ident:%08lx flags:%08lx width:%02u align:%02u driver:%s\n", i,
-//		       du->desc_list->chan_lst[i].ident,
-//		       du->desc_list->chan_lst[i].flags,
-//		       (1 << (du->desc_list->chan_lst[i].width + 3)),
-//		       (1 << (du->desc_list->chan_lst[i].align + 3)),
-//		       du->desc_list->chan_lst[i].name);
-
-	return du->desc_list;
-}
-
-static int dsm_find_ident (struct dsm_user *du, unsigned long ident)
-{
-	int i;
-	for ( i = 0; i < du->desc_list->chan_cnt; i++ )
-		if ( du->desc_list->chan_lst[i].ident == ident )
-			return i;
-
-	return -1;
-}
-
-
-
-
-
-
-
-
-
-
-
-static void dsm_thread_cb (void *cmp)
-{
-	pr_debug("completion\n");
-	complete(cmp);
-}
-
-static int dsm_thread (void *data)
-{
-#if 0
-	struct dsm_chan                *state  = (struct dsm_chan *)data;
-	struct dma_chan                *chan   = state->chan;
-	struct dma_device              *dev    = chan->device;
-	struct dsm_user                *user   = state->user;
-	struct dma_async_tx_descriptor *desc;
-	struct xilinx_dma_config        xil_conf;
-	enum dma_ctrl_flags             flags;
-	struct completion               cmp;
-	dma_cookie_t                    cookie;
-	enum dma_status                 status;
-	unsigned long                   timeout;
-	unsigned long                   irq_flags;
-	struct timespec                 beg, end;
-	spinlock_t                      irq_lock;
-	int                             ret = 0;
-
-	smp_rmb();
-	flags = DMA_CTRL_ACK | DMA_COMPL_SKIP_DEST_UNMAP | DMA_PREP_INTERRUPT;
-	spin_lock_init(&irq_lock);
-	pr_debug("%s: dsm_thread() starts:\n", state->name);
-
-
-	state->left = state->words;
-	memset(&state->stats, 0, sizeof(struct dsm_xfer_stats));
-	while ( state->left > 0 )
-	{
-		pr_debug("%s: left %lu, start %d\n", state->name, state->left, state->start);
-
-		/* Only one interrupt */
-		xil_conf.coalesc = 1;
-		xil_conf.delay   = 0;
-		dev->device_control(chan, DMA_SLAVE_CONFIG, (unsigned long)&xil_conf);
-
-		// prepare DMA transaction using scatterlist prepared by dsm_state_setup
-		desc = dev->device_prep_slave_sg(chan, state->chain[0], state->pages,
-		                                 state->dir, flags, NULL);
-		if ( !desc )
-		{
-			pr_err("device_prep_slave_sg() failed, stop\n");
-			goto done;
-		}
-		pr_debug("%s: device_prep_slave_sg() ok\n", state->name);
-
-		// prepare completion and callback and submit descriptor to get cookie
-		init_completion(&cmp);
-		desc->callback       = dsm_thread_cb;
-		desc->callback_param = &cmp;
-		cookie = desc->tx_submit(desc);
-		if ( dma_submit_error(cookie) )
-		{
-			pr_err("tx_submit() failed, stop\n");
-			goto done;
-		}
-		pr_debug("%s: tx_submit() ok, cookie %lx\n", state->name, (unsigned long)cookie);
-
-		// in FD, tx thread should start after RX
-//		if ( state->dir == DMA_MEM_TO_DEV && state->fd_peer )
-//			wait_for_completion(&parent->txrx);
-
-		// experimental: get start time a little earlier, then disable interrupts while
-		// starting the FIFO and DMA
-		getrawmonotonic(&beg);
-		spin_lock_irqsave(&irq_lock, irq_flags);
-
-		// start the DMA and wait for completion
-		pr_debug("%s: dma_async_issue_pending()...\n", state->name);
-		dma_async_issue_pending(chan);
-
-
-		// experimental: re-enable interrupts after DMA/FIFO start
-		spin_unlock_irqrestore(&irq_lock, irq_flags);
-
-		// in FD, tx thread should start after RX
-//		if ( state->dir == DMA_DEV_TO_MEM && state->fd_peer )
-//			complete(&parent->txrx);
-
-		timeout = wait_for_completion_timeout(&cmp, dsm_timeout);
-		getrawmonotonic(&end);
-		status  = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
-
-		// check status
-		if ( timeout == 0 )
-		{
-			pr_warn("DMA timeout, stop\n");
-			state->stats.timeouts++;
-			goto done;
-		}
-		else if ( status != DMA_SUCCESS)
-		{
-			pr_warn("tx got completion callback, but status is \'%s\'\n",
-		       	status == DMA_ERROR ? "error" : "in progress");
-			state->stats.errors++;
-			goto done;
-		}
-		else
-			pr_debug("%s: no timeout, status DMA_SUCCESS\n", state->name);
-
-		state->stats.total  = timespec_add(state->stats.total, timespec_sub(end, beg));
-		state->stats.bytes += state->bytes;
-		state->stats.completes++;
-
-		pr_debug("%s: left %lu - %lu -> ", state->name, state->left, state->words);
-		state->left -= state->words;
-		pr_debug("%lu\n", state->left);
-
-		if ( !state->left && atomic_read(&state->continuous) )
-		{
-			pr_debug("continuous: reset\n");
-			state->left = state->words;
-		}
-	}
-
-done:
-	// thread's done, decrement counter and wakeup caller
-	atomic_sub(1, &user->busy);
-	wake_up_interruptible(&user->wait);
-	return ret;
-#endif
-}
-
-
-static void dsm_xfer_cleanup (struct dsm_chan *chan, struct dsm_xfer *xfer)
-{
-	struct scatterlist *sg;
-	struct page        *pg;
-	int                 sc;
-	int                 pc;
-
-	dma_unmap_sg(dsm_dev, xfer->chain[0], xfer->pages, chan->dma_dir);
-
-	pc = xfer->pages;
-	sg = xfer->chain[0];
-	sc = pc / (SG_MAX_SINGLE_ALLOC - 1);
-	if ( pc % (SG_MAX_SINGLE_ALLOC - 1) )
-		sc++;
-
-pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
-
-	pr_trace("put_page() on %d user pages:\n", pc);
-	while ( pc > 0 )
-	{
-		pg = sg_page(sg);
-		pr_trace("  sg %p -> pg %p\n", sg, pg);
-		if ( chan->dma_dir == DMA_DEV_TO_MEM && !PageReserved(pg) )
-			set_page_dirty(pg);
-
-		// equivalent to page_cache_release()
-		put_page(pg);
-
-		sg = sg_next(sg);
-		pc--;
-	}
-
-	pr_trace("free_page() on %d sg pages:\n", sc);
-	for ( pc = 0; pc < sc; pc++ )
-		if ( xfer->chain[pc] )
-		{
-			pr_trace("  sg %p\n", xfer->chain[pc]);
-			free_page((unsigned long)xfer->chain[pc]);
-		}
-}
-
-static void dsm_chan_cleanup (struct dsm_chan *chan)
-{
-
-	dma_release_channel(chan->dma_chan);
-}
-
-
-#if 0
-static void dump_line (unsigned char *ptr, int len)
-{
-	int i;
-
-	for ( i = 0; i < len; i++ )
-		pr_debug("%02x ", ptr[i]);
-
-	while ( i++ < 16 )
-		pr_debug("   ");
-
-	for ( i = 0; i < len; i++ )
-		pr_debug("%c", ptr[i] >= 0x20 && ptr[i] < 0x7F ? ptr[i] : '.');
-
-	pr_debug("\n");
-}
-#endif
-
-
-
-
-
-static struct dsm_xfer *dsm_xfer_setup (struct dsm_chan            *chan,
-                                        struct dsm_chan_desc       *desc,
-                                        const struct dsm_xfer_buff *buff)
-{
-	struct dsm_xfer     *xfer;
-
-	unsigned long        us_bytes;
-	unsigned long        us_words;
-	unsigned long        us_addr;
-	struct page        **us_pages;
-	int                  us_count;
-
-	struct scatterlist  *sg_walk;
-	int                  sg_count;
-	int                  sg_index;
-
-	int                  idx;
-	int                  ret;
-
-//	pr_debug("dsm_xfer_setup(rx %d, dma %d, buff.addr %08lx, .size %08lx)\n",
-//	         rx, dma, buff->addr, buff->size);
-
-	// address alignment check
-	if ( buff->addr & ~PAGE_MASK )
-	{
-		pr_err("bad page alignment: addr %08lx\n", buff->addr);
-		return NULL;
-	}
-	us_addr = buff->addr;
-
-	// size / granularity check unnecessary now that size is specified in words
-	us_bytes = buff->size << desc->width;
-	us_words = buff->size;
-	pr_debug("%lu bytes / %lu words per DMA\n", us_bytes, us_words);
-
-	// pagelist for looped get_user_pages() to fill
-	if ( !(us_pages = (struct page **)__get_free_page(GFP_KERNEL)) )
-	{
-		pr_err("out of memory getting userspace page list\n");
-		return NULL;
-	}
-
-	// count userspace pages, the last may be partial
-	us_count = us_bytes >> PAGE_SHIFT;
-	if ( us_bytes & ~PAGE_MASK )
-		us_count++;
-	pr_debug("%d user pages\n", us_count);
-
-	// count of scatterlist pages, allowing an extra entry per page for chaining
-	sg_count = us_count / (SG_MAX_SINGLE_ALLOC - 1);
-	if ( us_count % (SG_MAX_SINGLE_ALLOC - 1) )
-		sg_count++;
-
-	// single struct with variable-sized chain[] array following fixed members; each array
-	// element is a single page-sized scatterlist
-	xfer = kzalloc(offsetof(struct dsm_xfer, chain) +
-	                sizeof(struct scatterlist *) * sg_count,
-	                GFP_KERNEL);
-	if ( !xfer )
-	{
-		pr_err("failed to kmalloc state struct\n");
-		goto free;
-	}
-	xfer->pages   = us_count;
-	xfer->bytes   = us_bytes;
-	xfer->words   = us_words;
-
-	pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
-	         xfer->words, us_words, us_words / xfer->words, us_words % xfer->words);
-
-	// allocate scatterlists and init
-	pr_debug("%d sg pages\n", sg_count);
-	for ( idx = 0; idx < sg_count; idx++ )
-		if ( !(xfer->chain[idx] = (struct scatterlist *)__get_free_page(GFP_KERNEL)) )
-		{
-			pr_err("failed to get page for chain[%d]\n", idx);
-			goto free;
-		}
-		else
-			sg_init_table(xfer->chain[idx], SG_MAX_SINGLE_ALLOC);
-
-	// chain together before adding pages
-	for ( idx = 1; idx < sg_count; idx++ )
-		sg_chain(xfer->chain[idx - 1], SG_MAX_SINGLE_ALLOC, xfer->chain[idx]);
-
-
-	sg_index = 0;;
-	sg_walk  = xfer->chain[0];
-	while ( us_count )
-	{
-		int want = min_t(int, us_count, SG_MAX_SINGLE_ALLOC - 1);
-
-		down_read(&current->mm->mmap_sem);
-		ret = get_user_pages(current, current->mm, us_addr, want, 
-		                     (chan->dma_dir == DMA_DEV_TO_MEM),
-		                     0, us_pages, NULL);
-		up_read(&current->mm->mmap_sem);
-		pr_trace("get_user_pages(..., us_addr %08lx, want %04x, ...) returned %d\n",
-		         us_addr, want, ret);
-
-		if ( ret < want )
-		{
-			pr_err("get_user_pages(): want %d, got %d, stop\n", want, ret);
-			goto free;
-		}
-
-		for ( idx = 0; idx < ret; idx++ )
-		{
-			unsigned int len = min_t(unsigned int, us_bytes, PAGE_SIZE);
-			sg_set_page(sg_walk, us_pages[idx], len, 0);
-			us_bytes -= len;
-			if ( us_bytes )
-				sg_walk = sg_next(sg_walk);
-			else
-				sg_mark_end(sg_walk);
-		}
-
-		us_addr  += ret << PAGE_SHIFT;
-		us_count -= ret;
-	}
-
-	// assumes that map_sg uses chain-aware iteration (sg_next/for_each_sg)
-	dma_map_sg(dsm_dev, xfer->chain[0], xfer->pages, chan->dma_dir);
-
-	pr_trace("Mapped scatterlist chain:\n");
-	for_each_sg(xfer->chain[0], sg_walk, xfer->pages, idx)
-		pr_trace("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
-		         (unsigned long)sg_dma_address(sg_walk));
-
-	pr_debug("done\n");
-	free_page((unsigned long)us_pages);
-	return xfer;
-
-free:
-	free_page((unsigned long)us_pages);
-	for ( idx = 0; idx < sg_count; idx++ )
-		if ( xfer->chain[idx] )
-			free_page((unsigned long)xfer->chain[idx]);
-	kfree(xfer);
-	return NULL;
-}
-
-
-static bool dsm_chan_setup_find (struct dma_chan *chan, void *param)
-{
-	u32  criterion = *(unsigned long *)param;
-	u32  candidate = ~criterion;
-
-	candidate = *((u32 *)chan->private);
-
-	pr_debug("xdma_filter chan %p -> %08x vs %08x\n", chan, candidate, criterion);
-	return candidate == criterion;
-}
-
-static int dsm_chan_setup (struct dsm_user *du, struct dsm_chan_buffs *ucb)
-{
-	struct dsm_xfer_buff *uxb;
-	struct dsm_chan_desc *desc;
-	struct dsm_chan      *chan;
-	struct dsm_xfer      *xfer;
-	dma_cap_mask_t        mask;
-	unsigned long         ident;
-	int                   ret = 0;
-	int                   i;
-
-	// map requested ident first to locate dma details
-	if ( (i = dsm_find_ident(du, ucb->ident)) < 0 )
-	{
-		pr_err("dsm_find_ident(%08lx) failed, stop\n", ucb->ident);
-		return -EINVAL;
-	}
-	desc = &du->desc_list->chan_lst[i];
-
-	// check requested channel can operate in requested direction
-	if ( !(desc->flags & (ucb->tx ? DSM_CHAN_DIR_TX : DSM_CHAN_DIR_RX)) )
-	{
-		pr_err("%s xfer, channel %08lx supports { %s%s}, stop\n", 
-		       ucb->tx ? "TX" : "RX", ucb->ident,
-		       desc->flags & DSM_CHAN_DIR_TX ? "TX " : "",
-		       desc->flags & DSM_CHAN_DIR_RX ? "RX " : "");
-		return -EINVAL;
-	}
-
-	// get DMA device - the xilinx_axidma puts a "device-id" in the top nibble
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-	chan->dma_chan = dma_request_channel(mask, dsm_chan_setup_find, &ucb->ident);
-	if ( !chan->dma_chan )
-	{
-		pr_err("dma_request_channel(%08lx) failed, stop\n", ident);
-		return -ENOSYS;
-	}
-	pr_debug("dma channel %p\n", chan->dma_chan);
-
-	chan->dma_dir = ucb->tx ? DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
-	chan->name    = kstrdup(ucb->tx ? "tx" : "rx", GFP_KERNEL);
-
-
-	// default is non-continuous
-	atomic_set(&chan->continuous, 0);
-
-	return 0;
-
-release:
-	dma_release_channel(chan);
-	return ret;
+//		       user->desc_list->chan_lst[i].ident,
+//		       user->desc_list->chan_lst[i].flags,
+//		       (1 << (user->desc_list->chan_lst[i].width + 3)),
+//		       (1 << (user->desc_list->chan_lst[i].align + 3)),
+//		       user->desc_list->chan_lst[i].name);
+
+	return user->desc_list;
 }
 
 
@@ -675,8 +695,7 @@ release:
 
 static int dsm_open (struct inode *inode_p, struct file *f)
 {
-	struct dsm_user *du;
-	unsigned long    flags;
+	struct dsm_user *user;
 	int              ret = -EACCES;
 
 	if ( !dsm_users )
@@ -684,19 +703,24 @@ static int dsm_open (struct inode *inode_p, struct file *f)
 		pr_debug("%s()\n", __func__);
 
 		if ( !(f->private_data = kzalloc(sizeof(struct dsm_user), GFP_KERNEL)) )
+		{
+			pr_err("%s: failed to alloc user data\n", __func__);
 			return -ENOMEM;
+		}
 
 		// scan once at open, use/return values later
-		du = f->private_data;
-		if ( !dsm_scan_channels(du) )
+		user = f->private_data;
+		if ( !dsm_scan_channels(user) )
 		{
+			pr_err("%s: failed to scan DMA channels\n", __func__);
 			kfree(f->private_data);
 			return -ENODEV;
 		}
 
 		// other init as needed
-		atomic_set(&du->busy, 0);
-		init_waitqueue_head(&du->wait);
+		user->timeout = HZ;
+		atomic_set(&user->busy, 0);
+		init_waitqueue_head(&user->wait);
 		dsm_users = 1;
 		ret = 0;
 	}
@@ -704,30 +728,16 @@ static int dsm_open (struct inode *inode_p, struct file *f)
 	return ret;
 }
 
-static void dsm_cleanup (void)
+static void dsm_cleanup (struct dsm_user *user)
 {
-#if 0 // TODO: needs to be a loop
-	dsm_xfer_cleanup(dsm_adi1_state.tx);
-	dsm_xfer_cleanup(dsm_adi1_state.rx);
-	dsm_xfer_cleanup(dsm_adi2_state.tx);
-	dsm_xfer_cleanup(dsm_adi2_state.rx);
-	dsm_xfer_cleanup(dsm_dsx0_state.tx);
-	dsm_xfer_cleanup(dsm_dsx0_state.rx);
-	dsm_xfer_cleanup(dsm_dsx1_state.tx);
-	dsm_xfer_cleanup(dsm_dsx1_state.rx);
+	int slot;
 
-	dsm_adi1_state.tx = NULL;
-	dsm_adi1_state.rx = NULL;
-	dsm_adi2_state.tx = NULL;
-	dsm_adi2_state.rx = NULL;
-	dsm_dsx0_state.tx = NULL;
-	dsm_dsx0_state.rx = NULL;
-	dsm_dsx1_state.tx = NULL;
-	dsm_dsx1_state.rx = NULL;
-#endif
-
-//	atomic_set(&dsm_busy, 0);
-	dsm_mapped = 0;
+	for ( slot = 0; slot < user->chan_cnt; slot++ )
+		if ( user->chan_mask & (1 << slot) )
+		{
+			user->chan_mask &= ~(1 << slot);
+			dsm_chan_cleanup(&user->chan_list[slot]);
+		}
 }
 
 static int dsm_start_chan (struct dsm_chan *chan)
@@ -735,74 +745,92 @@ static int dsm_start_chan (struct dsm_chan *chan)
 	static char name[32];
 
 	snprintf(name, sizeof(name), "dsm_%s", chan->name);
+	pr_debug("%s: name '%s'\n", __func__, name);
+
 	if ( !(chan->task = kthread_run(dsm_thread, chan, name)) )
 	{
 		pr_err("%s failed to start\n", name);
 		return -1;
 	}
+	pr_debug("%s: atomic_add(1, %p)\n", __func__, &chan->user->busy);
 	atomic_add(1, &chan->user->busy);
 
 	return 0;
 }
 
-static int dsm_start_all (int continuous)
+static int dsm_start_mask (struct dsm_user *user, unsigned long mask, int continuous)
 {
-#if 0 // TODO: needs to be a loop
-	int ret = 0;
+	int  ret = 0;
+	int  slot;
 
-	// continuous option for TX only
-	if ( dsm_adi1_state.tx ) atomic_set(&dsm_adi1_state.tx->continuous, continuous);
-	if ( dsm_adi2_state.tx ) atomic_set(&dsm_adi2_state.tx->continuous, continuous);
-	if ( dsm_dsx0_state.tx ) atomic_set(&dsm_dsx0_state.tx->continuous, continuous);
-	if ( dsm_dsx1_state.tx ) atomic_set(&dsm_dsx1_state.tx->continuous, continuous);
+	mask &= user->chan_mask;
+	pr_debug("%s: mask %08lx\n", __func__, mask);
 
-	if ( dsm_start_chan(&dsm_adi1_state) ) ret++;
-	if ( dsm_start_chan(&dsm_adi2_state) ) ret++;
-	if ( dsm_start_chan(&dsm_dsx0_state) ) ret++;
-	if ( dsm_start_chan(&dsm_dsx1_state) ) ret++;
+	if ( continuous )
+		for ( slot = 0; slot < user->chan_cnt; slot++ )
+			if ( mask & (1 << slot) && user->chan_list[slot].dma_dir == DMA_MEM_TO_DEV )
+			{
+				pr_debug("atomic_set(%p, 1)\n", &user->chan_list[slot].continuous);
+				atomic_set(&user->chan_list[slot].continuous, 1);
+			}
+
+	for ( slot = 0; slot < user->chan_cnt; slot++ )
+		if ( mask & (1 << slot) )
+		{
+			pr_debug("dsm_start_chan(slot %d)\n", slot);
+			if ( dsm_start_chan(&user->chan_list[slot]) )
+				ret++;
+		}
 
 	return ret;
-#endif
-	return -1;
 }
+
 
 static void dsm_halt_chan (struct dsm_chan *chan)
 {
-	if ( chan && chan->task )
+	if ( chan->task )
 	{
 		kthread_stop(chan->task);
 		chan->task = NULL;
 	}
 }
 
-static void dsm_halt_all (void)
+static void dsm_halt_mask (struct dsm_user *user, unsigned long mask)
 {
-#if 0 // TODO: needs to be a loop
-	dsm_halt_chan(&dsm_adi1_state);
-	dsm_halt_chan(&dsm_adi2_state);
-	dsm_halt_chan(&dsm_dsx0_state);
-	dsm_halt_chan(&dsm_dsx1_state);
-#endif
+	int  slot;
+
+	mask &= user->chan_mask;
+
+	for ( slot = 0; slot < user->chan_cnt; slot++ )
+		if ( mask & (1 << slot) )
+			dsm_halt_chan(&user->chan_list[slot]);
 }
+
+static void dsm_halt_all (struct dsm_user *user)
+{
+	return dsm_halt_mask(user, ~0);
+}
+
 
 static void dsm_stop_chan (struct dsm_chan *chan)
 {
 	atomic_set(&chan->continuous, 0);
 }
 
-static void dsm_stop_all (void)
+static void dsm_stop_mask (struct dsm_user *user, unsigned long mask)
 {
-#if 0 // TODO: needs to be a loop
-	dsm_stop_chan(&dsm_adi1_state);
-	dsm_stop_chan(&dsm_adi2_state);
-	dsm_stop_chan(&dsm_dsx0_state);
-	dsm_stop_chan(&dsm_dsx1_state);
-#endif
+	int  slot;
+
+	mask &= user->chan_mask;
+
+	for ( slot = 0; slot < user->chan_cnt; slot++ )
+		if ( mask & (1 << slot) )
+			dsm_stop_chan(&user->chan_list[slot]);
 }
 
-static int dsm_wait_all (struct dsm_user *du)
+static int dsm_wait_active (struct dsm_user *user)
 {
-	if ( atomic_read(&du->busy) == 0 )
+	if ( atomic_read(&user->busy) == 0 )
 	{
 		pr_debug("thread(s) completed already\n");
 		return 0;
@@ -810,44 +838,15 @@ static int dsm_wait_all (struct dsm_user *du)
 
 	// using a waitqueue here rather than a completion to wait for all threads in
 	// the full-duplex case
-	pr_debug("thread(s) started, wait for completion...\n");
-	if ( wait_event_interruptible(du->wait, (atomic_read(&du->busy) == 0) ) )
+	pr_debug("wait for active threads to complete...\n");
+	if ( wait_event_interruptible(user->wait, (atomic_read(&user->busy) == 0) ) )
 	{
-		pr_warn("interrupted, expect a crash...\n");
-		dsm_halt_all();
+		pr_warn("interrupted, expect a crash.\n");
+		dsm_halt_all(user);
 		return -EINTR;
 	}
 
-	pr_debug("thread(s) completed after wait...\n");
-	return 0;
-}
-
-
-static inline int dsm_setup (struct dsm_chan *chan, int dma, 
-                             const struct dsm_chan_buffs *buff)
-{
-#if 0
-	// no action needed for this channel
-	if ( !buff->tx.size && !buff->rx.size )
-		return 0;
-	
-	if ( buff->tx.size && !(chan->tx = dsm_xfer_setup(0, dma, &buff->tx)) )
-		return -1;
-
-	if ( buff->rx.size && !(chan->rx = dsm_xfer_setup(1, dma, &buff->rx)) )
-		return -1;
-
-	if ( chan->tx ) chan->tx->parent = chan;
-	if ( chan->rx ) chan->rx->parent = chan;
-
-	// special setup for FD experiments
-	if ( chan->tx && chan->rx )
-	{
-		chan->tx->fd_peer = chan->rx;
-		chan->rx->fd_peer = chan->tx;
-	}
-
-#endif
+	pr_debug("thread(s) completed after wait.\n");
 	return 0;
 }
 
@@ -858,12 +857,12 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	struct dsm_chan_buffs *cbp;
 	struct dsm_chan_list   clb;
 	struct dsm_limits      lim;
-	struct dsm_user       *du = f->private_data;
+	struct dsm_user       *user = f->private_data;
 	size_t                 max;
 	int                    ret = 0;
 
 	pr_trace("%s(cmd %x, arg %08lx)\n", __func__, cmd, arg);
-	BUG_ON(du == NULL);
+	BUG_ON(user == NULL);
 	BUG_ON( _IOC_TYPE(cmd) != DSM_IOCTL_MAGIC);
 
 	switch ( cmd )
@@ -875,18 +874,29 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		 * elements into the array, but will set chan_cnt to the actual number available
 		 * before returning to the caller. */
 		case DSM_IOCG_CHANNELS:
+			pr_debug("DSM_IOCG_CHANNELS\n");
 			ret = copy_from_user(&clb, (void *)arg,
 			                     offsetof(struct dsm_chan_list, chan_lst));
 			if ( ret )
+			{
+				pr_err("copy_from_user(%p, %p, %zu): %d\n",
+				       &clb, (void *)arg, offsetof(struct dsm_chan_list, chan_lst), ret);
 				return -EFAULT;
+			}
 
-			max = min(du->desc_list->chan_cnt, clb.chan_cnt);
-			ret = copy_to_user((void *)arg, du->desc_list,
+			max = min(user->desc_list->chan_cnt, clb.chan_cnt);
+			ret = copy_to_user((void *)arg, user->desc_list,
 			                   offsetof(struct dsm_chan_list, chan_lst) +
 			                   sizeof(struct dsm_chan_desc) * max);
 			if ( ret )
+			{
+				pr_err("copy_to_user(%p, %p, %zu): %d\n", (void *)arg, user->desc_list,
+				       offsetof(struct dsm_chan_list, chan_lst) +
+				       sizeof(struct dsm_chan_desc) * max, ret);
 				return -EFAULT;
+			}
 
+			pr_debug("success\n");
 			return 0;
 
 
@@ -895,11 +905,21 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		 * at once.  Other fields may be added as needed
 		 */
 		case DSM_IOCG_LIMITS:
+			pr_debug("DSM_IOCG_LIMITS\n");
+
 			memset(&lim, 0, sizeof(lim));
 			lim.total_words = DSM_MAX_SIZE / DSM_BUS_WIDTH;
-			ret = copy_to_user((void *)arg, &lim, sizeof(lim));
-			return ret;
 
+			ret = copy_to_user((void *)arg, &lim, sizeof(lim));
+			if ( ret )
+			{
+				pr_err("copy_to_user(%p, %p, %zu): %d\n",
+				       (void *)arg, &lim, sizeof(lim), ret);
+				return -EFAULT;
+			}
+
+			pr_debug("success\n");
+			return 0;
 
 
 		/* Set the (userspace) addresses and sizes of the buffers.  These must be
@@ -907,32 +927,52 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		 * size a multiple of DSM_BUS_WIDTH.  
 		 */
 		case DSM_IOCS_MAP_CHAN:
+			pr_debug("DSM_IOCS_MAP_CHAN\n");
 			ret = copy_from_user(&cbb, (void *)arg,
 			                     offsetof(struct dsm_chan_buffs, buff_lst));
 			if ( ret )
+			{
+				pr_err("copy_from_user(%p, %p, %zu): %d\n", &cbb, (void *)arg,
+				       offsetof(struct dsm_chan_buffs, buff_lst), ret);
 				return -EFAULT;
+			}
 
-			cbp = kmalloc(offsetof(struct dsm_chan_buffs, buff_lst) +
+			cbp = kzalloc(offsetof(struct dsm_chan_buffs, buff_lst) +
 			              sizeof(struct dsm_xfer_buff) * cbb.buff_cnt,
 			              GFP_KERNEL);
 			if ( !cbp )
+			{
+				pr_err("cbp kmalloc(%zu) failed\n",
+				       offsetof(struct dsm_chan_buffs, buff_lst) +
+				       sizeof(struct dsm_xfer_buff) * cbb.buff_cnt);
 				return -ENOMEM;
+			}
 
-			ret = copy_from_user(&cbp, (void *)arg,
+			ret = copy_from_user(cbp, (void *)arg,
 			                     offsetof(struct dsm_chan_buffs, buff_lst) +
 			                     sizeof(struct dsm_xfer_buff) * cbb.buff_cnt);
 			if ( ret )
 			{
+				pr_err("copy_from_user(%p, %p, %zu): %d\n", &cbp, (void *)arg,
+				       offsetof(struct dsm_chan_buffs, buff_lst) +
+				       sizeof(struct dsm_xfer_buff) * cbb.buff_cnt, ret);
 				kfree(cbp);
 				return -EFAULT;
 			}
 
-			if ( dsm_chan_setup(du, cbp) )
+//printk("buffs: ident %08x, tx %d, buff_cnt %d\n", cbp->ident, cbp->tx, cbp->buff_cnt);
+//for ( ret = 0; ret < cbb.buff_cnt; ret++ )
+//	printk("%02d: { addr %08lx, size %08lx, reps %08lx }\n", ret,
+//	       cbp->buff_lst[ret].addr, cbp->buff_lst[ret].size, cbp->buff_lst[ret].reps);
+
+			if ( dsm_chan_setup(user, cbp) )
 			{
+				pr_err("dsm_chan_setup(user, cbp) failed\n");
 				kfree(cbp);
 				return -EINVAL;
 			}
 
+			pr_debug("success\n");
 			return 0;
 
 
@@ -942,9 +982,9 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		case DSM_IOCS_ONESHOT_START:
 			pr_debug("DSM_IOCS_ONESHOT_START\n");
 			ret = 0;
-			if ( dsm_start_all(0) )
+			if ( dsm_start_mask(user, arg, 0) )
 			{
-				dsm_halt_all();
+				dsm_halt_mask(user, arg);
 				ret = -EBUSY;
 			}
 			break;
@@ -952,8 +992,8 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		// Wait for a oneshot transaction started with DSM_IOCS_ONESHOT_START.  The
 		// calling process blocks until all transfers are complete, or timeout.
 		case DSM_IOCS_ONESHOT_WAIT:
-			pr_debug("DSM_IOCS_WAIT\n");
-			ret = dsm_wait_all(du);
+			pr_debug("DSM_IOCS_ONESHOT_WAIT\n");
+			ret = dsm_wait_active(user);
 			break;
 
 
@@ -964,9 +1004,9 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		case DSM_IOCS_CONTINUOUS_START:
 			pr_debug("DSM_IOCS_CONTINUOUS_START\n");
 			ret = 0;
-			if ( dsm_start_all(1) )
+			if ( dsm_start_mask(user, arg, 1) )
 			{
-				dsm_halt_all();
+				dsm_halt_mask(user, arg);
 				ret = -EBUSY;
 			}
 			break;
@@ -975,14 +1015,15 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		// process blocks until both transfers are complete, or timeout.
 		case DSM_IOCS_CONTINUOUS_STOP:
 			pr_debug("DSM_IOCS_CONTINUOUS_STOP\n");
-			dsm_stop_all();
-			ret = dsm_wait_all(du);
+			dsm_stop_mask(user, arg);
+			ret = dsm_wait_active(user);
 			break;
 
 
 		// Read statistics from the transfer triggered with DSM_IOCS_TRIGGER
 		case DSM_IOCG_STATS:
 		{
+			pr_debug("DSM_IOCG_STATS\n");
 #if 0
 			struct dsm_user_stats dsm_user_stats;
 			pr_debug("DSM_IOCG_STATS %08lx\n", arg);
@@ -1011,16 +1052,16 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		}
 
 		// Unmap the buffers buffer mapped with DSM_IOCS_MAP, before DSM_IOCS_TRIGGER.
-		case DSM_IOCS_UNMAP_CHAN:
+		case DSM_IOCS_UNMAP:
 			pr_debug("DSM_IOCS_UNMAP\n");
-			dsm_cleanup();
+			dsm_cleanup(user);
 			ret = 0;
 			break;
 
 		// Set a timeout in jiffies on the DMA transfer
 		case DSM_IOCS_TIMEOUT:
 			pr_debug("DSM_IOCS_TIMEOUT %lu\n", arg);
-			dsm_timeout = arg;
+			user->timeout = arg;
 			ret = 0;
 			break;
 
@@ -1064,26 +1105,20 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 
 static int dsm_release (struct inode *inode_p, struct file *f)
 {
-	struct dsm_user *du = f->private_data;
-	unsigned long    flags;
+	struct dsm_user *user = f->private_data;
 	int              ret = -EBADF;
 
-	if ( dsm_users )
-	{
-		struct dsm_user *du = f->private_data;
+	pr_debug("%s()\n", __func__);
+	dsm_halt_all(user);
+	dsm_cleanup(user);
 
-		pr_debug("%s()\n", __func__);
-		dsm_halt_all();
-		dsm_cleanup();
+	kfree(user->chan_list);
+	kfree(user->desc_list);
+	kfree(user);
 
-		kfree(du->chan_list);
-		kfree(du->desc_list);
-		kfree(du);
+	dsm_users = 0;
 
-		dsm_users = 0;
-
-		ret = 0;
-	}
+	ret = 0;
 
 	return ret;
 }
@@ -1124,9 +1159,6 @@ error2:
 
 static void __exit dma_streamer_mod_exit(void)
 {
-	dsm_halt_all();
-	dsm_cleanup();
-
 	dsm_dev = NULL;
 	misc_deregister(&mdev);
 }

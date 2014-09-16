@@ -698,12 +698,12 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				LOG_INFO("Triggering DMA...\n");
 				errno = 0;
-				if ( !dsa_ioctl_dsm_oneshot_start() && !stats )
+				if ( !dsa_ioctl_dsm_oneshot_start(~0) && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				dsa_command_trigger_start();
 
-				if ( !dsa_ioctl_dsm_oneshot_wait() && !stats )
+				if ( !dsa_ioctl_dsm_oneshot_wait(~0) && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				if ( stats )
@@ -740,24 +740,24 @@ for ( ret = 0; ret <= argc; ret++ )
 		case TRIG_ONCE:
 			LOG_INFO("Triggering DMA...\n");
 			errno = 0;
-			if ( !dsa_ioctl_dsm_oneshot_start() && !stats )
+			if ( !dsa_ioctl_dsm_oneshot_start(~0) && !stats )
 				LOG_INFO("DMA triggered\n");
 
 			dsa_command_trigger_start();
 
-			if ( !dsa_ioctl_dsm_oneshot_wait() && !stats )
+			if ( !dsa_ioctl_dsm_oneshot_wait(~0) && !stats )
 				LOG_INFO("DMA triggered\n");
 			break;
 
 		case TRIG_CONT:
 			LOG_INFO("Starting DMA, press any key to stop...\n");
-			dsa_ioctl_dsm_continuous_start();
+			dsa_ioctl_dsm_continuous_start(~0);
 			dsa_command_trigger_start();
 
 			terminal_pause();
 
 			LOG_INFO("Stopping DMA...\n");
-			dsa_ioctl_dsm_continuous_stop();
+			dsa_ioctl_dsm_continuous_stop(~0);
 			break;
 	}
 

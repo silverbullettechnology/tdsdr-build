@@ -22,14 +22,17 @@
 
 struct dsm_chan_list *dsa_ioctl_dsm_channels (void);
 
-int dsa_ioctl_dsm_map              (struct dsm_chan_buffs *buffs);
+int dsa_ioctl_dsm_map_chan (unsigned long ident,    unsigned long tx,
+                            unsigned long buff_cnt, struct dsm_xfer_buff *buff_lst);
+
+int dsa_ioctl_dsm_limits           (struct dsm_limits *limits);
 int dsa_ioctl_dsm_unmap            (void);
 int dsa_ioctl_dsm_set_timeout      (unsigned long timeout);
-int dsa_ioctl_dsm_oneshot_start    (void);
-int dsa_ioctl_dsm_oneshot_wait     (void);
+int dsa_ioctl_dsm_oneshot_start    (unsigned long mask);
+int dsa_ioctl_dsm_oneshot_wait     (unsigned long mask);
 int dsa_ioctl_dsm_get_stats        (struct dsm_chan_stats *sb);
-int dsa_ioctl_dsm_continuous_stop  (void);
-int dsa_ioctl_dsm_continuous_start (void);
+int dsa_ioctl_dsm_continuous_stop  (unsigned long mask);
+int dsa_ioctl_dsm_continuous_start (unsigned long mask);
 
 
 #endif // _INCLUDE_DSA_IOCTL_DSM_H_

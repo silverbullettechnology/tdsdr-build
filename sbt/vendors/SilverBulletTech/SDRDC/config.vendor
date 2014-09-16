@@ -1396,7 +1396,7 @@ CONFIG_USER_LIBS_READLINE=y
 #
 CONFIG_USER_MODULES_DMA_STREAMER_MOD=y
 CONFIG_USER_MODULES_FIFO_DEV=y
-CONFIG_USER_MODULES_FIFO_DEV_BSP="/Proj/SBT/Ziva/xdma_src_snk/viv_src_snk_fclk2/viv_src_snk_fclk2.sdk/hello_bsp/ps7_cortexa9_0/include/"
+CONFIG_USER_MODULES_FIFO_DEV_BSP="/Proj/SBT/Ziva/xdma_src_snk/viv_src_snk_fclk2_pmonsrc/viv_src_snk_fclk2.sdk/sg_rx2_bsp/ps7_cortexa9_0/include/"
 CONFIG_USER_MODULES_SPI_SHIM=y
 CONFIG_USER_MODULES_PL330_TEST=y
 

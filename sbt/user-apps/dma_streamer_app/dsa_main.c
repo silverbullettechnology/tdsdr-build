@@ -55,6 +55,8 @@ struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
 struct dsm_chan_list *dsa_dsm_channels = NULL;
+unsigned long dsa_dsm_tx_channels[2] = { 0, 0 };
+unsigned long dsa_dsm_rx_channels[2] = { 0, 0 };
 
 
 void dsa_main_show_stats (const struct dsm_xfer_stats *st, const char *dir)
@@ -110,51 +112,38 @@ static char *target_desc (int mask)
 
 int dsa_main_map (int reps)
 {
-#if 0
-	// pass to kernelspace and prepare DMA
-	struct dsm_chan_buffs  buffs;
-	struct dsm_xfer_buff  *xfer;
+	struct dsm_xfer_buff  xfer;
+	int                   ret;
+	int                   dev;
 
 	if ( dsa_dsm_dev < 0 )
 		return -1;
 
-	memset (&buffs, 0, sizeof(struct dsm_user_buffs));
-
-	if ( dsa_evt.tx[0] )
+	errno = 0;
+	for ( dev = 0; dev < 2; dev++ )
 	{
-		xfer = dsa_dsxx ? &buffs.dsx0.tx : &buffs.adi1.tx;
-		xfer->addr  = (unsigned long)dsa_evt.tx[0]->smp;
-		xfer->size  = dsa_evt.tx[0]->len;
-		xfer->reps  = reps;
+		if ( dsa_evt.tx[dev] )
+		{
+			xfer.addr = (unsigned long)dsa_evt.tx[dev]->smp;
+			xfer.size = dsa_evt.tx[dev]->len;
+			xfer.reps = reps;
+			if ( (ret = dsa_ioctl_dsm_map_chan(dsa_dsm_tx_channels[dev], 1, 1, &xfer)) )
+				goto error;
+		}
+
+		if ( dsa_evt.rx[dev] )
+		{
+			xfer.addr = (unsigned long)dsa_evt.rx[dev]->smp;
+			xfer.size = dsa_evt.rx[dev]->len;
+			xfer.reps = reps;
+			if ( (ret = dsa_ioctl_dsm_map_chan(dsa_dsm_rx_channels[dev], 0, 1, &xfer)) )
+				goto error;
+		}
 	}
 
-	if ( dsa_evt.tx[1] )
-	{
-		xfer = dsa_dsxx ? &buffs.dsx1.tx : &buffs.adi2.tx;
-		xfer->addr  = (unsigned long)dsa_evt.tx[1]->smp;
-		xfer->size  = dsa_evt.tx[1]->len;
-		xfer->reps  = reps;
-	}
+	return 0;
 
-	if ( dsa_evt.rx[0] )
-	{
-		xfer = dsa_dsxx ? &buffs.dsx0.rx : &buffs.adi1.rx;
-		xfer->addr  = (unsigned long)dsa_evt.rx[0]->smp;
-		xfer->size  = dsa_evt.rx[0]->len;
-		xfer->reps  = 1;
-	}
-
-	if ( dsa_evt.rx[1] )
-	{
-		xfer = dsa_dsxx ? &buffs.dsx1.rx : &buffs.adi2.rx;
-		xfer->addr  = (unsigned long)dsa_evt.rx[1]->smp;
-		xfer->size  = dsa_evt.rx[1]->len;
-		xfer->reps  = 1;
-	}
-
-	return dsa_ioctl_dsm_map(&buffs);
-#endif
-	errno = ENOSYS;
+error:
 	return -1;
 }
 
@@ -197,6 +186,7 @@ int dsa_main_dev_reopen (unsigned long *mask)
 	int i;
 	printf("dsa_ioctl_dsm_channels() gave %d channels:\n", dsa_dsm_channels->chan_cnt);
 	for ( i = 0; i < dsa_dsm_channels->chan_cnt; i++ )
+	{
 		printf("%2d: ident:%08lx private:%08lx flags:%08lx width:%02u align:%02u device:%s driver:%s\n", i,
 		       dsa_dsm_channels->chan_lst[i].ident,
 		       dsa_dsm_channels->chan_lst[i].private,
@@ -205,6 +195,48 @@ int dsa_main_dev_reopen (unsigned long *mask)
 		       (1 << (dsa_dsm_channels->chan_lst[i].align + 3)),
 		       dsa_dsm_channels->chan_lst[i].device,
 		       dsa_dsm_channels->chan_lst[i].driver);
+
+		switch ( dsa_dsm_channels->chan_lst[i].flags & DSM_CHAN_DIR_MASK )
+		{
+			case DSM_CHAN_DIR_RX:
+				switch ( dsa_dsm_channels->chan_lst[i].private & 0xF0000000 )
+				{
+					case 0x00000000:
+						if ( dsa_dsm_rx_channels[0] )
+							stop("RX1 already mapped, stop\n");
+						dsa_dsm_rx_channels[0] = dsa_dsm_channels->chan_lst[i].ident;
+						printf("    using for RX1\n");
+						break;
+
+					case 0x10000000:
+						if ( dsa_dsm_rx_channels[1] )
+							stop("RX2 already mapped, stop\n");
+						dsa_dsm_rx_channels[1] = dsa_dsm_channels->chan_lst[i].ident;
+						printf("    using for RX2\n");
+						break;
+				}
+				break;
+
+			case DSM_CHAN_DIR_TX:
+				switch ( dsa_dsm_channels->chan_lst[i].private & 0xF0000000 )
+				{
+					case 0x00000000:
+						if ( dsa_dsm_tx_channels[0] )
+							stop("TX1 already mapped, stop\n");
+						dsa_dsm_tx_channels[0] = dsa_dsm_channels->chan_lst[i].ident;
+						printf("    using for TX1\n");
+						break;
+
+					case 0x10000000:
+						if ( dsa_dsm_tx_channels[1] )
+							stop("TX2 already mapped, stop\n");
+						dsa_dsm_tx_channels[1] = dsa_dsm_channels->chan_lst[i].ident;
+						printf("    using for TX2\n");
+						break;
+				}
+				break;
+		}
+	}
 
 	if ( (dsa_fifo_dev = open(dsa_opt_fifo_dev, O_RDWR)) < 0 )
 	{

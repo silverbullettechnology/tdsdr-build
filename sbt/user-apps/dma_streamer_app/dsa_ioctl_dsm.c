@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -27,7 +28,7 @@
 #include "dsa_main.h"
 
 #include "log.h"
-LOG_MODULE_STATIC("ioctl", LOG_LEVEL_INFO);
+LOG_MODULE_STATIC("ioctl", LOG_LEVEL_DEBUG);
 
 
 struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
@@ -65,19 +66,38 @@ struct dsm_chan_list *dsa_ioctl_dsm_channels (void)
 	return ret;
 }
 
-int dsa_ioctl_dsm_map (struct dsm_chan_buffs *buffs)
+int dsa_ioctl_dsm_limits (struct dsm_limits *limits)
 {
-#if 0
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_MAP, buffs)) )
-		printf("DSM_IOCS_MAP: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCG_LIMITS, limits)) )
+		printf("DSM_IOCG_LIMITS: %d: %s\n", ret, strerror(errno));
 
 	return ret;
-#endif
-	errno = ENOSYS;
-	return -1;
+}
+
+int dsa_ioctl_dsm_map_chan (unsigned long ident,    unsigned long tx,
+                            unsigned long buff_cnt, struct dsm_xfer_buff *buff_lst)
+{
+	struct dsm_chan_buffs *buffs;
+	int                    ret;
+
+	errno = 0;
+	buffs = malloc(offsetof(struct dsm_chan_buffs, buff_lst) +
+	               sizeof(struct dsm_xfer_buff) * buff_cnt);
+	if ( !buffs )
+		return -1;
+
+	buffs->ident    = ident;
+	buffs->tx       = tx;
+	buffs->buff_cnt = buff_cnt;
+	memcpy(buffs->buff_lst, buff_lst, sizeof(struct dsm_xfer_buff) * buff_cnt);
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_MAP_CHAN, buffs)) )
+		printf("DSM_IOCS_MAP_CHAN: %d: %s\n", ret, strerror(errno));
+
+	free(buffs);
+	return ret;
 }
 
 int dsa_ioctl_dsm_unmap (void)
@@ -102,21 +122,21 @@ int dsa_ioctl_dsm_set_timeout (unsigned long timeout)
 	return ret;
 }
 
-int dsa_ioctl_dsm_oneshot_start (void)
+int dsa_ioctl_dsm_oneshot_start (unsigned long mask)
 {
 	int ret;
 
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_START, 0)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_START, mask)) )
 		printf("DSM_IOCS_ONESHOT_START: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_dsm_oneshot_wait (void)
+int dsa_ioctl_dsm_oneshot_wait (unsigned long mask)
 {
 	int ret;
 
-	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_WAIT, 0)) )
+	if ( (ret = ioctl(dsa_dsm_dev, DSM_IOCS_ONESHOT_WAIT, mask)) )
 		printf("DSM_IOCS_ONESHOT_WAIT: %d: %s\n", ret, strerror(errno));
 
 	return ret;
@@ -132,21 +152,21 @@ int dsa_ioctl_dsm_get_stats (struct dsm_chan_stats *sb)
 	return ret;
 }
 
-int dsa_ioctl_dsm_continuous_stop (void)
+int dsa_ioctl_dsm_continuous_stop (unsigned long mask)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_STOP, 0)) )
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_STOP, mask)) )
 		printf("DSM_IOCS_CONTINUOUS_STOP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsa_ioctl_dsm_continuous_start (void)
+int dsa_ioctl_dsm_continuous_start (unsigned long mask)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_START, 0)) )
+	if ( (ret = ioctl(dsa_fifo_dev, DSM_IOCS_CONTINUOUS_START, mask)) )
 		printf("DSM_IOCS_CONTINUOUS_START: %d: %s\n", ret, strerror(errno));
 
 	return ret;

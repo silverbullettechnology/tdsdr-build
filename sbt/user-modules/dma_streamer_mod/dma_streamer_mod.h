@@ -213,7 +213,7 @@ struct dsm_limits
 
 
 /* Unmap the buffers for one channel, mapped with DSM_IOCS_MAP_CHAN. */
-#define  DSM_IOCS_UNMAP_CHAN  _IOW(DSM_IOCTL_MAGIC, 8, unsigned long)
+#define  DSM_IOCS_UNMAP  _IOW(DSM_IOCTL_MAGIC, 8, unsigned long)
 
 /* Set a timeout in jiffies on the DMA transfer */
 #define  DSM_IOCS_TIMEOUT  _IOW(DSM_IOCTL_MAGIC, 9, unsigned long)
