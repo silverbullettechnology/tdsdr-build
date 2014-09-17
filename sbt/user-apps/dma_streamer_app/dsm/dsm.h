@@ -1,4 +1,4 @@
-/** \file      dma/dsm.h
+/** \file      dsm/dsm.h
  *  \brief     interface declarations for common FIFO / DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *

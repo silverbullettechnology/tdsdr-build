@@ -26,7 +26,7 @@
 #include <ad9361.h>
 
 #include "dsa/main.h"
-#include "dma/dsm.h"
+#include "dsm/dsm.h"
 #include "fifo/dev.h"
 #include "dsa/command.h"
 #include "common/common.h"

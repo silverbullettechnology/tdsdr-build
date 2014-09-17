@@ -24,7 +24,7 @@
 #include <dma_streamer_mod.h>
 
 #include "dsa/main.h"
-#include "dma/dsm.h"
+#include "dsm/dsm.h"
 #include "fifo/dev.h"
 #include "fifo/adi_old.h"
 #include "fifo/adi_new.h"

@@ -1,4 +1,4 @@
-/** \file      dma/dsm.c
+/** \file      dsm/dsm.c
  *  \brief     implementation of DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -30,7 +30,7 @@
 #include <dma_streamer_mod.h>
 
 
-#include "dma/dsm.h"
+#include "dsm/dsm.h"
 
 
 static int  dsm_fd = -1;

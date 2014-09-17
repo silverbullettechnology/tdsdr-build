@@ -28,7 +28,7 @@
 #include "dsa/main.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
-#include "dma/dsm.h"
+#include "dsm/dsm.h"
 #include "common/common.h"
 
 #include "common/log.h"

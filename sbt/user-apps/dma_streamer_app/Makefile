@@ -9,7 +9,7 @@ APP_OBJS := \
 	dsa/format.o \
 	dsa/channel.o \
 	dsa/command.o \
-	dma/dsm.o \
+	dsm/dsm.o \
 	fifo/adi_old.o \
 	fifo/adi_new.o \
 	fifo/dsxx.o \
