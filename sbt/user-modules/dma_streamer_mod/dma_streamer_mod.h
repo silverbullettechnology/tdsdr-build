@@ -26,9 +26,7 @@
 
 #define DSM_DRIVER_NODE "dma_streamer_mod"
 
-
 #define DSM_BUS_WIDTH  8
-#define DSM_MAX_SIZE   320000000
 
 #define DSM_IOCTL_MAGIC 1
 
@@ -65,6 +63,7 @@
 #define DSM_CHAN_DIR_TX          0x80000000
 #define DSM_CHAN_DIR_RX          0x40000000
 #define DSM_CHAN_SLAVE_CAPS      0x20000000
+#define DSM_CHAN_XILINX_DMA      0x10000000
 #define DSM_CHAN_CAP_MEMCPY      0x00000001
 #define DSM_CHAN_CAP_XOR         0x00000002
 #define DSM_CHAN_CAP_PQ          0x00000004

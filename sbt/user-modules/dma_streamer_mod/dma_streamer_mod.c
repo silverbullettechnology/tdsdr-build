@@ -120,6 +120,8 @@ struct dsm_user
 	unsigned long          stats_mask;
 
 	unsigned long  timeout;
+
+	unsigned long  xilinx_channels;
 };
 
 
@@ -165,6 +167,7 @@ static int dsm_thread (void *data)
 		if ( !dma_desc )
 		{
 			pr_err("device_prep_slave_sg() failed, stop\n");
+			chan->stats.errors++;
 			goto done;
 		}
 		pr_debug("%s: device_prep_slave_sg() ok\n", chan->name);
@@ -177,6 +180,7 @@ static int dsm_thread (void *data)
 		if ( dma_submit_error(cookie) )
 		{
 			pr_err("tx_submit() failed, stop\n");
+			chan->stats.errors++;
 			goto done;
 		}
 		chan->stats.starts++;
@@ -556,6 +560,24 @@ static int dsm_chan_setup (struct dsm_user *user, struct dsm_chan_buffs *ucb)
 }
 
 
+static size_t dsm_limit_words (int xilinx)
+{
+	size_t dma;
+
+	// For Xilinx DMA the constraint is the atomic pool for allocating descriptors (must
+	// be 64-byte aligned) at one per 4Kbyte page 
+	if ( xilinx && (dma = atomic_pool_size()) )
+		dma /= 64;	// 64 bytes coherent memory per descriptor / page
+
+	// Otherwise assume flexible descriptors and the limit is based on total pages, assume
+	// 7/8 of RAM is available (tested 950MB of 1GB, plus descriptor overhead) and convert
+	// to words 
+	else
+		dma = (totalram_pages / 8) * 7;
+
+	dma *= 512;	// 4Kbytes / 512 words per page
+	return dma;
+}
 
 // callback for first pass: just count channels registered with dmaengine
 static bool dsm_scan_channels_size (struct dma_chan *chan, void *param)
@@ -628,6 +650,15 @@ static bool dsm_scan_channels_desc (struct dma_chan *chan, void *param)
 	strncpy(cdp->device, dev_name(chan->device->dev), sizeof(cdp->device) - 1);
 	strncpy(cdp->driver, chan->device->dev->driver->name, sizeof(cdp->driver) - 1);
 
+	// special flag for Xilinx DMA for estimating transfer size based on descriptor memory
+	if ( strstr(chan->device->dev->driver->name, "xilinx-dma") )
+	{
+		cdp->flags |= DSM_CHAN_XILINX_DMA;
+		cdp->words = dsm_limit_words(1);
+	}
+	else
+		cdp->words = dsm_limit_words(0);
+
 	(*cdpp)++;
 	return 0;
 }
@@ -670,15 +701,20 @@ static struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user)
 	BUG_ON(dma_request_channel(mask, dsm_scan_channels_desc, &cdp) != NULL);
 
 	// setup permanent fields
+	user->xilinx_channels = 0;
 	for ( slot = 0; slot < user->desc_list->size; slot++ )
 	{
 		user->chan_list[slot].user = user;
 		user->chan_list[slot].slot = slot;
-//		printk("%2d: flags:%08lx width:%02u align:%02u driver:%s\n", slot,
-//		       user->desc_list->list[slot].flags,
-//		       (1 << (user->desc_list->list[slot].width + 3)),
-//		       (1 << (user->desc_list->list[slot].align + 3)),
-//		       user->desc_list->list[slot].name);
+		if ( user->desc_list->list[slot].flags & DSM_CHAN_XILINX_DMA )
+			user->xilinx_channels++;
+		pr_debug("%2d: flags:%08lx width:%02u align:%02u driver:%s device:%s\n",
+		         slot,
+		         user->desc_list->list[slot].flags,
+		         (1 << (user->desc_list->list[slot].width + 3)),
+		         (1 << (user->desc_list->list[slot].align + 3)),
+		         user->desc_list->list[slot].driver,
+		         user->desc_list->list[slot].device);
 	}
 
 	return user->desc_list;
@@ -845,7 +881,6 @@ static int dsm_wait_active (struct dsm_user *user)
 
 static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 {
-	struct dsm_limits      lim;
 	struct dsm_user       *user = f->private_data;
 	size_t                 max;
 	int                    slot;
@@ -899,11 +934,19 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		 * at once.  Other fields may be added as needed
 		 */
 		case DSM_IOCG_LIMITS:
+		{
+			struct dsm_limits  lim;
+			struct sysinfo     sib;
+			size_t             dma;
+
 			pr_debug("DSM_IOCG_LIMITS\n");
 
 			memset(&lim, 0, sizeof(lim));
 			lim.channels    = user->chan_size;
-			lim.total_words = DSM_MAX_SIZE / DSM_BUS_WIDTH;
+			lim.total_words = dsm_limit_words(user->xilinx_channels);
+			pr_debug("Total words %lu (%lu MB) with %sXilinx driver\n",
+			         lim.total_words, lim.total_words >> 17,
+				     user->xilinx_channels ? "" : "non-");
 
 			ret = copy_to_user((void *)arg, &lim, sizeof(lim));
 			if ( ret )
@@ -915,6 +958,7 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 
 			pr_debug("success\n");
 			return 0;
+		}
 
 
 		/* Set the (userspace) addresses and sizes of the buffers.  These must be
@@ -1159,12 +1203,7 @@ static int __init dma_streamer_mod_init(void)
 		ret = -EIO;
 		goto error2;
 	}
-
 	dsm_dev = mdev.this_device;
-//	init_completion(&dsm_adi1_state.txrx);
-//	init_completion(&dsm_adi2_state.txrx);
-//	init_completion(&dsm_dsx0_state.txrx);
-//	init_completion(&dsm_dsx1_state.txrx);
 
 	pr_info("registered successfully\n");
 	return 0;

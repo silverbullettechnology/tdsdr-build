@@ -42,12 +42,14 @@ extern unsigned    dsa_opt_timeout;
 extern const char *dsa_opt_dsm_dev;
 extern const char *dsa_opt_fifo_dev;
 extern long        dsa_opt_adjust;
+extern size_t      dsa_total_words;
 
 extern char  env_data_path[];
 
 extern struct format            *dsa_opt_format;
 extern struct dsa_channel_event  dsa_evt;
 
+extern struct dsm_limits     dsa_dsm_limits;
 extern struct dsm_chan_list *dsa_dsm_channels;
 extern unsigned long         dsa_dsm_rx_channels[];
 extern unsigned long         dsa_dsm_tx_channels[];

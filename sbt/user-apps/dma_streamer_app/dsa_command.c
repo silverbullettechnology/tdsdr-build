@@ -74,9 +74,11 @@ int dsa_command_options (int argc, char **argv)
 				dsa_opt_len = size_bin(optarg);
 				if ( dsa_opt_len % DSM_BUS_WIDTH || dsa_opt_len < DSM_BUS_WIDTH )
 				{
-					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %u,\n"
+					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu,\n"
 					          "and must be a multiple of %u\n",
-					          optarg, DSM_BUS_WIDTH, DSM_MAX_SIZE, DSM_BUS_WIDTH);
+					          optarg, DSM_BUS_WIDTH, 
+					          dsa_dsm_limits.total_words * DSM_BUS_WIDTH,
+					          DSM_BUS_WIDTH);
 					return -1;
 				}
 				dsa_opt_len /= DSM_BUS_WIDTH;
@@ -86,8 +88,8 @@ int dsa_command_options (int argc, char **argv)
 				dsa_opt_len = size_dec(optarg);
 				if ( dsa_opt_len < 1 )
 				{
-					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %u\n",
-					          optarg, 1, DSM_MAX_SIZE / DSM_BUS_WIDTH);
+					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu\n",
+					          optarg, 1, dsa_dsm_limits.total_words);
 					return -1;
 				}
 				break;
@@ -237,9 +239,11 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 			case 's':
 				if ( (len = size_bin(optarg)) < DSM_BUS_WIDTH || len % DSM_BUS_WIDTH )
 				{
-					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %u,\n"
+					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu,\n"
 					          "and must be a multiple of %u\n",
-					          optarg, DSM_BUS_WIDTH, DSM_MAX_SIZE, DSM_BUS_WIDTH);
+					          optarg, DSM_BUS_WIDTH, 
+					          dsa_dsm_limits.total_words * DSM_BUS_WIDTH,
+					          DSM_BUS_WIDTH);
 					return -1;
 				}
 				len /= DSM_BUS_WIDTH;
@@ -248,8 +252,8 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 			case 'S':
 				if ( (len = size_dec(optarg)) < 1 )
 				{
-					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %u\n",
-					          optarg, 1, DSM_MAX_SIZE / DSM_BUS_WIDTH);
+					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu\n",
+					          optarg, 1, dsa_dsm_limits.total_words);
 					return -1;
 				}
 				break;
@@ -282,10 +286,22 @@ LOG_DEBUG("len %zu, paint %d, fmt %s, loc %s\n",
 		return -1;
 	}
 
-	// for either direction check against the max size
-	if ( len > DSM_MAX_SIZE / DSM_BUS_WIDTH )
+	// for either direction check against the max size - strictly speaking this should be
+	// against the appropriate DMA channel's limit, but presently it's the same value as
+	// the total_words limit
+	if ( len > dsa_dsm_limits.total_words )
 	{
-		LOG_ERROR("Invalid buffer size, maximum %u samples\n", DSM_MAX_SIZE / DSM_BUS_WIDTH);
+		LOG_ERROR("Invalid buffer size, maximum %lu samples\n",
+		          dsa_dsm_limits.total_words);
+		return -1;
+	}
+
+	// add to total and test that too
+	dsa_total_words += len;
+	if ( dsa_total_words > dsa_dsm_limits.total_words )
+	{
+		LOG_ERROR("Total buffer sizes too large, maximum aggregate %lu samples\n",
+		          dsa_dsm_limits.total_words);
 		return -1;
 	}
 

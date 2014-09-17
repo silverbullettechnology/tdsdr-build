@@ -47,6 +47,7 @@ unsigned    dsa_opt_timeout  = 0; // auto-calculated now
 const char *dsa_opt_dsm_dev  = DEF_DSM_DEVICE;
 const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
 long        dsa_opt_adjust   = 0;
+size_t      dsa_total_words  = 0;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];
@@ -54,6 +55,7 @@ char  env_data_path[PATH_MAX];
 struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
+struct dsm_limits     dsa_dsm_limits;
 struct dsm_chan_list *dsa_dsm_channels = NULL;
 unsigned long         dsa_dsm_rx_channels[2] = { 0, 2 };
 unsigned long         dsa_dsm_tx_channels[2] = { 1, 3 };
@@ -78,7 +80,7 @@ static const char *dsa_main_dev_name (int slot)
 void dsa_main_show_stats (const struct dsm_xfer_stats *st, int slot)
 {
 	printf("%s stats:\n", dsa_main_dev_name(slot));
-	if ( !st->starts )
+	if ( !st->starts && !st->errors )
 	{
 		printf ("  not run\n");
 		return;
@@ -195,6 +197,13 @@ int dsa_main_dev_reopen (unsigned long *mask)
 		LOG_DEBUG("open(%s): %s\n", dsa_opt_dsm_dev, strerror(errno));
 		return -1;
 	}
+
+	if ( dsa_ioctl_dsm_limits(&dsa_dsm_limits) )
+		stop("DSM_IOCG_LIMITS");
+	
+	LOG_INFO("DSM reports %lu total DMA channels\n", dsa_dsm_limits.channels);
+	LOG_INFO("DSM reports %lu words (%luMB) aggregate DMA limit\n",
+	         dsa_dsm_limits.total_words, dsa_dsm_limits.total_words >> 17);
 
 	free(dsa_dsm_channels);
 	if ( !(dsa_dsm_channels = dsa_ioctl_dsm_channels()) )
