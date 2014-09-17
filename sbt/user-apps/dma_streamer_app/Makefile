@@ -2,9 +2,20 @@ ifdef PETALINUX
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
 APP      := dma_streamer_app dsa_format
-APP_OBJS := dsa_main.o dsa_format.o dsa_channel.o dsa_command.o dsa_common.o log.o
-APP_OBJS += dsa_ioctl_dsm.o dsa_ioctl_adi_old.o dsa_ioctl_adi_new.o dsa_ioctl_dsxx.o
-APP_OBJS += dsa_ioctl_fifo_dev.o
+APP_OBJS := \
+	common/common.o \
+	common/log.o \
+	dsa/main.o \
+	dsa/format.o \
+	dsa/channel.o \
+	dsa/command.o \
+	dma/dsm.o \
+	fifo/adi_old.o \
+	fifo/adi_new.o \
+	fifo/dsxx.o \
+	fifo/dev.o \
+
+CFLAGS   += -I$(CURDIR)
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 CFLAGS   += -I$(PETALINUX)/software/user-modules/fifo_dev
 else
@@ -19,7 +30,7 @@ all: $(APP)
 dma_streamer_app: $(APP_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS) -lad9361
 
-dsa_format: dsa_format.c dsa_common.c log.c
+dsa_format: dsa/format.c common/common.c common/log.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
 
 clean:

@@ -21,8 +21,8 @@
 #include <stdint.h>
 #include <limits.h>
 
-#include "dsa_format.h"
-#include "dsa_sample.h"
+#include "dsa/format.h"
+#include "dsa/sample.h"
 
 
 #define DC_DEV_AD1  0x01

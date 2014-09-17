@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_dsxx.c
+/** \file      fifo/dsxx.c
  *  \brief     implementation of data source/sink controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -24,9 +24,9 @@
 #include <fd_main.h>
 
 #include "dsa_main.h"
-#include "dsa_ioctl_dsxx.h"
+#include "fifo/dsxx.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("ioctl_dsxx", LOG_LEVEL_INFO);
 
 

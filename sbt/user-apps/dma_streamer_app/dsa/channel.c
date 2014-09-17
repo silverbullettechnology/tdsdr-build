@@ -26,12 +26,12 @@
 
 #include <ad9361.h>
 
-#include "dsa_main.h"
-#include "dsa_sample.h"
-#include "dsa_channel.h"
-#include "dsa_common.h"
+#include "dsa/main.h"
+#include "dsa/sample.h"
+#include "dsa/channel.h"
+#include "common/common.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("channel", LOG_LEVEL_INFO);
 
 

@@ -31,10 +31,10 @@
 #include <dma_streamer_mod.h>
 #endif
 
-#include "dsa_format.h"
-#include "dsa_channel.h"
+#include "dsa/format.h"
+#include "dsa/channel.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("format", LOG_LEVEL_INFO);
 
 
@@ -636,7 +636,7 @@ void dsa_format_list(FILE *fp)
 }
 
 #ifdef UNIT_TEST
-#include "dsa_common.h"
+#include "common/common.h"
 
 char *argv0;
 char *opt_in_file    = NULL;

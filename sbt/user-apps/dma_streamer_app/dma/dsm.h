@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_dsm.h
+/** \file      dma/dsm.h
  *  \brief     interface declarations for common FIFO / DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_DSM_H_
-#define _INCLUDE_DSA_IOCTL_DSM_H_
+#ifndef _INCLUDE_DMA_DSM_H_
+#define _INCLUDE_DMA_DSM_H_
 
 #include <dma_streamer_mod.h>
 
@@ -37,4 +37,4 @@ int dsa_ioctl_dsm_continuous_start (unsigned long mask);
 
 
 
-#endif // _INCLUDE_DSA_IOCTL_DSM_H_
+#endif // _INCLUDE_DMA_DSM_H_

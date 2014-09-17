@@ -25,13 +25,13 @@
 
 #include <ad9361.h>
 
-#include "dsa_main.h"
-#include "dsa_ioctl_dsm.h"
-#include "dsa_ioctl_fifo_dev.h"
-#include "dsa_command.h"
-#include "dsa_common.h"
+#include "dsa/main.h"
+#include "dma/dsm.h"
+#include "fifo/dev.h"
+#include "dsa/command.h"
+#include "common/common.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 
 #define LIB_DIR "/usr/lib/ad9361"

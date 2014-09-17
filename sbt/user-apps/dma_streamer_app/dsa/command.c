@@ -23,17 +23,17 @@
 
 #include <dma_streamer_mod.h>
 
-#include "dsa_main.h"
-#include "dsa_ioctl_dsm.h"
-#include "dsa_ioctl_fifo_dev.h"
-#include "dsa_ioctl_adi_old.h"
-#include "dsa_ioctl_adi_new.h"
-#include "dsa_ioctl_dsxx.h"
-#include "dsa_sample.h"
-#include "dsa_channel.h"
-#include "dsa_common.h"
+#include "dsa/main.h"
+#include "dma/dsm.h"
+#include "fifo/dev.h"
+#include "fifo/adi_old.h"
+#include "fifo/adi_new.h"
+#include "fifo/dsxx.h"
+#include "dsa/sample.h"
+#include "dsa/channel.h"
+#include "common/common.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
 
 

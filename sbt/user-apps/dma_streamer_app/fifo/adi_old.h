@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_adi_old.h
+/** \file      fifo/adi_old.h
  *  \brief     interface declarations for legacy ADI FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_ADI_OLD_H_
-#define _INCLUDE_DSA_IOCTL_ADI_OLD_H_
+#ifndef _INCLUDE_FIFO_ADI_OLD_H_
+#define _INCLUDE_FIFO_ADI_OLD_H_
 
 #include <fd_main.h>
 
@@ -33,4 +33,4 @@ int dsa_ioctl_adi_old_get_fifo_cnt (struct fd_fifo_counts *fb);
 int dsa_ioctl_adi_old_chksum_reset (int dev);
 
 
-#endif // _INCLUDE_DSA_IOCTL_ADI_OLD_H_
+#endif // _INCLUDE_FIFO_ADI_OLD_H_

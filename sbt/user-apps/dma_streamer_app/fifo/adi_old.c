@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_adi_old.c
+/** \file      fifo/adi_old.c
  *  \brief     implementation for legacy ADI FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,9 +23,9 @@
 #include <fd_main.h>
 
 #include "dsa_main.h"
-#include "dsa_ioctl_adi_old.h"
+#include "fifo/adi_old.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("ioctl_adi_old", LOG_LEVEL_INFO);
 
 

@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_adi_new.c
+/** \file      fifo/adi_new.c
  *  \brief     implementation of new ADI DAC/ADC controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -24,9 +24,9 @@
 #include <fd_main.h>
 
 #include "dsa_main.h"
-#include "dsa_ioctl_adi_new.h"
+#include "fifo/adi_new.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("ioctl_adi_new", LOG_LEVEL_INFO);
 
 

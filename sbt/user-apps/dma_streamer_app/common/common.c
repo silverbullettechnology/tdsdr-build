@@ -27,7 +27,7 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("common", LOG_LEVEL_INFO);
 
 

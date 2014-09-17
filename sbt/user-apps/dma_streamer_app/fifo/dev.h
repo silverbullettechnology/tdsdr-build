@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_fifo_dev.h
+/** \file      fifo/dev.h
  *  \brief     interface declarations for common FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,12 +15,12 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_FIFO_DEV_H_
-#define _INCLUDE_DSA_IOCTL_FIFO_DEV_H_
+#ifndef _INCLUDE_FIFO_DEV_H_
+#define _INCLUDE_FIFO_DEV_H_
 
 #include <fd_main.h>
 
 int dsa_ioctl_fifo_dev_target_list (unsigned long *mask);
 
 
-#endif // _INCLUDE_DSA_IOCTL_FIFO_DEV_H_
+#endif // _INCLUDE_FIFO_DEV_H_

@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "log.h"     /* include our logging first here to get the various things it    */
+#include "common/log.h" /* include our logging first here to get the various things it */
 #undef LOG_INFO      /* defines, then undefine the macros it defines for the rest of   */
 #undef LOG_DEBUG     /* the application to use; they conflict with syslog.h            */
 #include <syslog.h>  /* include the actual syslog.h after undef'ing conflicting macros */

@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_fifo_dev.c
+/** \file      fifo/dev.c
  *  \brief     implementation of FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -24,7 +24,7 @@
 
 #include "dsa_main.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("ioctl_fifo_dev", LOG_LEVEL_INFO);
 
 

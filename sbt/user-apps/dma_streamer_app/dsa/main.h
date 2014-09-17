@@ -19,7 +19,7 @@
 #define _INCLUDE_DSA_MAIN_H_
 #include <dma_streamer_mod.h>
 #include <fd_main.h>
-#include "dsa_channel.h"
+#include "dsa/channel.h"
 
 #define DEF_SIZE         1048576
 #define DEF_REPS         1

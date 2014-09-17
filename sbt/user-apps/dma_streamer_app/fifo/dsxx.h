@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_dsxx.h
+/** \file      fifo/dsxx.h
  *  \brief     interface declarations for data source/sink controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_DSXX_H_
-#define _INCLUDE_DSA_IOCTL_DSXX_H_
+#ifndef _INCLUDE_FIFO_DSXX_H_
+#define _INCLUDE_FIFO_DSXX_H_
 
 
 int dsa_ioctl_dsrc_set_ctrl  (int dev, unsigned long  reg);
@@ -36,4 +36,4 @@ int dsa_ioctl_dsnk_get_bytes (int dev, unsigned long *reg);
 int dsa_ioctl_dsnk_get_sum   (int dev, unsigned long *reg);
 
 
-#endif // _INCLUDE_DSA_IOCTL_DSXX_H_
+#endif // _INCLUDE_FIFO_DSXX_H_

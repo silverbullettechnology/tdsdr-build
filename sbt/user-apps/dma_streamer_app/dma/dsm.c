@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_dsm.c
+/** \file      dma/dsm.c
  *  \brief     implementation of DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -27,7 +27,7 @@
 
 #include "dsa_main.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("ioctl", LOG_LEVEL_DEBUG);
 
 
