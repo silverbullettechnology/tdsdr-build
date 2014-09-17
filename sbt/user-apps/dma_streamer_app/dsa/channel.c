@@ -19,7 +19,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <sys/mman.h>
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
@@ -29,6 +28,7 @@
 #include "dsa/main.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
+#include "dma/dsm.h"
 #include "common/common.h"
 
 #include "common/log.h"
@@ -179,7 +179,6 @@ static struct dsa_channel_xfer **evt_to_xfer (struct dsa_channel_event *evt, int
 static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 {
 	size_t  size = len * sizeof(struct dsa_sample_pair);
-	void   *buff;
 	long    page;
 
 	// need page size for posix_memalign()
@@ -196,33 +195,21 @@ static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 		return 0;
 	}
 
-	// free old buffer
-	if ( (buff = xfer->smp) )
-	{
-		size = xfer->len * sizeof(struct dsa_sample_pair);
-		munlock(buff, size);
-		free(buff);
-	}
-	xfer->smp = NULL;
-	xfer->len = 0;
+	// free old buffer with reusable dsm_free() function
+	if ( xfer->smp )
+		dsm_free(xfer->smp, xfer->len);
 
-	if ( posix_memalign(&buff, page, size) )
+	// allocate with reusable dsm_alloc() function
+	xfer->len = 0;
+	if ( !(xfer->smp = dsm_alloc(size)) )
 	{
-		LOG_ERROR("Failed to posix_memalign() %zu bytes aligned to %lu: %s\n",
+		LOG_ERROR("Failed to dsm_alloc() %zu bytes aligned to %lu: %s\n",
 		          size, page, strerror(errno));
 		return -1;
 	}
-
-	if ( mlock(buff, size) )
-	{
-		LOG_ERROR("Failed to mlock() %zu bytes: %s\n", size, strerror(errno));
-		free(buff);
-		return -1;
-	}
+	xfer->len = len;
 
 	LOG_DEBUG("Buffer allocated successfully\n");
-	xfer->smp = buff;
-	xfer->len = len;
 	return len;
 }
 
@@ -452,14 +439,8 @@ void dsa_channel_cleanup (struct dsa_channel_event *evt)
 
 			if ( *xfer )
 			{
-				size_t  size = (*xfer)->len * sizeof(struct dsa_sample_pair);
-				void   *buff = (*xfer)->smp;
-
-				if ( buff )
-				{
-					munlock(buff, size);
-					free(buff);
-				}
+				if ( (*xfer)->smp )
+					dsm_free( (*xfer)->smp, (*xfer)->len );
 
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					for ( dir2 = DC_DIR_TX; dir2 <= DC_DIR_RX; dir2 <<= 1 )

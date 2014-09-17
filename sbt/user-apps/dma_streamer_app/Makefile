@@ -34,7 +34,7 @@ dsa_format: dsa/format.c common/common.c common/log.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
 
 clean:
-	-rm -f $(APP) *.elf *.gdb *.o
+	-rm -f $(APP) $(APP_OBJS)
 
 .PHONY: romfs image
 

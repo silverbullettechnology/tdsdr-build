@@ -32,8 +32,6 @@
 #define VOL_VERBOSE  2
 
 extern const char *dsa_argv0;
-extern int         dsa_dsm_dev;
-extern int         dsa_fifo_dev;
 extern int         dsa_adi_new;
 extern int         dsa_dsxx;
 
@@ -49,15 +47,13 @@ extern char  env_data_path[];
 extern struct format            *dsa_opt_format;
 extern struct dsa_channel_event  dsa_evt;
 
-extern struct dsm_limits     dsa_dsm_limits;
-extern struct dsm_chan_list *dsa_dsm_channels;
-extern unsigned long         dsa_dsm_rx_channels[];
-extern unsigned long         dsa_dsm_tx_channels[];
+extern unsigned long  dsa_dsm_rx_channels[];
+extern unsigned long  dsa_dsm_tx_channels[];
 
 void dsa_main_show_stats (const struct dsm_xfer_stats *st, int slot);
 void dsa_main_show_fifos (const struct fd_fifo_counts *buff);
 void dsa_main_dev_close (void);
-int dsa_main_dev_reopen (unsigned long *mask);
+int dsa_main_dev_reopen (void);
 
 int dsa_main_map   (int reps);
 int dsa_main_unmap (void);

@@ -181,8 +181,8 @@ enum {
 #define ADI_NEW_TX_TO_DDS_INCR(x)               (((x) >> 0) & 0xFFFF)
 
 
-int dsa_ioctl_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
-int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
+int fifo_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
+int fifo_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
 
 
 #endif // _INCLUDE_FIFO_ADI_NEW_H_

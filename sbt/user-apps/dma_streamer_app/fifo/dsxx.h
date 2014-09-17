@@ -19,21 +19,21 @@
 #define _INCLUDE_FIFO_DSXX_H_
 
 
-int dsa_ioctl_dsrc_set_ctrl  (int dev, unsigned long  reg);
-int dsa_ioctl_dsrc_get_stat  (int dev, unsigned long *reg);
-int dsa_ioctl_dsrc_set_bytes (int dev, unsigned long  reg);
-int dsa_ioctl_dsrc_get_bytes (int dev, unsigned long *reg);
-int dsa_ioctl_dsrc_get_sent  (int dev, unsigned long *reg);
-int dsa_ioctl_dsrc_set_type  (int dev, unsigned long  reg);
-int dsa_ioctl_dsrc_get_type  (int dev, unsigned long *reg);
-int dsa_ioctl_dsrc_set_reps  (int dev, unsigned long  reg);
-int dsa_ioctl_dsrc_get_reps  (int dev, unsigned long *reg);
-int dsa_ioctl_dsrc_get_rsent (int dev, unsigned long *reg);
+int fifo_dsrc_set_ctrl  (int dev, unsigned long  reg);
+int fifo_dsrc_get_stat  (int dev, unsigned long *reg);
+int fifo_dsrc_set_bytes (int dev, unsigned long  reg);
+int fifo_dsrc_get_bytes (int dev, unsigned long *reg);
+int fifo_dsrc_get_sent  (int dev, unsigned long *reg);
+int fifo_dsrc_set_type  (int dev, unsigned long  reg);
+int fifo_dsrc_get_type  (int dev, unsigned long *reg);
+int fifo_dsrc_set_reps  (int dev, unsigned long  reg);
+int fifo_dsrc_get_reps  (int dev, unsigned long *reg);
+int fifo_dsrc_get_rsent (int dev, unsigned long *reg);
 
-int dsa_ioctl_dsnk_set_ctrl  (int dev, unsigned long  reg);
-int dsa_ioctl_dsnk_get_stat  (int dev, unsigned long *reg);
-int dsa_ioctl_dsnk_get_bytes (int dev, unsigned long *reg);
-int dsa_ioctl_dsnk_get_sum   (int dev, unsigned long *reg);
+int fifo_dsnk_set_ctrl  (int dev, unsigned long  reg);
+int fifo_dsnk_get_stat  (int dev, unsigned long *reg);
+int fifo_dsnk_get_bytes (int dev, unsigned long *reg);
+int fifo_dsnk_get_sum   (int dev, unsigned long *reg);
 
 
 #endif // _INCLUDE_FIFO_DSXX_H_

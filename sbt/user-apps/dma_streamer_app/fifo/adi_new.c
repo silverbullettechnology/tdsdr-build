@@ -23,14 +23,12 @@
 
 #include <fd_main.h>
 
-#include "dsa_main.h"
+#include "fifo/dev.h"
+#include "fifo/private.h"
 #include "fifo/adi_new.h"
 
-#include "common/log.h"
-LOG_MODULE_STATIC("ioctl_adi_new", LOG_LEVEL_INFO);
 
-
-int dsa_ioctl_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *val)
+int fifo_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *val)
 {
 	struct fd_new_adi_regs  regs;
 	int                     ret;
@@ -40,7 +38,7 @@ int dsa_ioctl_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *v
 	regs.ofs = ofs;
 
 	// on failure print same error as kernelspace
-	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCG_ADI_NEW_REG, &regs)) )
+	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_ADI_NEW_REG, &regs)) )
 		printf("FD_IOCG_ADI_NEW_REG AD%c %cX OFS %04lx READ %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));
@@ -53,7 +51,7 @@ int dsa_ioctl_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *v
 }
 
 
-int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long val)
+int fifo_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long val)
 {
 	struct fd_new_adi_regs  regs;
 	int                     ret;
@@ -64,7 +62,7 @@ int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long v
 	regs.val = val;
 
 	// on failure print same error as kernelspace
-	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCS_ADI_NEW_REG_RB, &regs)) )
+	if ( (ret = ioctl(fifo_dev_fd, FD_IOCS_ADI_NEW_REG_RB, &regs)) )
 		printf("FD_IOCS_ADI_NEW_REG_RB AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));

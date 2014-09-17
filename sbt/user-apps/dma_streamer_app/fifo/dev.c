@@ -16,26 +16,67 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <errno.h>
 
 #include <fd_main.h>
 
-#include "dsa_main.h"
-
-#include "common/log.h"
-LOG_MODULE_STATIC("ioctl_fifo_dev", LOG_LEVEL_INFO);
+#include "fifo/dev.h"
+#include "fifo/private.h"
 
 
-int dsa_ioctl_fifo_dev_target_list (unsigned long *mask)
+int            fifo_dev_fd = -1;
+unsigned long  fifo_dev_target_mask = 0;
+
+
+void fifo_dev_close (void)
 {
-	int ret;
+	if ( fifo_dev_fd >= 0 )
+		close(fifo_dev_fd);
+	fifo_dev_fd = -1;
+}
+
+
+int fifo_dev_reopen (const char *node)
+{
+	int  ret;
+
+	fifo_dev_close();
 
 	errno = 0;
-	if ( (ret = ioctl(dsa_fifo_dev, FD_IOCG_TARGET_LIST, mask)) )
-		printf("FD_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
+	if ( (fifo_dev_fd = open(node, O_RDWR)) < 0 )
+		return fifo_dev_fd;
 
-	return ret;
+	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_TARGET_LIST, &fifo_dev_target_mask)) )
+	{
+		printf("FD_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
+		fifo_dev_close();
+		return -1;
+	}
+
+	return 0;
 }
+
+
+const char *fifo_dev_target_desc (unsigned long mask)
+{
+	static char buff[64];
+
+	snprintf(buff, sizeof(buff), "{ %s%s%s%s%s}",
+		     mask & FD_TARGT_ADI1 ? "adi1 " : "",
+		     mask & FD_TARGT_ADI2 ? "adi2 " : "",
+		     mask & FD_TARGT_NEW  ? "new: " : "",
+		     mask & FD_TARGT_DSX0 ? "dsx0 " : "",
+		     mask & FD_TARGT_DSX1 ? "dsx1 " : "");
+
+	return buff;
+}
+
 

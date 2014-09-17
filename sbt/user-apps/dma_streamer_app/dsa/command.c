@@ -77,7 +77,7 @@ int dsa_command_options (int argc, char **argv)
 					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu,\n"
 					          "and must be a multiple of %u\n",
 					          optarg, DSM_BUS_WIDTH, 
-					          dsa_dsm_limits.total_words * DSM_BUS_WIDTH,
+					          dsm_limits.total_words * DSM_BUS_WIDTH,
 					          DSM_BUS_WIDTH);
 					return -1;
 				}
@@ -89,7 +89,7 @@ int dsa_command_options (int argc, char **argv)
 				if ( dsa_opt_len < 1 )
 				{
 					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu\n",
-					          optarg, 1, dsa_dsm_limits.total_words);
+					          optarg, 1, dsm_limits.total_words);
 					return -1;
 				}
 				break;
@@ -242,7 +242,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu,\n"
 					          "and must be a multiple of %u\n",
 					          optarg, DSM_BUS_WIDTH, 
-					          dsa_dsm_limits.total_words * DSM_BUS_WIDTH,
+					          dsm_limits.total_words * DSM_BUS_WIDTH,
 					          DSM_BUS_WIDTH);
 					return -1;
 				}
@@ -253,7 +253,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 				if ( (len = size_dec(optarg)) < 1 )
 				{
 					LOG_ERROR("Invalid buffer size '%s' - minimum %u, maximum %lu\n",
-					          optarg, 1, dsa_dsm_limits.total_words);
+					          optarg, 1, dsm_limits.total_words);
 					return -1;
 				}
 				break;
@@ -289,19 +289,19 @@ LOG_DEBUG("len %zu, paint %d, fmt %s, loc %s\n",
 	// for either direction check against the max size - strictly speaking this should be
 	// against the appropriate DMA channel's limit, but presently it's the same value as
 	// the total_words limit
-	if ( len > dsa_dsm_limits.total_words )
+	if ( len > dsm_limits.total_words )
 	{
 		LOG_ERROR("Invalid buffer size, maximum %lu samples\n",
-		          dsa_dsm_limits.total_words);
+		          dsm_limits.total_words);
 		return -1;
 	}
 
 	// add to total and test that too
 	dsa_total_words += len;
-	if ( dsa_total_words > dsa_dsm_limits.total_words )
+	if ( dsa_total_words > dsm_limits.total_words )
 	{
 		LOG_ERROR("Total buffer sizes too large, maximum aggregate %lu samples\n",
-		          dsa_dsm_limits.total_words);
+		          dsm_limits.total_words);
 		return -1;
 	}
 
@@ -403,6 +403,59 @@ typedef enum
 }
 trigger_t;
 
+
+static const char *dsa_command_dev_name (int slot)
+{
+	int  dev = dsm_channels->list[slot].private >> 28 ? DC_DEV_AD2 : DC_DEV_AD1;
+	dev |= (dsm_channels->list[slot].flags & DSM_CHAN_DIR_TX) ? DC_DIR_TX : DC_DIR_RX;
+
+	switch ( dev )
+	{
+		case DC_DEV_AD1 | DC_DIR_TX: return dsa_dsxx ? "DSNK1" : "AD1 TX";
+		case DC_DEV_AD1 | DC_DIR_RX: return dsa_dsxx ? "DSRC1" : "AD1 RX";
+		case DC_DEV_AD2 | DC_DIR_TX: return dsa_dsxx ? "DSNK2" : "AD2 TX";
+		case DC_DEV_AD2 | DC_DIR_RX: return dsa_dsxx ? "DSRC2" : "AD2 RX";
+	}
+
+	return "???";
+}
+
+void dsa_command_show_stats (const struct dsm_xfer_stats *st, int slot)
+{
+	printf("%s stats:\n", dsa_command_dev_name(slot));
+	if ( !st->starts && !st->errors )
+	{
+		printf ("  not run\n");
+		return;
+	}
+
+	unsigned long long usec = st->total.tv_sec;
+	usec *= 1000000000;
+	usec += st->total.tv_nsec;
+	usec /= 1000;
+
+	unsigned long long rate = 0;
+	if ( usec > 0 )
+		rate = st->bytes / usec;
+
+	printf("  bytes    : %llu\n",      st->bytes);
+	printf("  total    : %lu.%09lu\n", st->total.tv_sec, st->total.tv_nsec);
+	printf("  rate     : %llu MB/s\n", rate);
+
+	printf("  starts   : %lu\n",       st->starts);
+	printf("  completes: %lu\n",       st->completes);
+	printf("  errors   : %lu\n",       st->errors);
+	printf("  timeouts : %lu\n",       st->timeouts);
+}
+
+void dsa_command_show_fifos (const struct fd_fifo_counts *buff)
+{
+	printf("  RX 1: %08lx/%08lx\n", buff->rx_1_ins, buff->rx_1_ext);
+	printf("  RX 2: %08lx/%08lx\n", buff->rx_2_ins, buff->rx_2_ext);
+	printf("  TX 1: %08lx/%08lx\n", buff->tx_1_ins, buff->tx_1_ext);
+	printf("  TX 2: %08lx/%08lx\n", buff->tx_2_ins, buff->tx_2_ext);
+}
+
 static void dsa_command_trigger_start (void)
 {
 	unsigned long reg;
@@ -414,9 +467,9 @@ static void dsa_command_trigger_start (void)
 		for ( dev = 0; dev < 2; dev++ )
 			if ( dsa_evt.tx[dev] )
 			{
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);
+				fifo_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);
 				reg |= ADI_NEW_TX_ENABLE;
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, reg);
+				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, reg);
 			}
 	}
 
@@ -425,10 +478,10 @@ static void dsa_command_trigger_start (void)
 		for ( dev = 0; dev < 2; dev++ )
 		{
 			if ( dsa_evt.tx[dev] )
-				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
+				fifo_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
 
 			if ( dsa_evt.rx[dev] )
-				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
+				fifo_dsrc_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
 		}
 
 	// Old FIFO controls
@@ -437,7 +490,7 @@ static void dsa_command_trigger_start (void)
 		{
 			reg = dsa_channel_ctrl(&dsa_evt, dev, 1);
 			if ( dsa_evt.tx[dev] || dsa_evt.rx[dev] )
-				dsa_ioctl_adi_old_set_ctrl(dev, reg);
+				fifo_adi_old_set_ctrl(dev, reg);
 		}
 }
 
@@ -524,11 +577,33 @@ for ( ret = 0; ret <= argc; ret++ )
 	if ( exp )
 		dsa_channel_calc_exp(&dsa_evt, reps, dsa_dsxx);
 
-	// try mapping once, first time through
-	if ( dsa_main_map(reps) )
+	// mapping for DMA
+	for ( dev = 0; dev < 2; dev++ )
 	{
-		LOG_ERROR("DMA mapping failed: %s\n", strerror(errno));
-		return -1;
+		int err = 0;
+
+		if ( dsa_evt.tx[dev] )
+		{
+			ret = dsm_map_single(dsa_dsm_tx_channels[dev], 1,
+			                     dsa_evt.tx[dev]->smp, dsa_evt.tx[dev]->len, reps);
+			if ( ret ) 
+				err++;
+		}
+
+		if ( dsa_evt.rx[dev] )
+		{
+			ret = dsm_map_single(dsa_dsm_rx_channels[dev], 0,
+			                     dsa_evt.rx[dev]->smp, dsa_evt.rx[dev]->len, reps);
+			if ( ret ) 
+				err++;
+		}
+
+		if ( err )
+		{
+			LOG_ERROR("DMA mapping failed: %s\n", strerror(errno));
+			dsm_unmap();
+			return -1;
+		}
 	}
 
 	// set timeout: if user's specified a value use that even if it's wrong. 
@@ -537,7 +612,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		timeout = dsa_channel_timeout(&dsa_evt, 4);
 	if ( timeout < 100 )
 		timeout = 100;
-	dsa_ioctl_dsm_set_timeout(timeout);
+	dsm_set_timeout(timeout);
 
 #if 0
 	if ( dsa_evt.rx[0] || dsa_evt.rx[1] )
@@ -554,13 +629,13 @@ for ( ret = 0; ret <= argc; ret++ )
 		for ( dev = 0; dev < 2; dev++ ) 
 		{ 
 			// RX side
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
 			                        ADI_NEW_RX_RSTN);
 
 			// TX side
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
+			fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
+			fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
 			                        ADI_NEW_RX_RSTN);
 		} 
 	
@@ -571,15 +646,15 @@ for ( ret = 0; ret <= argc; ret++ )
 			// RX side
 			if ( dsa_evt.rx[dev] )
 			{
-				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
-				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_RESET);
+				fifo_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				fifo_dsrc_set_ctrl(dev, FD_DSXX_CTRL_RESET);
 			}
 
 			// TX side
 			if ( dsa_evt.tx[dev] )
 			{
-				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
-				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_RESET);
+				fifo_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				fifo_dsnk_set_ctrl(dev, FD_DSXX_CTRL_RESET);
 			}
 		}
 
@@ -587,11 +662,11 @@ for ( ret = 0; ret <= argc; ret++ )
 	else
 		for ( dev = 0; dev < 2; dev++ )
 		{
-			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_RESET);
-			dsa_ioctl_adi_old_set_ctrl(dev, FD_LVDS_CTRL_STOP);
+			fifo_adi_old_set_ctrl(dev, FD_LVDS_CTRL_RESET);
+			fifo_adi_old_set_ctrl(dev, FD_LVDS_CTRL_STOP);
 
 			if ( dsa_evt.tx[dev] )
-				dsa_ioctl_adi_old_chksum_reset(dev);
+				fifo_adi_old_chksum_reset(dev);
 		}
 
 	// New FIFO controls: Setup channels based on transfer setup
@@ -602,18 +677,18 @@ for ( ret = 0; ret <= argc; ret++ )
 
 			// RX channel 1 parameters - minimal setup for now
 			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
 
 			// RX channel 2 parameters - minimal setup for now
 			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
 
 			// Always using T2R2 for now - discard the extra samples
-			dsa_ioctl_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
+			fifo_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
 			reg &= ~ADI_NEW_RX_R1_MODE;
-			dsa_ioctl_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
+			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
 
 			// TX channel parameters - Always using T2R2
 			if ( dsa_evt.tx[dev] )
@@ -622,11 +697,11 @@ for ( ret = 0; ret <= argc; ret++ )
 				reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);
 				reg |= ADI_NEW_TX_DATA_FORMAT;
 				reg &= ~ADI_NEW_TX_R1_MODE;
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
+				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
 
 				// Rate 3 for T2R2 mode
 				reg = ADI_NEW_TX_TO_RATE(3);
-				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
+				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 			}
 		} 
 
@@ -638,12 +713,12 @@ for ( ret = 0; ret <= argc; ret++ )
 			if ( dsa_evt.rx[dev] )
 			{
 				unsigned long len = dsa_evt.rx[dev]->len - dsa_opt_adjust;
-				dsa_ioctl_dsrc_set_bytes(dev, len * DSM_BUS_WIDTH);
-				dsa_ioctl_dsrc_set_reps(dev, reps);
+				fifo_dsrc_set_bytes(dev, len * DSM_BUS_WIDTH);
+				fifo_dsrc_set_reps(dev, reps);
 			}
 
 			if ( dsa_evt.tx[dev] )
-				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
+				fifo_dsnk_set_ctrl(dev, FD_DSXX_CTRL_ENABLE);
 		}
 
 	// Old FIFO controls: Program FIFO counters with expected buffer size
@@ -651,10 +726,10 @@ for ( ret = 0; ret <= argc; ret++ )
 		for ( dev = 0; dev < 2; dev++ )
 		{
 			if ( dsa_evt.tx[dev] )
-				dsa_ioctl_adi_old_set_tx_cnt(dev, dsa_evt.tx[dev]->len, reps);
+				fifo_adi_old_set_tx_cnt(dev, dsa_evt.tx[dev]->len, reps);
 		
 			if ( dsa_evt.rx[dev] )
-				dsa_ioctl_adi_old_set_rx_cnt(dev, dsa_evt.rx[dev]->len, reps);
+				fifo_adi_old_set_rx_cnt(dev, dsa_evt.rx[dev]->len, reps);
 		}
 
 	if ( ctrl && !dsa_adi_new && !dsa_dsxx )
@@ -668,13 +743,13 @@ for ( ret = 0; ret <= argc; ret++ )
 			{
 				unsigned long val;
 
-				ret = dsa_ioctl_adi_old_get_ctrl(dev, &val);
+				ret = fifo_adi_old_get_ctrl(dev, &val);
 				printf("ADI_G_CTRL  [%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 
-				ret = dsa_ioctl_adi_old_get_tx_cnt(dev, &val);
+				ret = fifo_adi_old_get_tx_cnt(dev, &val);
 				printf("ADI_G_TX_CNT[%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 
-				ret = dsa_ioctl_adi_old_get_rx_cnt(dev, &val);
+				ret = fifo_adi_old_get_rx_cnt(dev, &val);
 				printf("ADI_G_RX_CNT[%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 			}
 		}
@@ -685,8 +760,8 @@ for ( ret = 0; ret <= argc; ret++ )
 	{
 		struct fd_fifo_counts fb;
 
-		dsa_ioctl_adi_old_get_fifo_cnt(&fb);
-		dsa_main_show_fifos(&fb);
+		fifo_adi_old_get_fifo_cnt(&fb);
+		dsa_command_show_fifos(&fb);
 	}
 
 
@@ -696,7 +771,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		if ( ret < 0 )
 			LOG_ERROR("API call failed: %s\n", strerror(errno));
 
-		dsa_main_unmap();
+		dsm_unmap();
 		return -1;
 	}
 
@@ -714,23 +789,23 @@ for ( ret = 0; ret <= argc; ret++ )
 
 				LOG_INFO("Triggering DMA...\n");
 				errno = 0;
-				if ( !dsa_ioctl_dsm_oneshot_start(~0) && !stats )
+				if ( !dsm_oneshot_start(~0) && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				dsa_command_trigger_start();
 
-				if ( !dsa_ioctl_dsm_oneshot_wait(~0) && !stats )
+				if ( !dsm_oneshot_wait(~0) && !stats )
 					LOG_INFO("DMA triggered\n");
 
 				if ( stats )
 				{
-					struct dsm_chan_stats *sb = dsa_ioctl_dsm_get_stats();
+					struct dsm_chan_stats *sb = dsm_get_stats();
 					if ( sb )
 					{
 						int slot;
-						for ( slot = 0; slot < dsa_dsm_channels->size; slot++ )
+						for ( slot = 0; slot < dsm_channels->size; slot++ )
 							if ( sb->mask & (1 << slot) )
-								dsa_main_show_stats(&sb->list[slot], slot);
+								dsa_command_show_stats(&sb->list[slot], slot);
 					}
 					else
 						LOG_ERROR("Failed to get stats: %s\n", strerror(errno));
@@ -747,24 +822,24 @@ for ( ret = 0; ret <= argc; ret++ )
 		case TRIG_ONCE:
 			LOG_INFO("Triggering DMA...\n");
 			errno = 0;
-			if ( !dsa_ioctl_dsm_oneshot_start(~0) && !stats )
+			if ( !dsm_oneshot_start(~0) && !stats )
 				LOG_INFO("DMA triggered\n");
 
 			dsa_command_trigger_start();
 
-			if ( !dsa_ioctl_dsm_oneshot_wait(~0) && !stats )
+			if ( !dsm_oneshot_wait(~0) && !stats )
 				LOG_INFO("DMA triggered\n");
 			break;
 
 		case TRIG_CONT:
 			LOG_INFO("Starting DMA, press any key to stop...\n");
-			dsa_ioctl_dsm_continuous_start(~0);
+			dsm_continuous_start(~0);
 			dsa_command_trigger_start();
 
 			terminal_pause();
 
 			LOG_INFO("Stopping DMA...\n");
-			dsa_ioctl_dsm_continuous_stop(~0);
+			dsm_continuous_stop(~0);
 			break;
 	}
 
@@ -777,8 +852,8 @@ for ( ret = 0; ret <= argc; ret++ )
 	{
 		struct fd_fifo_counts fb;
 
-		dsa_ioctl_adi_old_get_fifo_cnt(&fb);
-		dsa_main_show_fifos(&fb);
+		fifo_adi_old_get_fifo_cnt(&fb);
+		dsa_command_show_fifos(&fb);
 	}
 
 	// For TX transfers, check 
@@ -789,12 +864,12 @@ for ( ret = 0; ret <= argc; ret++ )
 				continue;
 
 			if ( dsa_dsxx )
-				dsa_ioctl_dsnk_get_sum(dev, sum);
+				fifo_dsnk_get_sum(dev, sum);
 
 			else
 			{
-				dsa_ioctl_adi_old_get_sum(dev, sum);
-				dsa_ioctl_adi_old_get_last(dev, last);
+				fifo_adi_old_get_sum(dev, sum);
+				fifo_adi_old_get_last(dev, last);
 				printf("Last wrd: %08lx%08lx\n", last[0], last[1]);
 			}
 
@@ -820,22 +895,22 @@ for ( ret = 0; ret <= argc; ret++ )
 
 			if ( dsa_evt.rx[dev] )
 			{
-				dsa_ioctl_dsrc_get_stat(dev, &reg);	
+				fifo_dsrc_get_stat(dev, &reg);	
 				printf("DSRC%d: stat %lu { %s%s%s}\n", dev, reg,
 				       reg & FD_DSXX_STAT_ENABLED ? "enabled " : "",
 				       reg & FD_DSXX_STAT_DONE    ? "done "    : "",
 				       reg & FD_DSXX_STAT_ERROR   ? "error "   : "");
 
-				dsa_ioctl_dsrc_get_sent(dev, &reg);	
+				fifo_dsrc_get_sent(dev, &reg);	
 				printf ("DSRC%d: %lu bytes sent\n", dev, reg);
 
-				dsa_ioctl_dsrc_get_reps(dev, &reg);	
+				fifo_dsrc_get_reps(dev, &reg);	
 				printf ("DSRC%d: %lu reps left\n", dev, reg);
 
-				dsa_ioctl_dsrc_get_rsent(dev, &reg);	
+				fifo_dsrc_get_rsent(dev, &reg);	
 				printf ("DSRC%d: %lu reps sent\n", dev, reg);
 
-				dsa_ioctl_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				fifo_dsrc_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
 
 				uint64_t *ptr = (uint64_t *)dsa_evt.rx[dev]->smp;
 				uint64_t  val = 0;
@@ -863,16 +938,16 @@ for ( ret = 0; ret <= argc; ret++ )
 
 			if ( dsa_evt.tx[dev] )
 			{
-				dsa_ioctl_dsnk_get_stat(dev, &reg);	
+				fifo_dsnk_get_stat(dev, &reg);	
 				printf("DSNK%d: stat %lu { %s%s%s}\n", dev, reg,
 				       reg & FD_DSXX_STAT_ENABLED ? "enabled " : "",
 				       reg & FD_DSXX_STAT_DONE    ? "done "    : "",
 				       reg & FD_DSXX_STAT_ERROR   ? "error "   : "");
 
-				dsa_ioctl_dsnk_get_bytes(dev, &reg);	
+				fifo_dsnk_get_bytes(dev, &reg);	
 				printf ("DSNK%d: %lu bytes received\n", dev, reg);
 
-				dsa_ioctl_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
+				fifo_dsnk_set_ctrl(dev, FD_DSXX_CTRL_DISABLE);
 			}
 		}
 
@@ -883,26 +958,26 @@ for ( ret = 0; ret <= argc; ret++ )
 			unsigned long val;
 			printf("After run:\n");
 
-			ret = dsa_ioctl_adi_old_get_ctrl(dev, &val);
+			ret = fifo_adi_old_get_ctrl(dev, &val);
 			printf("ADI_G_CTRL  [%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 
-			ret = dsa_ioctl_adi_old_get_tx_cnt(dev, &val);
+			ret = fifo_adi_old_get_tx_cnt(dev, &val);
 			printf("ADI_G_TX_CNT[%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 
-			ret = dsa_ioctl_adi_old_get_rx_cnt(dev, &val);
+			ret = fifo_adi_old_get_rx_cnt(dev, &val);
 			printf("ADI_G_RX_CNT[%d]: %08x: %d: %s\n", dev, val, ret, strerror(errno));
 		}
 	}
 
 	if ( stats && trig != TRIG_PRESS )
 	{
-		struct dsm_chan_stats *sb = dsa_ioctl_dsm_get_stats();
+		struct dsm_chan_stats *sb = dsm_get_stats();
 		if ( sb )
 		{
 			int slot;
-			for ( slot = 0; slot < dsa_dsm_channels->size; slot++ )
+			for ( slot = 0; slot < dsm_channels->size; slot++ )
 				if ( sb->mask & (1 << slot) )
-					dsa_main_show_stats(&sb->list[slot], slot);
+					dsa_command_show_stats(&sb->list[slot], slot);
 		}
 		else
 			LOG_ERROR("Failed to get stats: %s\n", strerror(errno));
@@ -934,7 +1009,7 @@ for ( ret = 0; ret <= argc; ret++ )
 			}
 	}
 
-	if ( dsa_main_unmap() )
+	if ( dsm_unmap() )
 		LOG_ERROR("DMA unmapping failed: %s\n", strerror(errno));
 
 	// save sink buffers 

@@ -20,20 +20,33 @@
 
 #include <dma_streamer_mod.h>
 
-struct dsm_chan_list *dsa_ioctl_dsm_channels (void);
 
-int dsa_ioctl_dsm_map_chan (unsigned long slot, unsigned long tx,
-                            unsigned long size, struct dsm_xfer_buff *list);
+extern struct dsm_limits     dsm_limits;
+extern struct dsm_chan_list *dsm_channels;
 
-struct dsm_chan_stats *dsa_ioctl_dsm_get_stats (void);
 
-int dsa_ioctl_dsm_limits           (struct dsm_limits *limits);
-int dsa_ioctl_dsm_unmap            (void);
-int dsa_ioctl_dsm_set_timeout      (unsigned long timeout);
-int dsa_ioctl_dsm_oneshot_start    (unsigned long mask);
-int dsa_ioctl_dsm_oneshot_wait     (unsigned long mask);
-int dsa_ioctl_dsm_continuous_stop  (unsigned long mask);
-int dsa_ioctl_dsm_continuous_start (unsigned long mask);
+void dsm_close (void);
+int dsm_reopen (const char *node);
+
+
+void *dsm_alloc (size_t size);
+void dsm_free (void *addr, size_t size);
+
+
+int dsm_map_array (unsigned long slot, unsigned long tx,
+                   unsigned long size, struct dsm_xfer_buff *list);
+
+int dsm_map_single (unsigned long slot, unsigned long tx, void *addr,
+                    unsigned long size, unsigned long reps);
+
+struct dsm_chan_stats *dsm_get_stats (void);
+
+int dsm_unmap            (void);
+int dsm_set_timeout      (unsigned long timeout);
+int dsm_oneshot_start    (unsigned long mask);
+int dsm_oneshot_wait     (unsigned long mask);
+int dsm_continuous_stop  (unsigned long mask);
+int dsm_continuous_start (unsigned long mask);
 
 
 

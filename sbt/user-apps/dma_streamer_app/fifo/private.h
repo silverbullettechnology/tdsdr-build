@@ -1,5 +1,5 @@
-/** \file      fifo/dev.h
- *  \brief     interface declarations for common FIFO controls
+/** \file      fifo/private.h
+ *  \brief     private declarations for common FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,20 +15,11 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_FIFO_DEV_H_
-#define _INCLUDE_FIFO_DEV_H_
-
-#include <fd_main.h>
+#ifndef _INCLUDE_FIFO_PRIVATE_H_
+#define _INCLUDE_FIFO_PRIVATE_H_
 
 
-extern unsigned long  fifo_dev_target_mask;
+extern int  fifo_dev_fd;
 
 
-int  fifo_dev_reopen (const char *node);
-void fifo_dev_close  (void);
-
-
-const char *fifo_dev_target_desc (unsigned long mask);
-
-
-#endif // _INCLUDE_FIFO_DEV_H_
+#endif // _INCLUDE_FIFO_PRIVATE_H_

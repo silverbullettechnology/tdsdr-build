@@ -37,8 +37,6 @@ LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 #define LIB_DIR "/usr/lib/ad9361"
 
 const char *dsa_argv0;
-int         dsa_dsm_dev = -1;
-int         dsa_fifo_dev = -1;
 int         dsa_adi_new = 0;
 int         dsa_dsxx = 0;
 
@@ -55,219 +53,87 @@ char  env_data_path[PATH_MAX];
 struct format *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
-struct dsm_limits     dsa_dsm_limits;
-struct dsm_chan_list *dsa_dsm_channels = NULL;
-unsigned long         dsa_dsm_rx_channels[2] = { 0, 2 };
-unsigned long         dsa_dsm_tx_channels[2] = { 1, 3 };
+unsigned long  dsa_dsm_rx_channels[2] = { 0, 2 };
+unsigned long  dsa_dsm_tx_channels[2] = { 1, 3 };
 
 
-static const char *dsa_main_dev_name (int slot)
-{
-	int  dev = dsa_dsm_channels->list[slot].private >> 28 ? DC_DEV_AD2 : DC_DEV_AD1;
-	dev |= (dsa_dsm_channels->list[slot].flags & DSM_CHAN_DIR_TX) ? DC_DIR_TX : DC_DIR_RX;
-
-	switch ( dev )
-	{
-		case DC_DEV_AD1 | DC_DIR_TX: return dsa_dsxx ? "DSNK1" : "AD1 TX";
-		case DC_DEV_AD1 | DC_DIR_RX: return dsa_dsxx ? "DSRC1" : "AD1 RX";
-		case DC_DEV_AD2 | DC_DIR_TX: return dsa_dsxx ? "DSNK2" : "AD2 TX";
-		case DC_DEV_AD2 | DC_DIR_RX: return dsa_dsxx ? "DSRC2" : "AD2 RX";
-	}
-
-	return "???";
-}
-
-void dsa_main_show_stats (const struct dsm_xfer_stats *st, int slot)
-{
-	printf("%s stats:\n", dsa_main_dev_name(slot));
-	if ( !st->starts && !st->errors )
-	{
-		printf ("  not run\n");
-		return;
-	}
-
-	unsigned long long usec = st->total.tv_sec;
-	usec *= 1000000000;
-	usec += st->total.tv_nsec;
-	usec /= 1000;
-
-	unsigned long long rate = 0;
-	if ( usec > 0 )
-		rate = st->bytes / usec;
-
-	printf("  bytes    : %llu\n",      st->bytes);
-	printf("  total    : %lu.%09lu\n", st->total.tv_sec, st->total.tv_nsec);
-	printf("  rate     : %llu MB/s\n", rate);
-
-	printf("  starts   : %lu\n",       st->starts);
-	printf("  completes: %lu\n",       st->completes);
-	printf("  errors   : %lu\n",       st->errors);
-	printf("  timeouts : %lu\n",       st->timeouts);
-}
-
-void dsa_main_show_fifos (const struct fd_fifo_counts *buff)
-{
-	printf("  RX 1: %08lx/%08lx\n", buff->rx_1_ins, buff->rx_1_ext);
-	printf("  RX 2: %08lx/%08lx\n", buff->rx_2_ins, buff->rx_2_ext);
-	printf("  TX 1: %08lx/%08lx\n", buff->tx_1_ins, buff->tx_1_ext);
-	printf("  TX 2: %08lx/%08lx\n", buff->tx_2_ins, buff->tx_2_ext);
-}
-
-
-static char *target_desc (int mask)
-{
-	static char buff[64];
-
-	snprintf(buff, sizeof(buff), "{ %s%s%s%s%s}",
-		     mask & FD_TARGT_ADI1 ? "adi1 " : "",
-		     mask & FD_TARGT_ADI2 ? "adi2 " : "",
-		     mask & FD_TARGT_NEW  ? "new: " : "",
-		     mask & FD_TARGT_DSX0 ? "dsx0 " : "",
-		     mask & FD_TARGT_DSX1 ? "dsx1 " : "");
-
-	return buff;
-}
-
-
-int dsa_main_map (int reps)
-{
-	struct dsm_xfer_buff  xfer;
-	int                   ret;
-	int                   dev;
-
-	if ( dsa_dsm_dev < 0 )
-		return -1;
-
-	errno = 0;
-	for ( dev = 0; dev < 2; dev++ )
-	{
-		if ( dsa_evt.tx[dev] )
-		{
-			xfer.addr = (unsigned long)dsa_evt.tx[dev]->smp;
-			xfer.size = dsa_evt.tx[dev]->len;
-			xfer.reps = reps;
-			if ( (ret = dsa_ioctl_dsm_map_chan(dsa_dsm_tx_channels[dev], 1, 1, &xfer)) )
-				goto error;
-		}
-
-		if ( dsa_evt.rx[dev] )
-		{
-			xfer.addr = (unsigned long)dsa_evt.rx[dev]->smp;
-			xfer.size = dsa_evt.rx[dev]->len;
-			xfer.reps = reps;
-			if ( (ret = dsa_ioctl_dsm_map_chan(dsa_dsm_rx_channels[dev], 0, 1, &xfer)) )
-				goto error;
-		}
-	}
-
-	return 0;
-
-error:
-	return -1;
-}
-
-
-int dsa_main_unmap (void)
-{
-	if ( dsa_dsm_dev < 0 )
-		return -1;
-
-	return dsa_ioctl_dsm_unmap();
-}
 
 
 void dsa_main_dev_close (void)
 {
-	if ( dsa_dsm_dev >= 0 )
-		close(dsa_dsm_dev);
-	dsa_dsm_dev = -1;
-
-	if ( dsa_fifo_dev >= 0 )
-		close(dsa_fifo_dev);
-	dsa_fifo_dev = -1;
+	dsm_close();
+	fifo_dev_close();
 }
 
 
-int dsa_main_dev_reopen (unsigned long *mask)
+int dsa_main_dev_reopen (void)
 {
-	dsa_main_dev_close();
-
-	if ( (dsa_dsm_dev = open(dsa_opt_dsm_dev, O_RDWR)) < 0 )
+	if ( dsm_reopen(dsa_opt_dsm_dev) )
 	{
 		LOG_DEBUG("open(%s): %s\n", dsa_opt_dsm_dev, strerror(errno));
 		return -1;
 	}
 
-	if ( dsa_ioctl_dsm_limits(&dsa_dsm_limits) )
-		stop("DSM_IOCG_LIMITS");
-	
-	LOG_INFO("DSM reports %lu total DMA channels\n", dsa_dsm_limits.channels);
+	LOG_INFO("DSM reports %lu total DMA channels\n", dsm_limits.channels);
 	LOG_INFO("DSM reports %lu words (%luMB) aggregate DMA limit\n",
-	         dsa_dsm_limits.total_words, dsa_dsm_limits.total_words >> 17);
-
-	free(dsa_dsm_channels);
-	if ( !(dsa_dsm_channels = dsa_ioctl_dsm_channels()) )
-		stop("DSM_IOCG_CHANNELS");
+	         dsm_limits.total_words, dsm_limits.total_words >> 17);
 
 	int i;
-	printf("dsa_ioctl_dsm_channels() gave %d channels:\n", dsa_dsm_channels->size);
-	for ( i = 0; i < dsa_dsm_channels->size; i++ )
+	printf("dsm_channels: %d channels:\n", dsm_channels->size);
+	for ( i = 0; i < dsm_channels->size; i++ )
 	{
 		LOG_DEBUG("%2d: private:%08lx flags:%08lx width:%02u align:%02u "
 		          "device:%s driver:%s\n", i,
-		          dsa_dsm_channels->list[i].private,
-		          dsa_dsm_channels->list[i].flags,
-		          (1 << (dsa_dsm_channels->list[i].width + 3)),
-		          (1 << (dsa_dsm_channels->list[i].align + 3)),
-		          dsa_dsm_channels->list[i].device,
-		          dsa_dsm_channels->list[i].driver);
+		          dsm_channels->list[i].private,
+		          dsm_channels->list[i].flags,
+		          (1 << (dsm_channels->list[i].width + 3)),
+		          (1 << (dsm_channels->list[i].align + 3)),
+		          dsm_channels->list[i].device,
+		          dsm_channels->list[i].driver);
 
-		switch ( dsa_dsm_channels->list[i].flags & DSM_CHAN_DIR_MASK )
+		switch ( dsm_channels->list[i].flags & DSM_CHAN_DIR_MASK )
 		{
 			case DSM_CHAN_DIR_RX:
-				switch ( dsa_dsm_channels->list[i].private & 0xF0000000 )
+				switch ( dsm_channels->list[i].private & 0xF0000000 )
 				{
 					case 0x00000000:
 						dsa_dsm_rx_channels[0] = i;
-						printf("    using for RX1\n");
+						printf("using channel %d for RX1\n", i);
 						break;
 
 					case 0x10000000:
 						dsa_dsm_rx_channels[1] = i;
-						printf("    using for RX2\n");
+						printf("using channel %d for RX2\n", i);
 						break;
 				}
 				break;
 
 			case DSM_CHAN_DIR_TX:
-				switch ( dsa_dsm_channels->list[i].private & 0xF0000000 )
+				switch ( dsm_channels->list[i].private & 0xF0000000 )
 				{
 					case 0x00000000:
 						dsa_dsm_tx_channels[0] = i;
-						printf("    using for TX1\n");
+						printf("using channel %d for TX1\n", i);
 						break;
 
 					case 0x10000000:
 						dsa_dsm_tx_channels[1] = i;
-						printf("    using for TX2\n");
+						printf("using channel %d for TX2\n", i);
 						break;
 				}
 				break;
 		}
 	}
 
-	if ( (dsa_fifo_dev = open(dsa_opt_fifo_dev, O_RDWR)) < 0 )
+	if ( fifo_dev_reopen(dsa_opt_fifo_dev) )
 	{
 		LOG_DEBUG("open(%s): %s\n", dsa_opt_fifo_dev, strerror(errno));
 		dsa_main_dev_close();
 		return -1;
 	}
 
-	if ( dsa_ioctl_fifo_dev_target_list(mask) )
-		stop("FD_IOCG_TARGET_LIST");
-
-	LOG_DEBUG("Supported targets: %s\n", target_desc(*mask));
-	if ( !*mask )
+	LOG_DEBUG("Supported targets: %s\n", fifo_dev_target_desc(fifo_dev_target_mask));
+	if ( !fifo_dev_target_mask )
 	{
 		LOG_ERROR("No supported targets in this build; reconfigure your PetaLinux with the path to\n"
 		       "your hardware project's BSP include directory, containing xparameters.h.  The\n"
@@ -395,10 +261,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	unsigned long  mask;
-	if ( dsa_main_dev_reopen(&mask) < 0 )
+	if ( dsa_main_dev_reopen() < 0 )
 		stop("failed to open device nodes");
-	dsa_adi_new = mask & FD_TARGT_NEW;
+	dsa_adi_new = fifo_dev_target_mask & FD_TARGT_NEW;
 	LOG_INFO("Using %s ADI access\n", dsa_adi_new ? "new" : "old");
 
 	// iterative buffer setup of new dsa_channel_event struct
