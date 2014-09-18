@@ -584,16 +584,16 @@ for ( ret = 0; ret <= argc; ret++ )
 
 		if ( dsa_evt.tx[dev] )
 		{
-			ret = dsm_map_single(dsa_dsm_tx_channels[dev], 1,
-			                     dsa_evt.tx[dev]->smp, dsa_evt.tx[dev]->len, reps);
+			ret = dsm_map_user(dsa_dsm_tx_channels[dev], 1,
+			                   dsa_evt.tx[dev]->smp, dsa_evt.tx[dev]->len);
 			if ( ret ) 
 				err++;
 		}
 
 		if ( dsa_evt.rx[dev] )
 		{
-			ret = dsm_map_single(dsa_dsm_rx_channels[dev], 0,
-			                     dsa_evt.rx[dev]->smp, dsa_evt.rx[dev]->len, reps);
+			ret = dsm_map_user(dsa_dsm_rx_channels[dev], 0,
+			                   dsa_evt.rx[dev]->smp, dsa_evt.rx[dev]->len);
 			if ( ret ) 
 				err++;
 		}
@@ -601,7 +601,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		if ( err )
 		{
 			LOG_ERROR("DMA mapping failed: %s\n", strerror(errno));
-			dsm_unmap();
+			dsm_cleanup();
 			return -1;
 		}
 	}
@@ -771,7 +771,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		if ( ret < 0 )
 			LOG_ERROR("API call failed: %s\n", strerror(errno));
 
-		dsm_unmap();
+		dsm_cleanup();
 		return -1;
 	}
 
@@ -833,13 +833,13 @@ for ( ret = 0; ret <= argc; ret++ )
 
 		case TRIG_CONT:
 			LOG_INFO("Starting DMA, press any key to stop...\n");
-			dsm_continuous_start(~0);
+			dsm_cyclic_start(~0);
 			dsa_command_trigger_start();
 
 			terminal_pause();
 
 			LOG_INFO("Stopping DMA...\n");
-			dsm_continuous_stop(~0);
+			dsm_cyclic_stop(~0);
 			break;
 	}
 
@@ -1009,7 +1009,7 @@ for ( ret = 0; ret <= argc; ret++ )
 			}
 	}
 
-	if ( dsm_unmap() )
+	if ( dsm_cleanup() )
 		LOG_ERROR("DMA unmapping failed: %s\n", strerror(errno));
 
 	// save sink buffers 

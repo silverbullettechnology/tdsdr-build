@@ -77,7 +77,7 @@ int main (int argc, char **argv)
 	uint32_t               cnt = 0;
 	size_t                 idx = 0;
 	void                  *buff;
-	int                    ret;
+	int                    ret = 0;
 	int                    opt;
 
 	setbuf(stdout, NULL);
@@ -174,9 +174,9 @@ int main (int argc, char **argv)
 	printf("Buffer allocated: %lu words / %lu MB\n", opt_size, opt_size >> 7);
 
 	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_single(opt_chan, 0, buff, opt_size, 1) )
+	if ( dsm_map_user(opt_chan, 0, buff, opt_size) )
 	{
-		printf("dsm_map_single() failed: %s\n", strerror(errno));
+		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_free;
 	}
@@ -264,8 +264,8 @@ int main (int argc, char **argv)
 	free(sb);
 
 exit_unmap:
-	if ( dsm_unmap() )
-		printf("dsm_unmap() failed: %s\n", strerror(errno));
+	if ( dsm_cleanup() )
+		printf("dsm_cleanup() failed: %s\n", strerror(errno));
 	else
 		printf("Buffer unmapped with kernel module\n");
 

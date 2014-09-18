@@ -32,21 +32,19 @@ int dsm_reopen (const char *node);
 void *dsm_alloc (size_t size);
 void dsm_free (void *addr, size_t size);
 
+int dsm_map_user_array (unsigned long slot, unsigned long tx,
+                        unsigned long size, struct dsm_user_xfer *list);
 
-int dsm_map_array (unsigned long slot, unsigned long tx,
-                   unsigned long size, struct dsm_xfer_buff *list);
-
-int dsm_map_single (unsigned long slot, unsigned long tx, void *addr,
-                    unsigned long size, unsigned long reps);
+int dsm_map_user (unsigned long slot, unsigned long tx, void *addr, unsigned long size);
 
 struct dsm_chan_stats *dsm_get_stats (void);
 
-int dsm_unmap            (void);
-int dsm_set_timeout      (unsigned long timeout);
-int dsm_oneshot_start    (unsigned long mask);
-int dsm_oneshot_wait     (unsigned long mask);
-int dsm_continuous_stop  (unsigned long mask);
-int dsm_continuous_start (unsigned long mask);
+int dsm_cleanup       (void);
+int dsm_set_timeout   (unsigned long timeout);
+int dsm_oneshot_start (unsigned long mask);
+int dsm_oneshot_wait  (unsigned long mask);
+int dsm_cyclic_stop   (unsigned long mask);
+int dsm_cyclic_start  (unsigned long mask);
 
 
 

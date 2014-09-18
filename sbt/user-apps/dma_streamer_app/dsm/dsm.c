@@ -145,52 +145,50 @@ void dsm_free (void *addr, size_t size)
 }
 
 
-int dsm_map_array (unsigned long slot, unsigned long tx,
-                   unsigned long size, struct dsm_xfer_buff *list)
+int dsm_map_user_array (unsigned long slot, unsigned long tx,
+                        unsigned long size, struct dsm_user_xfer *list)
 {
-	struct dsm_chan_buffs *buffs;
+	struct dsm_user_buffs *buffs;
 	int                    ret;
 
 	errno = 0;
-	buffs = malloc(offsetof(struct dsm_chan_buffs, list) +
-	               sizeof(struct dsm_xfer_buff) * size);
+	buffs = malloc(offsetof(struct dsm_user_buffs, list) +
+	               sizeof(struct dsm_user_xfer) * size);
 	if ( !buffs )
 		return -1;
 
 	buffs->slot = slot;
 	buffs->tx   = tx;
 	buffs->size = size;
-	memcpy(buffs->list, list, sizeof(struct dsm_xfer_buff) * size);
+	memcpy(buffs->list, list, sizeof(struct dsm_user_xfer) * size);
 
-	if ( (ret = ioctl(dsm_fd, DSM_IOCS_MAP_CHAN, buffs)) )
-		printf("DSM_IOCS_MAP_CHAN: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsm_fd, DSM_IOCS_MAP_USER, buffs)) )
+		printf("DSM_IOCS_MAP_USER: %d: %s\n", ret, strerror(errno));
 
 	free(buffs);
 	return ret;
 }
 
 
-int dsm_map_single (unsigned long slot, unsigned long tx, void *addr,
-                    unsigned long size, unsigned long reps)
+int dsm_map_user (unsigned long slot, unsigned long tx, void *addr, unsigned long size)
 {
-	struct dsm_xfer_buff xfer =
+	struct dsm_user_xfer xfer =
 	{
 		.addr = (unsigned long)addr,
 		.size = size,
-		.reps = reps,
 	};
 
-	return dsm_map_array(slot, tx, 1, &xfer);
+	return dsm_map_user_array(slot, tx, 1, &xfer);
 }
 
 
-int dsm_unmap (void)
+int dsm_cleanup (void)
 {
 	int ret;
 
 	errno = 0;
-	if ( (ret = ioctl(dsm_fd, DSM_IOCS_UNMAP, 0)) )
-		printf("DSM_IOCS_UNMAP: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsm_fd, DSM_IOCS_CLEANUP, 0)) )
+		printf("DSM_IOCS_CLEANUP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -261,22 +259,22 @@ struct dsm_chan_stats *dsm_get_stats (void)
 	return ret;
 }
 
-int dsm_continuous_stop (unsigned long mask)
+int dsm_cyclic_stop (unsigned long mask)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsm_fd, DSM_IOCS_CONTINUOUS_STOP, mask)) )
-		printf("DSM_IOCS_CONTINUOUS_STOP: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsm_fd, DSM_IOCS_CYCLIC_STOP, mask)) )
+		printf("DSM_IOCS_CYCLIC_STOP: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
 
-int dsm_continuous_start (unsigned long mask)
+int dsm_cyclic_start (unsigned long mask)
 {
 	int  ret;
 
-	if ( (ret = ioctl(dsm_fd, DSM_IOCS_CONTINUOUS_START, mask)) )
-		printf("DSM_IOCS_CONTINUOUS_START: %d: %s\n", ret, strerror(errno));
+	if ( (ret = ioctl(dsm_fd, DSM_IOCS_CYCLIC_START, mask)) )
+		printf("DSM_IOCS_CYCLIC_START: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

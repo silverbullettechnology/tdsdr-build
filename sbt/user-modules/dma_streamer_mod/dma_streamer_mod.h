@@ -32,29 +32,34 @@
 
 
 /* DMA Channel Description: DSM_IOCG_CHANNELS should be called with a pointer to a buffer
- * to a dsm_chan_list, which it will fill in.  dsm_chan_list.chan_size should be set to
+ * to a dsm_chan_list, which it will fill in.  dsm_chan_list.size should be set to
  * the number of dsm_chan_desc structs the dsm_chan_list has room for before the ioctl
- * call.  The driver code will not write more than chan_size elements into the array, but
- * will set chan_size to the actual number available before returning to the caller. 
- * Note the order of elements in chan_list[] is important, as it drives the position of
- * bits used in the start/stop/wait commands below.  For example, these desc values:
+ * call.  The driver code will not write more than dsm_chan_list.size elements into the
+ * array, but will set dsm_chan_list.size to the actual number available before returning
+ * to the caller. 
+ *
+ * Note the position of each element in dsm_chan_list.list[] is used to select the
+ * channel in later calls and determines the position of bits used in the start/stop/wait
+ * commands below.
+ *
+ * For example, these desc values: 
  *   ioctl(fd, DSM_IOCG_CHANNELS, &d);
  *   d.chan_size = 4
- *   d.chan_list[0] = { .ident = 4, .private = 0x00100001, .flags = DSM_CHAN_DIR_TX, }
- *   d.chan_list[1] = { .ident = 5, .private = 0x00100002, .flags = DSM_CHAN_DIR_RX, }
- *   d.chan_list[2] = { .ident = 8, .private = 0x10100001, .flags = DSM_CHAN_DIR_TX, }
- *   d.chan_list[3] = { .ident = 9, .private = 0x10100002, .flags = DSM_CHAN_DIR_RX, }
+ *   d.list[0] = { .private = 0x00100001, .flags = DSM_CHAN_DIR_TX, ... }
+ *   d.list[1] = { .private = 0x00100002, .flags = DSM_CHAN_DIR_RX, ... }
+ *   d.list[2] = { .private = 0x10100001, .flags = DSM_CHAN_DIR_TX, ... }
+ *   d.list[3] = { .private = 0x10100002, .flags = DSM_CHAN_DIR_RX, ... }
  * indicate two TX and two RX channels.
  *
  * To setup two transmit channels, the user maps a buffer for each channel, using the
- * ident value:
- *   b.dsm_chan_buffs = { .ident = 4, .buff_size = 1, ... }
- *   ioctl(fd, DSM_IOCS_MAP_CHAN, &b);
- *   b.dsm_chan_buffs = { .ident = 8, .buff_size = 1, ... }
- *   ioctl(fd, DSM_IOCS_MAP_CHAN, &b);
+ * offset in the list:
+ *   b.dsm_user_buffs = { .slot = 0, .buff_size = 1, ... }
+ *   ioctl(fd, DSM_IOCS_MAP_USER, &b);
+ *   b.dsm_user_buffs = { .slot = 2, .buff_size = 1, ... }
+ *   ioctl(fd, DSM_IOCS_MAP_USER, &b);
  *
- * The position in the chan_list array is used as a bit position in the bitmask for the
- * trigger commands, so to trigger the TX and wait for it to complete:
+ * The position in dsm_chan_list.list[] is used as a bit position in the bitmask for
+ * the trigger commands, so to trigger the TX and wait for it to complete:
  *   m = (1 << 0) | (1 << 2);
  *   ioctl(fd, DSM_IOCS_ONESHOT_START, m);
  *   ioctl(fd, DSM_IOCS_ONESHOT_WAIT,  m);
@@ -95,31 +100,40 @@ struct dsm_chan_list
 };
 
 
-/* DMA Buffer Description: DSM_IOCS_MAP should be called for each DMA channel a transfer
- * is to be setup for.  dsm_chan_buffs.chan is the index into the list returned by a call
- * to DSM_IOCG_CHANNELS, and dsm_chan_buffs.buff_size should give the number of
- * dsm_xfer_buff structs.  dsm_xfer_buff.reps is 1 for a single shot, 0 for continuous.
+/* DMA Buffer Description: For each channel to setup with zero-copy userspace DMA, call
+ * DSM_IOCS_MAP_USER with a dsm_user_buffs structure with the fields set to:
+ *   .slot   = the index of the desired channel in dsm_chan_list.list[]
+ *   .tx     = nonzero if the transfer is mem-to-dev, zero for dev-to-mem
+ *   .size   = number of dsm_user_xfer elements in list[]
+ *   .list[] = array of dsm_user_xfer elements to setup
+ *
+ * The driver will use get_user_pages() for each element in dsm_user_buffs.list[] and
+ * create a matching scatterlist for DMA.  Each element in dsm_user_buffs.list[] should
+ * have:
+ *   .addr = page-aligned userspace buffer address, cast to unsigned long
+ *   .size = length of buffer in words (DSM_BUS_WIDTH bytes per word)
+ *
+ * The buffers should be cleaned up with a call to DSM_IOCS_CLEANUP before close.
  */
-struct dsm_xfer_buff
+struct dsm_user_xfer
 {
 	unsigned long  addr;   /* Userspace address for get_user_pages() */
 	unsigned long  size;   /* Size of userspace buffer in words */
-	unsigned long  reps;   /* Number of times to transfer this buff */
 };
 
-struct dsm_chan_buffs
+struct dsm_user_buffs
 {
 	unsigned long         slot;     /* Channel index from DSM_IOCG_CHANNELS */
 	unsigned long         tx;       /* Nonzero for TX, zero for RX */
 	unsigned long         size;     /* Number of xfer buffers */
-	struct dsm_xfer_buff  list[0];  /* Array of xfer buffers */
+	struct dsm_user_xfer  list[0];  /* Array of xfer buffers */
 };
 
 
-/* DMA Transfer Statistics: DSM_IOCG_STATS should be passed a buffer with chan_size set to
- * the number of dsm_xfer_stats structs available in chan_list[].  It will fill in as many
- * stats structs as will fit, and reset chan_size to the actual number available, which may
- * be higher.
+/* DMA Transfer Statistics: DSM_IOCG_STATS should be passed a dsm_chan_stats buffer with
+ * dsm_chan_stats.size set to the number of elements in dsm_chan_stats.list[].  It will
+ * fill in as many stats structs as will fit, and reset dsm_chan_stats.size to the actual
+ * number available, which may be higher.
  */
 struct dsm_xfer_stats
 {
@@ -170,7 +184,7 @@ struct dsm_limits
  * allocated with posix_memalign()), locked in with mlock(), and size a multiple of
  * DSM_BUS_WIDTH.  
  */
-#define  DSM_IOCS_MAP_CHAN  _IOW(DSM_IOCTL_MAGIC, 2, struct dsm_chan_buffs *)
+#define  DSM_IOCS_MAP_USER  _IOW(DSM_IOCTL_MAGIC, 2, struct dsm_user_buffs *)
 
 
 /* Start a one-shot transaction, after setting up the buffers with a successful
@@ -192,16 +206,16 @@ struct dsm_limits
 
 
 /* Start a transaction, after setting up the buffers with a successful DSM_IOCS_MAP. The
- * calling process does not block, which is only really useful with a continuous transfer.
- * The calling process should stop those with DSM_IOCS_CONTINUOUS_STOP before unmapping
+ * calling process does not block, which is only really useful with a repeated transfer.
+ * The calling process should stop those with DSM_IOCS_CYCLIC_STOP before unmapping
  * the buffers. 
  */
-#define  DSM_IOCS_CONTINUOUS_START  _IOW(DSM_IOCTL_MAGIC, 5, unsigned long)
+#define  DSM_IOCS_CYCLIC_START  _IOW(DSM_IOCTL_MAGIC, 5, unsigned long)
 
-/* Stop a running transaction started with DSM_IOCS_CONTINUOUS_START.  The calling process
+/* Stop a running transaction started with DSM_IOCS_CYCLIC_START.  The calling process
  * blocks until both transfers are complete, or timeout.
  */
-#define  DSM_IOCS_CONTINUOUS_STOP  _IOW(DSM_IOCTL_MAGIC, 6, unsigned long)
+#define  DSM_IOCS_CYCLIC_STOP  _IOW(DSM_IOCTL_MAGIC, 6, unsigned long)
 
 
 /* DMA Transfer Statistics: DSM_IOCG_STATS should be passed a buffer with chan_size set to
@@ -212,8 +226,8 @@ struct dsm_limits
 #define  DSM_IOCG_STATS  _IOR(DSM_IOCTL_MAGIC, 7, struct dsm_chan_stats *)
 
 
-/* Unmap the buffers for one channel, mapped with DSM_IOCS_MAP_CHAN. */
-#define  DSM_IOCS_UNMAP  _IOW(DSM_IOCTL_MAGIC, 8, unsigned long)
+/* Cleanup the buffers for all active channels, mapped with DSM_IOCS_MAP_USER. */
+#define  DSM_IOCS_CLEANUP  _IOW(DSM_IOCTL_MAGIC, 8, unsigned long)
 
 /* Set a timeout in jiffies on the DMA transfer */
 #define  DSM_IOCS_TIMEOUT  _IOW(DSM_IOCTL_MAGIC, 9, unsigned long)
