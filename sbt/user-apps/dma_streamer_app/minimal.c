@@ -28,12 +28,12 @@
 #include "common/common.h"
 
 
-unsigned    opt_chan     = 1;        // first RX channel default 
+unsigned    opt_chan     = 0;        // first RX channel default 
 size_t      opt_size     = 10000000; // 10MS default
-unsigned    opt_timeout  = 1000;     // 10sec default
+unsigned    opt_timeout  = 1500;     // 15sec default
 const char *opt_dsm_dev  = "/dev/" DSM_DRIVER_NODE;
 const char *opt_fifo_dev = "/dev/" FD_DRIVER_NODE;
-int         opt_pause    = 0;
+int         opt_interact = 0;
 
 
 static void usage (void)
@@ -66,7 +66,6 @@ static void dump_channels (void)
 
 		printf("%2d: %s %s (%s)\n",
 		       i, dsm_channels->list[i].device, dir, dsm_channels->list[i].driver);
-
 	}
 }
 
@@ -79,13 +78,14 @@ int main (int argc, char **argv)
 	size_t                 idx = 0;
 	void                  *buff;
 	int                    ret;
-	int                    i;
+	int                    opt;
 
 	setbuf(stdout, NULL);
 
-	while ( (i = posix_getopt(argc, argv, "?hic:s:S:t:n:N:")) > -1 )
-		switch ( i )
+	while ( (opt = posix_getopt(argc, argv, "?hic:s:S:t:n:N:")) > -1 )
+		switch ( opt )
 		{
+			case 'i': opt_interact = 1;
 			case 'n': opt_dsm_dev  = optarg;                           break;
 			case 'N': opt_fifo_dev = optarg;                           break;
 			case 'c': opt_chan     = strtoul(optarg, NULL, 0);         break;
@@ -162,6 +162,7 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_fifo;
 	}
+	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
 	if ( !(buff = dsm_alloc(opt_size)) )
@@ -170,6 +171,7 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_fifo;
 	}
+	printf("Buffer allocated: %lu words / %lu MB\n", opt_size, opt_size >> 7);
 
 	// hand buffer to kernelspace driver and build scatterlist
 	if ( dsm_map_single(opt_chan, 0, buff, opt_size, 1) )
@@ -178,46 +180,49 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_free;
 	}
+	printf("Buffer mapped with kernel module\n");
 
 	// disable and reset data-source and wait for user
 	fifo_dsrc_set_ctrl(0, FD_DSXX_CTRL_DISABLE);
 	fifo_dsrc_set_ctrl(0, FD_DSXX_CTRL_RESET);
+	fifo_dsrc_set_bytes(0, opt_size * DSM_BUS_WIDTH);
+	fifo_dsrc_set_reps(0, 1);
 
-	if ( opt_pause )
+	if ( opt_interact )
 	{
 		printf("Ready to trigger DMA, press a key...\n");
 		terminal_pause();
 	}
 
-	// start DMA transaction on all mapped channels
-	printf("Triggering DMA... ");
+	// start DMA transaction on all mapped channels, then start data-source module
+	printf("Triggering DMA and starting DSRC... ");
 	if ( dsm_oneshot_start(~0) )
 	{
 		printf("dsm_oneshot_start() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_unmap;
 	}
-	printf("\n");
-
-	// start data-source module
 	fifo_dsrc_set_ctrl(0, FD_DSXX_CTRL_ENABLE);
 
 	// wait for started DMA channels to finish or timeout
+	printf("\nWaiting for DMA to finish... ");
 	if ( dsm_oneshot_wait(~0) )
 	{
 		printf("dsm_oneshot_wait() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_unmap;
 	}
+	printf("\nDMA finished, analyzing %d words in buffer: ", opt_size);
 
+	// analyze for expected pattern produced by DSRC: 64-bit counter value should match
+	// the 64-bit word offset in the buffer, starting with 0.
 	ptr = (uint64_t *)buff;
-	printf("Analyzing %d words in buffer\n", opt_size);
 	while ( idx < opt_size )
 	{
 		if ( *ptr != val )
 		{
 			if ( cnt < 10 )
-				printf("Idx %zu: want %llx, got %llx instead\n",
+				printf("\nIdx %zu: want %llx, got %llx instead\n",
 				       idx, (unsigned long long)val, (unsigned long long)*ptr);
 			val = *ptr;
 			cnt++;
@@ -226,6 +231,8 @@ int main (int argc, char **argv)
 		val++;
 		idx++;
 	}
+	if ( cnt >= 10 )
+		printf("\n%lu messages suppressed, ", cnt - 10);
 	printf("%u deviations\n", cnt);
 
 	// print stats for the transfer
@@ -235,7 +242,7 @@ int main (int argc, char **argv)
 		unsigned long long           usec = st->total.tv_sec;
 		unsigned long long           rate = 0;
 
-		printf("stats:\n");
+		printf("Transfer statistics:\n");
 
 		usec *= 1000000000;
 		usec += st->total.tv_nsec;
@@ -244,14 +251,13 @@ int main (int argc, char **argv)
 		if ( usec > 0 )
 			rate = st->bytes / usec;
 
-		printf("  bytes    : %llu\n",      st->bytes);
-		printf("  total    : %lu.%09lu\n", st->total.tv_sec, st->total.tv_nsec);
-		printf("  rate     : %llu MB/s\n", rate);
-
-		printf("  starts   : %lu\n",       st->starts);
-		printf("  completes: %lu\n",       st->completes);
-		printf("  errors   : %lu\n",       st->errors);
-		printf("  timeouts : %lu\n",       st->timeouts);
+		printf("  bytes    : %llu\n",        st->bytes);
+		printf("  time     : %lu.%09lu s\n", st->total.tv_sec, st->total.tv_nsec);
+		printf("  rate     : %llu MB/s\n"  , rate);
+		printf("  starts   : %lu\n",         st->starts);
+		printf("  completes: %lu\n",         st->completes);
+		printf("  errors   : %lu\n",         st->errors);
+		printf("  timeouts : %lu\n",         st->timeouts);
 	}
 	else
 		printf("dsm_get_stats() failed: %s\n", strerror(errno));
@@ -260,9 +266,12 @@ int main (int argc, char **argv)
 exit_unmap:
 	if ( dsm_unmap() )
 		printf("dsm_unmap() failed: %s\n", strerror(errno));
+	else
+		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
 	dsm_free(buff, opt_size);
+	printf("Buffer unlocked and freed\n");
 
 exit_fifo:
 	fifo_dev_close();

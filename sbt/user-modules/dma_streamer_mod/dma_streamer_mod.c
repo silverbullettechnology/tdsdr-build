@@ -38,8 +38,8 @@
 #include "dma_streamer_mod.h"
 
 
-//#define pr_trace(fmt,...) do{ }while(0)
-#define pr_trace pr_debug
+#define pr_trace(fmt,...) do{ }while(0)
+//#define pr_trace pr_debug
 
 
 static struct device  *dsm_dev;

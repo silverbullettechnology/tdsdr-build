@@ -120,15 +120,15 @@
 			xlnx,sg-include-stscntrl-strm = <0x1>;
 			xlnx,sg-length-width = <0xe>;
 			xlnx,sg-use-stsapp-length = <0x1>;
-			dma-channel@40400000 {
-				compatible = "xlnx,axi-dma-mm2s-channel";
-				interrupts = <0 29 4 >; // IRQF2P0 -> IRQ 61 -> 29
-				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x0>;
-			};
 			dma-channel@40400030 {
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = <0 30 4 >; // IRQF2P1 -> IRQ 62 -> 30
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+			dma-channel@40400000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 29 4 >; // IRQF2P0 -> IRQ 61 -> 29
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x0>;
 			};
