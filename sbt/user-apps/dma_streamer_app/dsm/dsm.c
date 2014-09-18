@@ -112,6 +112,9 @@ void *dsm_alloc (size_t size)
 	void  *buff;
 	long   page;
 
+	// size specified in words, but posix_memalign() and mlock() use bytes
+	size *= DSM_BUS_WIDTH;
+
 	// need page size for posix_memalign()
 	errno = 0;
 	if ( (page = sysconf(_SC_PAGESIZE)) < 0 )
@@ -136,7 +139,8 @@ void *dsm_alloc (size_t size)
 
 void dsm_free (void *addr, size_t size)
 {
-	munlock(addr, size);
+	// size specified in words, but munlock() uses bytes
+	munlock(addr, size * DSM_BUS_WIDTH);
 	free(addr);
 }
 

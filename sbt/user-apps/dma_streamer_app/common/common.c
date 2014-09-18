@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/select.h>
@@ -26,9 +27,6 @@
 #include <ctype.h>
 #include <limits.h>
 #include <errno.h>
-
-#include "common/log.h"
-LOG_MODULE_STATIC("common", LOG_LEVEL_INFO);
 
 
 void stop (const char *fmt, ...)
@@ -46,10 +44,7 @@ void stop (const char *fmt, ...)
 	if ( err && p < e )
 		p += snprintf(p, e - p, ": %s", strerror(err));
 
-	if ( p < e )
-		p += snprintf(p, e - p, "\n");
-
-	LOG_FOCUS("%s", buff);
+	puts(buff);
 	exit(1);
 }
 

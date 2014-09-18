@@ -1,7 +1,7 @@
 ifdef PETALINUX
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
-APP      := dma_streamer_app dsa_format
+APP      := dma_streamer_app dsa_format minimal
 APP_OBJS := \
 	common/common.o \
 	common/log.o \
@@ -32,6 +32,9 @@ dma_streamer_app: $(APP_OBJS)
 
 dsa_format: dsa/format.c common/common.c common/log.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
+
+minimal: minimal.c dsm/dsm.c common/common.c fifo/dev.c fifo/dsxx.c
+	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
 	-rm -f $(APP) $(APP_OBJS)

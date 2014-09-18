@@ -18,6 +18,7 @@
 #ifndef _INCLUDE_DSA_COMMON_H_
 #define _INCLUDE_DSA_COMMON_H_
 #include <stdarg.h>
+#include <stdint.h>
 
 
 void stop (const char *fmt, ...);
