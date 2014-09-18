@@ -50,10 +50,10 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += dsm.o
 
-dsm-y := dma_streamer_mod.o dsm_chan.o dsm_thread.o dsm_xfer.o
+dsm-y := dsm_main.o dsm_chan.o dsm_thread.o dsm_xfer.o
 
 
-#CFLAGS_dma_streamer_mod.o += -DDEBUG
+#CFLAGS_dsm_main.o += -DDEBUG
 
 all:  modules
 
