@@ -165,9 +165,9 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
-	if ( !(buff = dsm_alloc(opt_size)) )
+	if ( !(buff = dsm_user_alloc(opt_size)) )
 	{
-		printf("fifo_dev_reopen(%s) failed: %s\n", opt_fifo_dev, strerror(errno));
+		printf("dsm_user_alloc(%s) failed: %s\n", opt_fifo_dev, strerror(errno));
 		ret = 1;
 		goto exit_fifo;
 	}
@@ -270,7 +270,7 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
-	dsm_free(buff, opt_size);
+	dsm_user_free(buff, opt_size);
 	printf("Buffer unlocked and freed\n");
 
 exit_fifo:

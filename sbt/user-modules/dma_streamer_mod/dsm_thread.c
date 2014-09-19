@@ -39,14 +39,21 @@
 #include "dsm_private.h"
 
 
-
+/** Callback for DMA transfer */
 static void dsm_thread_cb (void *cmp)
 {
 	pr_debug("completion\n");
 	complete(cmp);
 }
 
-int dsm_thread (void *data)
+
+/** Kernel thread for DMA transfer
+ *
+ *  \param  data  DSM channel state structure pointer
+ *
+ *  \return  exit code, currently always 0
+ */
+static int dsm_thread (void *data)
 {
 	struct dsm_chan                *chan = (struct dsm_chan *)data;
 	struct dsm_user                *user = chan->user;
@@ -160,8 +167,12 @@ done:
 }
 
 
-
-
+/** Start single channel running
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *
+ *  \return  0 on success, <0 on failure
+ */
 int dsm_start_chan (struct dsm_chan *chan)
 {
 	static char name[32];
@@ -180,6 +191,15 @@ int dsm_start_chan (struct dsm_chan *chan)
 	return 0;
 }
 
+
+/** Start active channels with bitmask
+ *
+ *  \param  user    DSM user state structure pointer
+ *  \param  mask    Bitmask of channels to start
+ *  \param  cyclic  If !0 set each channel's .cyclic field
+ *
+ *  \return  0 on success, or number of threads which failed to start
+ */
 int dsm_start_mask (struct dsm_user *user, unsigned long mask, int cyclic)
 {
 	int  ret = 0;
@@ -208,6 +228,10 @@ int dsm_start_mask (struct dsm_user *user, unsigned long mask, int cyclic)
 }
 
 
+/** Halt single running channel
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_halt_chan (struct dsm_chan *chan)
 {
 	if ( chan->task )
@@ -217,6 +241,12 @@ void dsm_halt_chan (struct dsm_chan *chan)
 	}
 }
 
+
+/** Halt active channels with bitmask
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  mask  Bitmask of channels to start
+ */
 void dsm_halt_mask (struct dsm_user *user, unsigned long mask)
 {
 	int  slot;
@@ -228,17 +258,31 @@ void dsm_halt_mask (struct dsm_user *user, unsigned long mask)
 			dsm_halt_chan(&user->chan_list[slot]);
 }
 
+
+/** Halt all active channels
+ *
+ *  \param  user  DSM user state structure pointer
+ */
 void dsm_halt_all (struct dsm_user *user)
 {
 	return dsm_halt_mask(user, ~0);
 }
 
 
+/** Stop a single running channel after its current transfer
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_stop_chan (struct dsm_chan *chan)
 {
 	atomic_set(&chan->cyclic, 0);
 }
 
+/** Stop active channels after their current transfers with bitmask
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  mask  Bitmask of channels to stop
+ */
 void dsm_stop_mask (struct dsm_user *user, unsigned long mask)
 {
 	int  slot;

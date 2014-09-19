@@ -38,6 +38,10 @@
 #include "dsm_private.h"
 
 
+/** Clean up memory and resources for this DSM channel
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_chan_cleanup (struct dsm_chan *chan)
 {
 	int i;
@@ -56,19 +60,46 @@ void dsm_chan_cleanup (struct dsm_chan *chan)
 }
 
 
+/** DMA channel private value, abused to identify channel attached to specific endpoint
+ *
+ *  \param  chan   Linux dmaengine DMA channel pointer
+ *
+ *  \return  Value of chan->private, or 0
+ */
+static u32 dsm_dma_chan_private (struct dma_chan *chan)
+{
+	// Linux DMA infrastructure doesn't seem to have the concept of a DMA channel being
+	// tied to a particular endpoint, so various drivers check the private pointer.  The
+	// two which have been used in the Xilinx AXI-DMA world are to cast the pointer to a
+	// u32 or to point it at an actual u32 variable in the driver's internal state...
+	// In the case of multiple DMA controllers, we put the ID of the attached endpoint
+	// into the top nibble of the private value
+	if ( (unsigned long)chan->private > 0x80000000 )
+		return *(u32 *)chan->private;
 
-bool dsm_chan_setup_find (struct dma_chan *chan, void *param)
+	return (u32)chan->private;
+}
+
+
+/** Callback for dma_request_channel to match specific channel */
+static bool dsm_chan_map_user_find (struct dma_chan *chan, void *param)
 {
 	u32  criterion = *(unsigned long *)param;
-	u32  candidate = ~criterion;
-
-	candidate = *((u32 *)chan->private);
+	u32  candidate = dsm_dma_chan_private(chan);
 
 	pr_trace("%s: chan %p -> %08x vs %08x\n", __func__, chan, candidate, criterion);
 	return candidate == criterion;
 }
 
-int dsm_chan_setup (struct dsm_user *user, struct dsm_user_buffs *ucb)
+
+/** Setup channel with zero-copy userspace buffers
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  ucb   Zero-copy buffer list from userspace
+ *
+ *  \return  0 on success, <0 on failure
+ */
+int dsm_chan_map_user (struct dsm_user *user, struct dsm_user_buffs *ucb)
 {
 	struct dsm_chan_desc *desc;
 	struct dsm_chan      *chan;
@@ -114,7 +145,7 @@ int dsm_chan_setup (struct dsm_user *user, struct dsm_user_buffs *ucb)
 	// get DMA device - the xilinx_axidma puts a "device-id" in the top nibble
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-	chan->dma_chan = dma_request_channel(mask, dsm_chan_setup_find, &desc->private);
+	chan->dma_chan = dma_request_channel(mask, dsm_chan_map_user_find, &desc->private);
 	if ( !chan->dma_chan )
 	{
 		pr_err("dma_request_channel() for slot %lu failed, stop\n", ucb->slot);
@@ -147,7 +178,7 @@ int dsm_chan_setup (struct dsm_user *user, struct dsm_user_buffs *ucb)
 	// setup xfer buffs
 	for ( xfer = 0; xfer < chan->xfer_size; xfer++ )
 	{
-		chan->xfer_list[xfer] = dsm_xfer_setup(chan, desc, &ucb->list[xfer]);
+		chan->xfer_list[xfer] = dsm_xfer_map_user(chan, desc, &ucb->list[xfer]);
 		if ( !chan->xfer_list[xfer] )
 		{
 			pr_err("%s: failed to setup xfer_list[%d]\n", __func__, xfer);
@@ -167,9 +198,8 @@ int dsm_chan_setup (struct dsm_user *user, struct dsm_user_buffs *ucb)
 }
 
 
-
-// callback for first pass: just count channels registered with dmaengine
-static bool dsm_scan_channels_size (struct dma_chan *chan, void *param)
+/** Callback for dma_request_channel to count channels registered with dmaengine */
+static bool dsm_chan_identify_size (struct dma_chan *chan, void *param)
 {
 	if ( chan->device && chan->device->dev && chan->device->dev->driver )
 		(*(size_t *)param)++;
@@ -177,8 +207,9 @@ static bool dsm_scan_channels_size (struct dma_chan *chan, void *param)
 	return 0;
 }
 
-// callback for second pass: record particulars of registered dma channels
-static bool dsm_scan_channels_desc (struct dma_chan *chan, void *param)
+
+/** Callback for dma_request_channel to record particulars of registered dma channels */
+static bool dsm_chan_identify_desc (struct dma_chan *chan, void *param)
 {
 	struct dma_slave_caps  caps;
 	struct dsm_chan_desc **cdpp = param;
@@ -252,8 +283,14 @@ static bool dsm_scan_channels_desc (struct dma_chan *chan, void *param)
 	return 0;
 }
 
-// probe channels registered with dmaengine
-struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user)
+
+/** Scan DMA channels registered with dmaengine and populate 
+ *
+ *  \param  user  DSM user state structure pointer
+ *
+ *  \return  user->desc_list pointer on success, NULL on failure
+ */
+struct dsm_chan_list *dsm_chan_identify (struct dsm_user *user)
 {
 	struct dsm_chan_desc *cdp;
 	dma_cap_mask_t        mask;
@@ -266,7 +303,7 @@ struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user)
 	user->chan_size = 0;
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE | DMA_PRIVATE, mask);
-	BUG_ON(dma_request_channel(mask, dsm_scan_channels_size, &user->chan_size) != NULL);
+	BUG_ON(dma_request_channel(mask, dsm_chan_identify_size, &user->chan_size) != NULL);
 
 	// allocate desc struct in same format exposed to userspace
 	user->desc_list = kzalloc(offsetof(struct dsm_chan_list, list) +
@@ -287,7 +324,7 @@ struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user)
 	// second pass: record particulars of registered dma channels
 	user->desc_list->size = user->chan_size;
 	cdp = user->desc_list->list;
-	BUG_ON(dma_request_channel(mask, dsm_scan_channels_desc, &cdp) != NULL);
+	BUG_ON(dma_request_channel(mask, dsm_chan_identify_desc, &cdp) != NULL);
 
 	// setup permanent fields
 	user->xilinx_channels = 0;

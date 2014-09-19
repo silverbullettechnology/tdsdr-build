@@ -38,6 +38,11 @@
 #include "dsm_private.h"
 
 
+/** Clean up transfer - currently assumes zero-copy userspace page
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *  \param  xfer  DSM transfer state structure pointer
+ */
 void dsm_xfer_cleanup (struct dsm_chan *chan, struct dsm_xfer *xfer)
 {
 	struct scatterlist *sg;
@@ -80,9 +85,17 @@ pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
 }
 
 
-struct dsm_xfer *dsm_xfer_setup (struct dsm_chan            *chan,
-                                 struct dsm_chan_desc       *desc,
-                                 const struct dsm_user_xfer *buff)
+/** Setup transfer - currently assumes zero-copy userspace page
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *  \param  desc  DMA channel description pointer
+ *  \param  buff  Userspace buffer specfication
+ *
+ *  \return  DSM transfer state structure
+ */
+struct dsm_xfer *dsm_xfer_map_user (struct dsm_chan            *chan,
+                                    struct dsm_chan_desc       *desc,
+                                    const struct dsm_user_xfer *buff)
 {
 	struct dsm_xfer     *xfer;
 
@@ -99,7 +112,7 @@ struct dsm_xfer *dsm_xfer_setup (struct dsm_chan            *chan,
 	int                  idx;
 	int                  ret;
 
-	pr_debug("dsm_xfer_setup(chan %p, desc %s, buff.addr %08lx, .size %08lx )\n",
+	pr_debug("%s(chan %p, desc %s, buff.addr %08lx, .size %08lx )\n", __func__,
 	         chan, desc->device, buff->addr, buff->size);
 
 	// address alignment check

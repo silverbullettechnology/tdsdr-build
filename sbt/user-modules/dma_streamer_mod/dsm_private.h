@@ -26,6 +26,8 @@
 //#define pr_trace pr_debug
 
 
+/******* Private structs ******/
+
 
 // private per-transfer / per-block struct
 struct dsm_xfer
@@ -51,7 +53,7 @@ struct dsm_xfer
 struct dsm_user;
 struct dsm_chan
 {
-	// fields setup in dsm_scan_channels() regardless whether the channel is in use; 
+	// fields setup in dsm_chan_identify() regardless whether the channel is in use; 
 	unsigned long    slot;
 	struct dsm_user *user;
 
@@ -108,32 +110,117 @@ struct dsm_user
 
 
 /******* dma_streamer_mod.c ******/
+
+/** Generic device pointer for DMA registration */
 extern struct device *dsm_dev;
+
+/** Returns the total limit mappable for DMA at once
+ *
+ *  \param  xilinx  Calculate based on Xilinx AXI-DMA driver
+ *
+ *  \return  Number of words which can be mapped at once
+ */
 size_t dsm_limit_words (int xilinx);
 
 
 /******* dsm_chan.c ******/
+
+/** Clean up memory and resources for this DSM channel
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_chan_cleanup (struct dsm_chan *chan);
-bool dsm_chan_setup_find (struct dma_chan *chan, void *param);
-int dsm_chan_setup (struct dsm_user *user, struct dsm_user_buffs *ucb);
-struct dsm_chan_list *dsm_scan_channels (struct dsm_user *user);
+
+/** Setup channel with zero-copy userspace buffers
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  ucb   Zero-copy buffer list from userspace
+ *
+ *  \return  0 on success, <0 on failure
+ */
+int dsm_chan_map_user (struct dsm_user *user, struct dsm_user_buffs *ucb);
+
+/** Scan DMA channels registered with dmaengine and populate 
+ *
+ *  \param  user  DSM user state structure pointer
+ *
+ *  \return  user->desc_list pointer on success, NULL on failure
+ */
+struct dsm_chan_list *dsm_chan_identify (struct dsm_user *user);
 
 
 /******* dsm_xfer.c ******/
+
+/** Scan DMA channels registered with dmaengine and populate 
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *  \param  xfer  DSM transfer state structure pointer
+ */
 void dsm_xfer_cleanup (struct dsm_chan *chan, struct dsm_xfer *xfer);
-struct dsm_xfer *dsm_xfer_setup (struct dsm_chan            *chan,
-                                 struct dsm_chan_desc       *desc,
-                                 const struct dsm_user_xfer *buff);
+
+/** Setup transfer - currently assumes zero-copy userspace page
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *  \param  desc  DMA channel description pointer
+ *  \param  buff  Userspace buffer specfication
+ *
+ *  \return  DSM transfer state structure
+ */
+struct dsm_xfer *dsm_xfer_map_user (struct dsm_chan            *chan,
+                                    struct dsm_chan_desc       *desc,
+                                    const struct dsm_user_xfer *buff);
 
 
 /******* dsm_thread.c  ******/
-int dsm_thread (void *data);
+
+/** Start single channel running
+ *
+ *  \param  chan  DSM channel state structure pointer
+ *
+ *  \return  0 on success, <0 on failure
+ */
 int dsm_start_chan (struct dsm_chan *chan);
+
+/** Start active channels with bitmask
+ *
+ *  \param  user    DSM user state structure pointer
+ *  \param  mask    Bitmask of channels to start
+ *  \param  cyclic  If !0 set each channel's .cyclic field
+ *
+ *  \return  0 on success, or number of threads which failed to start
+ */
 int dsm_start_mask (struct dsm_user *user, unsigned long mask, int cyclic);
+
+/** Halt single running channel
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_halt_chan (struct dsm_chan *chan);
+
+/** Halt active channels with bitmask
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  mask  Bitmask of channels to start
+ */
 void dsm_halt_mask (struct dsm_user *user, unsigned long mask);
+
+/** Halt all active channels
+ *
+ *  \param  user  DSM user state structure pointer
+ */
 void dsm_halt_all (struct dsm_user *user);
+
+/** Stop a single running channel after its current transfer
+ *
+ *  \param  chan  DSM channel state structure pointer
+ */
 void dsm_stop_chan (struct dsm_chan *chan);
+
+/** Stop active channels after their current transfers with bitmask
+ *
+ *  \param  user  DSM user state structure pointer
+ *  \param  mask  Bitmask of channels to stop
+ */
 void dsm_stop_mask (struct dsm_user *user, unsigned long mask);
 
 

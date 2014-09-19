@@ -33,13 +33,18 @@
 #include "dsm/dsm.h"
 
 
+/** File handle for /dev/ node */
 static int  dsm_fd = -1;
 
 
+/** Limits struct read from kernel driver */
 struct dsm_limits     dsm_limits;
+
+/** List of available DMA channels read from kernel driver */
 struct dsm_chan_list *dsm_channels = NULL;
 
 
+/** Close DSM connection */
 void dsm_close (void)
 {
 	if ( dsm_fd >= 0 )
@@ -49,6 +54,16 @@ void dsm_close (void)
 }
 
 
+/** Open or reopen DSM connection
+ *
+ *  The connection will be closed and dynamically-allocated objects freed before the open
+ *  attempt.  The new open will also trigger a new DMA channel scan in the kernel driver,
+ *  so if other drivers have been loaded/unloaded the list may change.
+ *
+ *  \param  node  Path to DSM module's device node
+ *
+ *  \return  0 on success, <0 on failure
+ */
 int dsm_reopen (const char *node)
 {
 	struct dsm_chan_list  tmp;
@@ -107,7 +122,16 @@ int dsm_reopen (const char *node)
 }
 
 
-void *dsm_alloc (size_t size)
+/** Prepare a buffer for zero-copy userspace DMA
+ *
+ *  The buffer will be allocated with posix_memalign() using the system page size (usually
+ *  4Kbytes) and locked into memory with mlock() before a successful return.
+ *
+ *  \param  size  Size of buffer in words (DSM_BUS_WIDTH bytes per word)
+ *
+ *  \return  Buffer pointer on success, NULL on failure
+ */
+void *dsm_user_alloc (size_t size)
 {
 	void  *buff;
 	long   page;
@@ -137,7 +161,12 @@ void *dsm_alloc (size_t size)
 }
 
 
-void dsm_free (void *addr, size_t size)
+/** Free a buffer for zero-copy userspace DMA
+ *
+ *  \param  addr  Buffer allocated with dsm_user_alloc()
+ *  \param  size  Size of buffer in words (DSM_BUS_WIDTH bytes per word)
+ */
+void dsm_user_free (void *addr, size_t size)
 {
 	// size specified in words, but munlock() uses bytes
 	munlock(addr, size * DSM_BUS_WIDTH);
@@ -145,6 +174,21 @@ void dsm_free (void *addr, size_t size)
 }
 
 
+/** Map multiple buffers for zero-copy userspace DMA
+ *
+ *  The DSM will map the physical pages which make up each buffer and allocate each as a
+ *  scatterlist for zero-copy DMA.  Once buffers are mapped they should be unmapped with a
+ *  call to dsm_cleanup() before closing the device node.
+ *
+ *  \note  size > 1 is currently not supported by DSM
+ *
+ *  \param  slot  DMA channel number, an index into dsm_chan_list->list[]
+ *  \param  tx    !0 for TX, 0 for RX, must match dsm_chan_list->list[slot].flags
+ *  \param  size  Number of elements in list[]
+ *  \param  list  Array of xfer buffers to map
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_map_user_array (unsigned long slot, unsigned long tx,
                         unsigned long size, struct dsm_user_xfer *list)
 {
@@ -170,6 +214,21 @@ int dsm_map_user_array (unsigned long slot, unsigned long tx,
 }
 
 
+/** Map a buffer for zero-copy userspace DMA
+ *
+ *  The DSM will map the physical pages which make up the buffer and allocate a single
+ *  scatterlist for zero-copy DMA.  Once a buffer is mapped it should be unmapped with a
+ *  call to dsm_cleanup() before closing the device node.
+ *
+ *  \note  size > 1 is currently not supported by DSM
+ *
+ *  \param  slot  DMA channel number, an index into dsm_chan_list->list[]
+ *  \param  tx    !0 for TX, 0 for RX, must match dsm_chan_list->list[slot].flags
+ *  \param  addr  Page-aligned buffer allocated with dsm_user_alloc()
+ *  \param  size  Size of buffer in words
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_map_user (unsigned long slot, unsigned long tx, void *addr, unsigned long size)
 {
 	struct dsm_user_xfer xfer =
@@ -182,6 +241,14 @@ int dsm_map_user (unsigned long slot, unsigned long tx, void *addr, unsigned lon
 }
 
 
+/** Unmap DSM-side mappings and allocations
+ *
+ *  The DSM will free the kernel-side structures and scatterlists for all channels setup
+ *  with dsm_map_user() and dsm_map_user_array().  The user must still free buffers
+ *  allocated with dsm_user_alloc().
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_cleanup (void)
 {
 	int ret;
@@ -193,6 +260,17 @@ int dsm_cleanup (void)
 	return ret;
 }
 
+
+/** Set software timeout for DMA transfers in jiffies
+ *
+ *  DSM sets up a software timeout for each DMA transfer in case the target stalls or
+ *  otherwise fails without an interrupt.  Note that after a timeout the system can be
+ *  unstable and require a reboot.
+ *
+ *  \param  timeout  Timeout in jiffies (typically 10ms each)
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_set_timeout (unsigned long timeout)
 {
 	int ret;
@@ -204,6 +282,20 @@ int dsm_set_timeout (unsigned long timeout)
 	return ret;
 }
 
+
+/** Start DMA in oneshot mode with bitmask
+ *
+ *  This will start some or all of the active channels (setup with dsm_user_map() or
+ *  dsm_user_map_array()) kernel threads.  The user should set a bit in mask for each 
+ *  channel to start; ie to start channels 2 & 3 mask should be ((1 << 2) | (1 << 3)).
+ *
+ *  \note  DSM constrains mask to the channels which are active, so passing ~0 for mask is
+ *         a convenient way to start all active channels at once.
+ *
+ *  \param  mask  Bitmask of DMA channels to start
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_oneshot_start (unsigned long mask)
 {
 	int ret;
@@ -214,6 +306,21 @@ int dsm_oneshot_start (unsigned long mask)
 	return ret;
 }
 
+
+/** Wait for oneshot DMA to complete with bitmask
+ *
+ *  This will block until all of the active channels (setup with dsm_user_map() or 
+ *  dsm_user_map_array()) complete or timeout.  The user should set a bit in mask for each
+ *  channel to wait for; ie to start channels 2 & 3 mask should be ((1 << 2) | (1 << 3)).
+ *
+ *  \note  DSM constrains mask to the channels which are active, so passing ~0 for mask is
+ *         a convenient way to start all active channels at once.
+ *  \note  If the DMA has completed before this call is made, it returns immediate success
+ *
+ *  \param  mask  Bitmask of DMA channels to wait for
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_oneshot_wait (unsigned long mask)
 {
 	int ret;
@@ -259,6 +366,21 @@ struct dsm_chan_stats *dsm_get_stats (void)
 	return ret;
 }
 
+
+/** Signal cyclic DMA threads to finish and wait for complete
+ *
+ *  This will set a flag on each cyclic channel (according to mask) which signals the
+ *  thread to exit at the end if the current cycle, then will block until all of the
+ *  channels complete or timeout.  
+ *
+ *  \note  DSM constrains mask to the channels which are active, so passing ~0 for mask is
+ *         a convenient way to start all active channels at once.
+ *  \note  If the DMA has completed before this call is made, it returns immediate success
+ *
+ *  \param  mask  Bitmask of DMA channels to stop and wait for
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_cyclic_stop (unsigned long mask)
 {
 	int  ret;
@@ -269,6 +391,20 @@ int dsm_cyclic_stop (unsigned long mask)
 	return ret;
 }
 
+
+/** Start DMA in cyclic mode with bitmask
+ *
+ *  This will start some or all of the active channels (setup with dsm_user_map() or
+ *  dsm_user_map_array()) kernel threads.  The channels will run repeatedly until a call
+ *  to dsm_cyclic_stop() stops them.
+ *
+ *  \note  DSM constrains mask to the channels which are active, so passing ~0 for mask is
+ *         a convenient way to start all active channels at once.
+ *
+ *  \param  mask  Bitmask of DMA channels to start
+ *
+ *  \return  0 on success, !0 on failure
+ */
 int dsm_cyclic_start (unsigned long mask)
 {
 	int  ret;

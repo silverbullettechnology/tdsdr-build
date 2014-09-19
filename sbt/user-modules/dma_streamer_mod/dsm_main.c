@@ -39,10 +39,12 @@
 #include "dsm_private.h"
 
 
-struct device  *dsm_dev;
-
-
-
+/** Returns the total limit mappable for DMA at once
+ *
+ *  \param  xilinx  Calculate based on Xilinx AXI-DMA driver
+ *
+ *  \return  Number of words which can be mapped at once
+ */
 size_t dsm_limit_words (int xilinx)
 {
 	size_t dma;
@@ -63,41 +65,10 @@ size_t dsm_limit_words (int xilinx)
 }
 
 
-
-/******** Userspace interface ********/
-
-static int dsm_open (struct inode *inode_p, struct file *f)
-{
-	struct dsm_user *user;
-	int              ret = -EACCES;
-
-	pr_debug("%s()\n", __func__);
-
-	if ( !(f->private_data = kzalloc(sizeof(struct dsm_user), GFP_KERNEL)) )
-	{
-		pr_err("%s: failed to alloc user data\n", __func__);
-		return -ENOMEM;
-	}
-
-	// scan once at open, use/return values later
-	user = f->private_data;
-	if ( !dsm_scan_channels(user) )
-	{
-		pr_err("%s: failed to scan DMA channels\n", __func__);
-		kfree(f->private_data);
-		return -ENODEV;
-	}
-
-	// other init as needed
-	user->timeout = HZ;
-	atomic_set(&user->busy, 0);
-	init_waitqueue_head(&user->wait);
-	ret = 0;
-
-
-	return ret;
-}
-
+/** Cleans up all active channels
+ *
+ *  \param  user  DSM user state struct
+ */
 static void dsm_cleanup (struct dsm_user *user)
 {
 	int slot;
@@ -111,6 +82,12 @@ static void dsm_cleanup (struct dsm_user *user)
 }
 
 
+/** Blocks caller until active threads finish or is interrupted
+ *
+ *  \param  user  DSM user state struct
+ *
+ *  \return  0 if threads completed or timed out, <0 if interrupted
+ */
 static int dsm_wait_active (struct dsm_user *user)
 {
 	if ( atomic_read(&user->busy) == 0 )
@@ -133,6 +110,41 @@ static int dsm_wait_active (struct dsm_user *user)
 }
 
 
+/******* File operations handlers *******/
+
+
+/** Handle open() operation on device node */
+static int dsm_open (struct inode *inode_p, struct file *f)
+{
+	struct dsm_user *user;
+
+	pr_debug("%s()\n", __func__);
+
+	if ( !(f->private_data = kzalloc(sizeof(struct dsm_user), GFP_KERNEL)) )
+	{
+		pr_err("%s: failed to alloc user data\n", __func__);
+		return -ENOMEM;
+	}
+
+	// scan once at open, use/return values later
+	user = f->private_data;
+	if ( !dsm_chan_identify(user) )
+	{
+		pr_err("%s: failed to scan DMA channels\n", __func__);
+		kfree(f->private_data);
+		return -ENODEV;
+	}
+
+	// other init as needed
+	user->timeout = HZ;
+	atomic_set(&user->busy, 0);
+	init_waitqueue_head(&user->wait);
+
+	return 0;
+}
+
+
+/** Handle ioctl() operation on device node */
 static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 {
 	struct dsm_user       *user = f->private_data;
@@ -190,11 +202,8 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		case DSM_IOCG_LIMITS:
 		{
 			struct dsm_limits  lim;
-			struct sysinfo     sib;
-			size_t             dma;
 
 			pr_debug("DSM_IOCG_LIMITS\n");
-
 			memset(&lim, 0, sizeof(lim));
 			lim.channels    = user->chan_size;
 			lim.total_words = dsm_limit_words(user->xilinx_channels);
@@ -229,7 +238,7 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			                     offsetof(struct dsm_user_buffs, list));
 			if ( ret )
 			{
-				pr_err("copy_from_user(%p, %p, %lu): %d\n", &ubb, (void *)arg,
+				pr_err("copy_from_user(%p, %p, %u): %d\n", &ubb, (void *)arg,
 				       offsetof(struct dsm_user_buffs, list), ret);
 				return -EFAULT;
 			}
@@ -257,9 +266,9 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 				return -EFAULT;
 			}
 
-			if ( dsm_chan_setup(user, ubp) )
+			if ( dsm_chan_map_user(user, ubp) )
 			{
-				pr_err("dsm_chan_setup(user, ubp) failed\n");
+				pr_err("dsm_chan_map_user(user, ubp) failed\n");
 				kfree(ubp);
 				return -EINVAL;
 			}
@@ -391,6 +400,8 @@ static long dsm_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+
+/** Handle close() operation on device node */
 static int dsm_release (struct inode *inode_p, struct file *f)
 {
 	struct dsm_user *user = f->private_data;
@@ -410,6 +421,10 @@ static int dsm_release (struct inode *inode_p, struct file *f)
 }
 
 
+/******* Module init and cleanup *******/
+
+
+/** Device node operations, currently open/ioctl/close only. */
 static struct file_operations fops = 
 {
 	open:           dsm_open,
@@ -417,19 +432,23 @@ static struct file_operations fops =
 	release:        dsm_release,
 };
 
-static struct miscdevice mdev = { MISC_DYNAMIC_MINOR, DSM_DRIVER_NODE, &fops };
+/** Generic device pointer for DMA registration */
+struct device *dsm_dev;
+
+/** Misc device struct for misc_register() */
+static struct miscdevice dsm_mdev = { MISC_DYNAMIC_MINOR, DSM_DRIVER_NODE, &fops };
 
 static int __init dma_streamer_mod_init(void)
 {
 	int ret = 0;
 
-	if ( misc_register(&mdev) < 0 )
+	if ( misc_register(&dsm_mdev) < 0 )
 	{
 		pr_err("misc_register() failed\n");
 		ret = -EIO;
 		goto error2;
 	}
-	dsm_dev = mdev.this_device;
+	dsm_dev = dsm_mdev.this_device;
 
 	pr_info("registered successfully\n");
 	return 0;
@@ -441,7 +460,7 @@ error2:
 static void __exit dma_streamer_mod_exit(void)
 {
 	dsm_dev = NULL;
-	misc_deregister(&mdev);
+	misc_deregister(&dsm_mdev);
 }
 
 module_init(dma_streamer_mod_init);

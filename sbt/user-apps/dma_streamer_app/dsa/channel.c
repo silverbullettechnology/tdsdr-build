@@ -195,15 +195,15 @@ static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 		return 0;
 	}
 
-	// free old buffer with reusable dsm_free() function
+	// free old buffer with reusable dsm_user_free() function
 	if ( xfer->smp )
-		dsm_free(xfer->smp, xfer->len);
+		dsm_user_free(xfer->smp, xfer->len);
 
-	// allocate with reusable dsm_alloc() function
+	// allocate with reusable dsm_user_alloc() function
 	xfer->len = 0;
-	if ( !(xfer->smp = dsm_alloc(size)) )
+	if ( !(xfer->smp = dsm_user_alloc(size)) )
 	{
-		LOG_ERROR("Failed to dsm_alloc() %zu bytes aligned to %lu: %s\n",
+		LOG_ERROR("Failed to dsm_user_alloc() %zu bytes aligned to %lu: %s\n",
 		          size, page, strerror(errno));
 		return -1;
 	}
@@ -440,7 +440,7 @@ void dsa_channel_cleanup (struct dsa_channel_event *evt)
 			if ( *xfer )
 			{
 				if ( (*xfer)->smp )
-					dsm_free( (*xfer)->smp, (*xfer)->len );
+					dsm_user_free( (*xfer)->smp, (*xfer)->len );
 
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					for ( dir2 = DC_DIR_TX; dir2 <= DC_DIR_RX; dir2 <<= 1 )
