@@ -178,8 +178,7 @@ static struct dsa_channel_xfer **evt_to_xfer (struct dsa_channel_event *evt, int
 
 static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 {
-	size_t  size = len * sizeof(struct dsa_sample_pair);
-	long    page;
+	long  page;
 
 	// need page size for posix_memalign()
 	if ( (page = sysconf(_SC_PAGESIZE)) < 0 )
@@ -201,10 +200,10 @@ static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 
 	// allocate with reusable dsm_user_alloc() function
 	xfer->len = 0;
-	if ( !(xfer->smp = dsm_user_alloc(size)) )
+	if ( !(xfer->smp = dsm_user_alloc(len)) )
 	{
-		LOG_ERROR("Failed to dsm_user_alloc() %zu bytes aligned to %lu: %s\n",
-		          size, page, strerror(errno));
+		LOG_ERROR("Failed to dsm_user_alloc() %zu samples aligned to %lu: %s\n",
+		          len, page, strerror(errno));
 		return -1;
 	}
 	xfer->len = len;
