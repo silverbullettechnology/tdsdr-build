@@ -749,6 +749,57 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 			break;
 		}
+
+		// Arbitrary register access for now
+		case FD_IOCG_PMON_REG:
+		case FD_IOCS_PMON_REG_SO:
+		case FD_IOCS_PMON_REG_RB:
+		{
+			struct fd_pmon_regs  regs;
+			void __iomem        *addr = fd_pmon_regs;
+
+			if ( !addr )
+			{
+				pr_err("register access pointers not setup, stop.\n");
+				return -ENODEV;
+			}
+
+			if ( (ret = copy_from_user(&regs, (void *)arg, sizeof(regs))) )
+			{
+				pr_err("failed to copy %d bytes, stop\n", ret);
+				return -EFAULT;
+			}
+			addr += regs.ofs;
+
+			switch ( cmd )
+			{
+				case FD_IOCS_PMON_REG_SO:
+				case FD_IOCS_PMON_REG_RB:
+					REG_WRITE(addr, regs.val);
+					pr_debug("FD_IOCS_PMON_REG +%04lx WRITE %08lx\n", regs.ofs, regs.val);
+					// FD_IOCS_PMON_REG_SO: set-only, break here
+					// FD_IOCS_PMON_REG_RB: fall-through, readback
+					if ( cmd == FD_IOCS_PMON_REG_SO )
+						break;
+
+				case FD_IOCG_PMON_REG:
+					regs.val = REG_READ(addr);
+					pr_debug("FD_IOCG_PMON_REG +%04lx READ %08lx\n", regs.ofs, regs.val);
+					break;
+
+			}
+
+			// set-only: no need to copy back to userspace
+			if ( cmd == FD_IOCS_PMON_REG_SO )
+				ret = 0;
+			// read or write/readback: copy back to userspace
+			else if ( (ret = copy_to_user((void *)arg, &regs, sizeof(regs))) )
+			{
+				pr_err("failed to copy %d bytes, stop\n", ret);
+				return -EFAULT;
+			}
+			break;
+		}
 	}
 
 	if ( ret )

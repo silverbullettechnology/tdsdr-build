@@ -88,6 +88,12 @@
 #endif
 
 
+#ifdef XPAR_AXI_PERF_MON_0_BASEADDR
+#define PMON_BASE XPAR_AXI_PERF_MON_0_BASEADDR
+#define PMON_SIZE (1 + XPAR_AXI_PERF_MON_0_HIGHADDR - XPAR_AXI_PERF_MON_0_BASEADDR)
+#endif
+
+
 struct fd_dsrc_regs __iomem *fd_dsrc0_regs = NULL;
 struct fd_dsnk_regs __iomem *fd_dsnk0_regs = NULL;
 struct fd_dsrc_regs __iomem *fd_dsrc1_regs = NULL;
@@ -102,6 +108,8 @@ u32 __iomem *fd_rx_fifo1_cnt = NULL;
 u32 __iomem *fd_rx_fifo2_cnt = NULL;
 u32 __iomem *fd_tx_fifo1_cnt = NULL;
 u32 __iomem *fd_tx_fifo2_cnt = NULL;
+
+void __iomem *fd_pmon_regs = NULL;
 
 
 static void __attribute__((unused)) fd_unmap (void __iomem *mapped, unsigned long base,
@@ -174,6 +182,11 @@ void fd_xparameters_exit (void)
 #ifdef FD_ADI2_NEW_BASE
 	if ( fd_adi2_new_regs )
 		fd_unmap(fd_adi2_new_regs, FD_ADI2_NEW_BASE, FD_ADI2_NEW_SIZE);
+#endif
+
+#ifdef PMON_BASE
+	if ( fd_pmon_regs )
+		fd_unmap(fd_pmon_regs, PMON_BASE, PMON_SIZE);
 #endif
 }
 
@@ -289,6 +302,14 @@ int fd_xparameters_init (void)
 	         REG_READ(ADI_NEW_TX_ADDR(fd_adi2_new_regs, 0x0004)));
 #endif
 
+
+#ifdef PMON_BASE
+	if ( !(fd_pmon_regs = fd_iomap(PMON_BASE, PMON_SIZE)) )
+		goto error;
+	printk("PMON regs %08x -> %p\n", PMON_BASE, fd_pmon_regs);
+#else
+	printk("PMON regs unset, no PMON_BASE\n");
+#endif
 
 	return 0;
 

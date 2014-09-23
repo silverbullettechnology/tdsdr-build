@@ -68,6 +68,8 @@ extern u32 __iomem *fd_rx_fifo2_cnt;
 extern u32 __iomem *fd_tx_fifo1_cnt;
 extern u32 __iomem *fd_tx_fifo2_cnt;
 
+extern void __iomem *fd_pmon_regs;
+
 int fd_xparameters_init (void);
 void fd_xparameters_exit (void);
 

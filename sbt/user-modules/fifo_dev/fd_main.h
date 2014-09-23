@@ -74,6 +74,12 @@ struct fd_new_adi_regs
 	unsigned long  val;
 };
 
+struct fd_pmon_regs
+{
+	unsigned long  ofs;
+	unsigned long  val;
+};
+
 
 // Target list bitmap from xparameters
 #define  FD_IOCG_TARGET_LIST  _IOR(FD_IOCTL_MAGIC, 0, unsigned long *)
@@ -146,6 +152,11 @@ struct fd_new_adi_regs
 #define  FD_IOCG_DSNK1_STAT   _IOR(FD_IOCTL_MAGIC, 71, unsigned long *)
 #define  FD_IOCG_DSNK1_BYTES  _IOR(FD_IOCTL_MAGIC, 72, unsigned long *)
 #define  FD_IOCG_DSNK1_SUM    _IOR(FD_IOCTL_MAGIC, 73, unsigned long *)
+
+// Arbitrary register access for now
+#define  FD_IOCG_PMON_REG      _IOR(FD_IOCTL_MAGIC, 80, struct fd_pmon_regs *)
+#define  FD_IOCS_PMON_REG_SO   _IOW(FD_IOCTL_MAGIC, 81, struct fd_pmon_regs *)
+#define  FD_IOCS_PMON_REG_RB   _IOW(FD_IOCTL_MAGIC, 82, struct fd_pmon_regs *)
 
 
 #endif /* _INCLUDE_FD_MAIN_H */

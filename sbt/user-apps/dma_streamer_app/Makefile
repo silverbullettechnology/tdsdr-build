@@ -14,8 +14,11 @@ APP_OBJS := \
 	fifo/adi_new.o \
 	fifo/dsxx.o \
 	fifo/dev.o \
+	fifo/pmon.o \
+	pmon/pmon.a
 
 CFLAGS   += -I$(CURDIR)
+CFLAGS   += -I$(CURDIR)/pmon
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 CFLAGS   += -I$(PETALINUX)/software/user-modules/fifo_dev
 else
@@ -36,8 +39,12 @@ dsa_format: dsa/format.c common/common.c common/log.c
 minimal: minimal.c dsm/dsm.c common/common.c fifo/dev.c fifo/dsxx.c
 	$(CC) $(CFLAGS) -o $@ $^
 
+pmon/pmon.a:
+	$(MAKE) -C pmon/
+
 clean:
 	-rm -f $(APP) $(APP_OBJS)
+	-$(MAKE) -C pmon/ clean
 
 .PHONY: romfs image
 

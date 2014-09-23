@@ -29,9 +29,12 @@
 #include "fifo/adi_old.h"
 #include "fifo/adi_new.h"
 #include "fifo/dsxx.h"
+#include "fifo/pmon.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
 #include "common/common.h"
+
+#include "pmon/pmon.h"
 
 #include "common/log.h"
 LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
@@ -374,7 +377,7 @@ LOG_DEBUG("dsa_parse_channel(): return %d\n", optind);
 
 void dsa_command_trigger_usage (void)
 {
-	printf("\nTrigger options: [-sSMefuc] [reps|once|cont|press [reps]]\n"
+	printf("\nTrigger options: [-sSMefucp] [reps|once|cont|press [reps]]\n"
 	       "Where:\n"
 	       "-s  Show statistics for DMA transfers after completion (default)\n"
 	       "-S  Suppress statistics display\n"
@@ -383,6 +386,7 @@ void dsa_command_trigger_usage (void)
 	       "-f  Debugging: show FIFO counters before and after transfer\n"
 	       "-u  Debugging: un-transpose RX data after transfer in software\n"
 	       "-c  Debugging: debug FIFO control registers before and after transfer\n\n"
+	       "-p  Debugging: collect pmon stats\n\n"
 	       "The positional arguments support several operating modes:\n"
 	       "- reps may be a numeric number of repetitions to trigger, once, before cleaning\n"
 	       "  up and exiting.  The number may suffixed with K or M for convenience.\n"
@@ -508,6 +512,7 @@ int dsa_command_trigger (int argc, char **argv)
 	int                 utp      = 0;
 	int                 ctrl     = 0;
 	int                 ensm     = 0;
+	int                 pmon     = 0;
 	int                 ret;
 	int                 dev;
 
@@ -517,7 +522,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	//
 	optind = 1;
-	while ( (ret = posix_getopt(argc, argv, "fsSMeuc")) > -1 )
+	while ( (ret = posix_getopt(argc, argv, "fsSMeucp")) > -1 )
 		switch ( ret )
 		{
 			case 'f': fifo  = 1; break;
@@ -527,10 +532,18 @@ for ( ret = 0; ret <= argc; ret++ )
 			case 'e': exp = 1;   break;
 			case 'u': utp = 1;   break;
 			case 'c': ctrl = 1;  break;
+			case 'p': pmon = 1;  break;
 
 			default:
 				return -1;
 		}
+
+	errno = 0;
+	if ( pmon && (Init_Pmon() || errno) )
+	{
+		LOG_ERROR("pmon failed to init, stop\n");
+		return -1;
+	}
 
 	// figure number of reps from argument
 	if ( !argv[optind] || !strcasecmp(argv[optind], "once") )
@@ -775,6 +788,12 @@ for ( ret = 0; ret <= argc; ret++ )
 		return -1;
 	}
 
+	if ( pmon )
+	{
+		Reset_Pmon();
+		SetPmonAXIS();
+		SetPmonAXI4();
+	}
 
 	// Trigger DMA and block until complete
 	switch ( trig )
@@ -841,6 +860,13 @@ for ( ret = 0; ret <= argc; ret++ )
 			LOG_INFO("Stopping DMA...\n");
 			dsm_cyclic_stop(~0);
 			break;
+	}
+
+	if ( pmon )
+	{
+		GetPmonAXIS();
+		GetPmonAXI4();
+		Reset_Pmon();
 	}
 
 	if ( !ensm && dsa_channel_ensm_wake )
