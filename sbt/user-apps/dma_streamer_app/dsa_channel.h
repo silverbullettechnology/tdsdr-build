@@ -83,7 +83,7 @@ void dsa_format_list(FILE *fp);
 
 // calculates the DMA timeout for the largest allocated buffer at the given sample 
 // rate (currently 4MSPS), with a +25% margin.
-unsigned long dsa_channel_timeout (struct dsa_channel_event *evt, int msps);
+unsigned long dsa_channel_timeout (struct dsa_channel_event *evt);
 
 // checks user's requested channel config against setup of the AD9361 chips, returns
 // number of buffers which mismatch, or 0 if all allocated buffers/channels are supported.

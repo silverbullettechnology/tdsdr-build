@@ -468,7 +468,7 @@ for ( ret = 0; ret <= argc; ret++ )
 	// set timeout: if user's specified a value use that even if it's wrong. 
 	// otherwise calculate from data sizes + margin, minimum 1 sec.
 	if ( !(timeout = dsa_opt_timeout) )
-		timeout = dsa_channel_timeout(&dsa_evt, 4);
+		timeout = dsa_channel_timeout(&dsa_evt);
 	if ( timeout < 100 )
 		timeout = 100;
 	dsa_ioctl_set_timeout(timeout);

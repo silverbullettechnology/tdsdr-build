@@ -474,27 +474,55 @@ void dsa_channel_cleanup (struct dsa_channel_event *evt)
 
 // calculates the DMA timeout for the largest allocated buffer at the given sample 
 // rate (currently 4MSPS), with a +25% margin.
-unsigned long dsa_channel_timeout (struct dsa_channel_event *evt, int msps)
+unsigned long dsa_channel_timeout (struct dsa_channel_event *evt)
 {
 	struct dsa_channel_xfer **xfer;
 	unsigned long             time;
 	unsigned long             max  = 0;
+	uint32_t                  rate;
 	int                       dev;
 	int                       dir;
 
-	LOG_DEBUG("%s(evt, %d msps)\n", __func__, msps);
-	if ( msps < 1 )
-		msps = 1;
-	msps *= 10000;
-
+	LOG_DEBUG("%s(evt)\n", __func__);
 	for ( dev = DC_DEV_AD1; dev <= DC_DEV_AD2; dev <<= 1 )
 		for ( dir = DC_DIR_TX; dir <= DC_DIR_RX; dir <<= 1 )
 			if ( (xfer = evt_to_xfer(evt, (dev|dir))) && *xfer )
 			{
-				time  = (*xfer)->len / msps;
+				// get sample-rate using library calls based on device and direction
+				switch ( (dev|dir) & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX) )
+				{
+					case DC_DIR_TX|DC_DEV_AD1: 
+						if ( ad9361_get_out_voltage_sampling_frequency(0, &rate) < 0 )
+							return -1;
+						break;
+
+					case DC_DIR_TX|DC_DEV_AD2: 
+						if ( ad9361_get_out_voltage_sampling_frequency(1, &rate) < 0 )
+							return -1;
+						break;
+
+					case DC_DIR_RX|DC_DEV_AD1: 
+						if ( ad9361_get_in_voltage_sampling_frequency(0, &rate) < 0 )
+							return -1;
+						break;
+
+					case DC_DIR_RX|DC_DEV_AD2: 
+						if ( ad9361_get_in_voltage_sampling_frequency(1, &rate) < 0 )
+							return -1;
+						break;
+
+					default:
+						return -1;
+				}
+
+				// rate in Hz, divide by 100 here makes output into jiffies and add 25%
+				rate /= 100;
+				if ( rate < 1 )
+					rate = 1;
+				time  = (*xfer)->len / rate;
 				time += (time >> 2);
-				LOG_DEBUG("%s: %zu samples -> %lu jiffies w/+25%%\n", 
-				          dsa_channel_desc(dev|dir), (*xfer)->len, time);
+				LOG_DEBUG("%s: %zu samples @ %u -> %lu jiffies w/+25%%\n", 
+				          dsa_channel_desc(dev|dir), (*xfer)->len, rate * 100, time);
 				if ( time > max )
 					max = time;
 			}
