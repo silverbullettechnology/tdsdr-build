@@ -498,7 +498,7 @@ static int fmt_iqw_read (FILE *fp, void *buff, size_t size, int chan, int lsh)
 			}
 
 			// store in channel 2
-			if ( chan & DC_CHAN_1 )
+			if ( chan & DC_CHAN_2 )
 			{
 				d[i + 2] = (unsigned long)s & 0x7FF;
 				if ( s < 0 )
