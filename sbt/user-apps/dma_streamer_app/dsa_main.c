@@ -113,16 +113,32 @@ int dsa_main_map (int reps)
 
 	if ( dsa_evt.tx[0] )
 	{
-		buffs.adi1.tx.addr = (unsigned long)dsa_evt.tx[0]->smp;
-		buffs.adi1.tx.size = dsa_evt.tx[0]->len * DSM_BUS_WIDTH;
-		buffs.adi1.tx.words = dsa_evt.tx[0]->len * reps;
+		buffs.adi1.tx.addr   = (unsigned long)dsa_evt.tx[0]->smp;
+		buffs.adi1.tx.size   = dsa_evt.tx[0]->len;
+		if ( buffs.adi1.tx.size & 15 )
+		{
+			printf ("AD1: Discarding %d samples from TX buffer for alignment\n",
+			        buffs.adi1.tx.size & 15);
+			buffs.adi1.tx.size &= ~15;
+		}
+		buffs.adi1.tx.words  = buffs.adi1.tx.size;
+		buffs.adi1.tx.size  *= DSM_BUS_WIDTH;
+		buffs.adi1.tx.words *= reps;
 	}
 
 	if ( dsa_evt.tx[1] )
 	{
-		buffs.adi2.tx.addr = (unsigned long)dsa_evt.tx[1]->smp;
-		buffs.adi2.tx.size = dsa_evt.tx[1]->len * DSM_BUS_WIDTH;
-		buffs.adi2.tx.words = dsa_evt.tx[1]->len * reps;
+		buffs.adi2.tx.addr   = (unsigned long)dsa_evt.tx[1]->smp;
+		buffs.adi2.tx.size   = dsa_evt.tx[1]->len;
+		if ( buffs.adi2.tx.size & 15 )
+		{
+			printf ("AD2: Discarding %d samples from TX buffer for alignment\n",
+			        buffs.adi2.tx.size & 15);
+			buffs.adi2.tx.size &= ~15;
+		}
+		buffs.adi2.tx.words  = buffs.adi2.tx.size;
+		buffs.adi2.tx.size  *= DSM_BUS_WIDTH;
+		buffs.adi2.tx.words *= reps;
 	}
 
 	if ( dsa_evt.rx[0] )
