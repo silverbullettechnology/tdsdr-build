@@ -28,6 +28,7 @@ romfs:
 	mkdir -p $(ROMFSDIR)/media/
 	$(SHELL) add-path-entry.sh
 	install -m755 switch.sh $(ROMFSDIR)/switch
+	install -m755 blink.sh $(ROMFSDIR)/bin
 	install -m755 scanall.sh $(ROMFSDIR)/etc/init.d/scanall
 	rm -f $(ROMFSDIR)/etc/rcS.d/S30scanall
 	ln -sv ../init.d/scanall $(ROMFSDIR)/etc/rcS.d/S30scanall
