@@ -34,9 +34,11 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "xlnx,zynq-zc770", "xlnx,zynq-7000";
-	model = "SDRDC";
+	model = "TDSDR";
+
 	aliases {
 		ethernet0 = &ps7_ethernet_0;
+		ethernet1 = &ps7_ethernet_1;
 		serial0 = &ps7_uart_1;
 	} ;
 	chosen {
@@ -99,7 +101,7 @@
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 59 4>;
+			interrupts = <0 29 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -114,7 +116,7 @@
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 58 4>;
+			interrupts = <0 30 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -129,7 +131,7 @@
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 57 4>;
+			interrupts = <0 31 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -144,7 +146,7 @@
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 56 4>;
+			interrupts = <0 32 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -165,9 +167,8 @@
 			xlnx,dout-default = <0x0>;
 			xlnx,dout-default-2 = <0x0>;
 			xlnx,family = "zynq";
-			xlnx,gpio-width = <0x4>;
-			xlnx,gpio2-width = <0x20>;
-			xlnx,instance = "LEDs_4Bits";
+			xlnx,gpio-width = <0x10>;
+			xlnx,instance = "adi_ctrl_out";
 			xlnx,interrupt-present = <0x0>;
 			xlnx,is-dual = <0x0>;
 			xlnx,tri-default = <0xffffffff>;
@@ -217,8 +218,6 @@
 			reg = < 0xf8003000 0x1000 >;
 		} ;
 		ps7_ethernet_0: ps7-ethernet@e000b000 {
-			/* Ethernet is disabled by default, remove the line below to enable */
-			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			clock-names = "ref_clk", "aper_clk";
@@ -238,9 +237,24 @@
 				phy0: phy@7 {
 					compatible = "marvell,88e1116r";
 					device_type = "ethernet-phy";
-					reg = <7>;
+					reg = <3>;
 				} ;
 			} ;
+		} ;
+		ps7_ethernet_1: ps7-ethernet@e000c000 {
+			/* Ethernet is disabled by default, remove the line below to enable */
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "ref_clk", "aper_clk";
+			clocks = <&clkc 14>, <&clkc 30>;
+			compatible = "xlnx,ps7-ethernet-1.00.a";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = <0 45 4>;
+			local-mac-address = [00 0a 35 00 00 01];
+			reg = <0xe000c000 0x1000>;
+			xlnx,eth-mode = <0x1>;
+			xlnx,has-mdio = <0x0>;
 		} ;
 		ps7_gpio_0: ps7-gpio@e000a000 {
 			#gpio-cells = <2>;
@@ -490,39 +504,59 @@
 			gpio-mosi = < &ps7_gpio_0 90 0 >;
 			gpio-miso = < &ps7_gpio_0 89 0 >;
 			cs-gpios  = <
-				&ps7_gpio_0 92 0
-				&ps7_gpio_0 93 0
+				&ps7_gpio_0 74 0
+				&ps7_gpio_0 75 0
+				&ps7_gpio_0 76 0
+				&ps7_gpio_0 77 0
+				&ps7_gpio_0 78 0
 			>;
 			num-chipselects = <2>;
 
 			spidev@0 {
 				compatible = "spidev";
-				spi-max-frequency = <250000>;
+				spi-max-frequency = <2600000>;
 				reg = <0>;
 			};
 			spidev@1 {
 				compatible = "spidev";
-				spi-max-frequency = <250000>;
+				spi-max-frequency = <2600000>;
 				reg = <1>;
+			};
+			spidev@2 {
+				compatible = "spidev";
+				spi-max-frequency = <2600000>;
+				reg = <2>;
+			};
+			spidev@3 {
+				compatible = "spidev";
+				spi-max-frequency = <2600000>;
+				reg = <3>;
+			};
+			spidev@4 {
+				compatible = "spidev";
+				spi-max-frequency = <2600000>;
+				reg = <4>;
 			};
 		};
 
 		spi2: spi@e0006000 {
 			bus-num = <2>;
-			compatible = "xlnx,ps7-spi-1.00.a";
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 26 4>;
-			clock-names = "ref_clk", "aper_clk";
-			clocks = <&clkc 25>, <&clkc 34>;
-			num-chip-select = <2>;
-			reg = <0xe0006000 0x1000>;
-			speed-hz = <166666666>;
-			xlnx,has-ss0 = <0x1>;
-			xlnx,has-ss1 = <0x1>;
-			xlnx,has-ss2 = <0x0>;
-			xlnx,spi-clk-freq-hz = <166666666>;
-			#address-cells = <1>;
-			#size-cells = <0>;
+
+			compatible = "spi-gpio";
+			#address-cells = <0x1>;
+			ranges;
+
+			gpio-sck  = < &ps7_gpio_0 105 0 >;
+			gpio-mosi = < &ps7_gpio_0 104 0 >;
+			gpio-miso = < &ps7_gpio_0 103 0 >;
+			num-chipselects = <4>;
+
+			cs-gpios = < 
+				&ps7_gpio_0 79 0
+				&ps7_gpio_0 80 0
+				&ps7_gpio_0 81 0
+				&ps7_gpio_0 82 0
+			>;
 
 			spi_shim_1_0: spi-shim@0 {
 				bus-num = <3>;
@@ -978,17 +1012,5 @@
 			}; // spi_shim_2_0
 
 		}; // spi2
-
-		test: remoteproc-test@0 {
-			compatible = "xlnx,zynq_remoteproc";
-			reg = < 0x0 0x10000000 >;
-			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = < 0 37 4 0 38 4>;
-			firmware = "freertos";
-			ipino = <5>;
-			vring0 = <2>;
-			vring1 = <3>;
-		} ;
-
 	} ;
 } ;

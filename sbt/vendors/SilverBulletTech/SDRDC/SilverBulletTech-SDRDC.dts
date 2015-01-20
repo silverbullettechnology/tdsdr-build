@@ -491,7 +491,7 @@
 			gpio-miso = < &ps7_gpio_0 89 0 >;
 			cs-gpios  = <
 				&ps7_gpio_0 92 0
-				&ps7_gpio_0 89 0
+				&ps7_gpio_0 93 0
 			>;
 			num-chipselects = <2>;
 
