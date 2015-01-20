@@ -26,7 +26,7 @@
 
 #ifdef UNIT_TEST
 #define DSM_BUS_WIDTH 8
-#define DSM_MAX_SIZE  64000000
+#define DSM_MAX_SIZE  840000000
 #else
 #include <dma_streamer_mod.h>
 #endif
