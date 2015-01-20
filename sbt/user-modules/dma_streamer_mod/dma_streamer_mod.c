@@ -38,6 +38,9 @@
 #include "dma_streamer_mod.h"
 #include "dsm_xparameters.h"
 
+//#define pr_trace(...) pr_debug
+#define pr_trace(...) do{ }while(0)
+
 
 #define ADI_NEW_TX_REG_CNTRL_1  0x0044
 #define ADI_NEW_TX_ENABLE       (1 << 0)
@@ -316,13 +319,13 @@ static void dsm_xfer_cleanup (struct dsm_xfer *state)
 	if ( pc % (SG_MAX_SINGLE_ALLOC - 1) )
 		sc++;
 
-pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
+	pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
 
-//pr_debug("put_page() on %d user pages:\n", pc);
+	pr_trace("put_page() on %d user pages:\n", pc);
 	while ( pc > 0 )
 	{
 		pg = sg_page(sg);
-//pr_debug("  sg %p -> pg %p\n", sg, pg);
+		pr_trace("  sg %p -> pg %p\n", sg, pg);
 		if ( state->dir == DMA_DEV_TO_MEM && !PageReserved(pg) )
 			set_page_dirty(pg);
 
@@ -335,11 +338,11 @@ pr_debug("%s(): pc %d, sg %p, sc %d\n", __func__, pc, sg, sc);
 
 	dma_release_channel(state->chan);
 
-//pr_debug("free_page() on %d sg pages:\n", sc);
+	pr_trace("free_page() on %d sg pages:\n", sc);
 	for ( pc = 0; pc < sc; pc++ )
 		if ( state->chain[pc] )
 		{
-//pr_debug("  sg %p\n", state->chain[pc]);
+			pr_trace("  sg %p\n", state->chain[pc]);
 			free_page((unsigned long)state->chain[pc]);
 		}
 
@@ -557,9 +560,9 @@ pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
 	// assumes that map_sg uses chain-aware iteration (sg_next/for_each_sg)
 	dma_map_sg(dsm_dev, state->chain[0], state->pages, state->dir);
 
-	pr_debug("Mapped scatterlist chain:\n");
+	pr_trace("Mapped scatterlist chain:\n");
 	for_each_sg(state->chain[0], sg_walk, state->pages, idx)
-		pr_debug("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
+		pr_trace("  %d: sg %p -> phys %08lx\n", idx, sg_walk,
 		         (unsigned long)sg_dma_address(sg_walk));
 
 	pr_debug("done\n");

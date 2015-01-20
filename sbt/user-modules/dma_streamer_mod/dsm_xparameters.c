@@ -232,9 +232,9 @@ int dsm_xparameters_init (void)
 
 
 #ifdef DSM_ADI1_NEW_BASE
+	pr_debug("DSM: configured for ADI1 new IF @%08x:\n", DSM_ADI1_NEW_BASE);
 	if ( !(dsm_adi1_new_regs = dsm_iomap(DSM_ADI1_NEW_BASE, DSM_ADI1_NEW_SIZE)) )
 		goto error;
-	pr_debug("ADI1 new IF @%08x:\n", DSM_ADI1_NEW_BASE);
 	pr_debug("RX VER %08x ID %08x\n", 
 	         REG_READ(ADI_NEW_RX_ADDR(dsm_adi1_new_regs, 0x0000)),
 	         REG_READ(ADI_NEW_RX_ADDR(dsm_adi1_new_regs, 0x0004)));
@@ -244,9 +244,9 @@ int dsm_xparameters_init (void)
 #endif
 
 #ifdef DSM_ADI2_NEW_BASE
+	pr_debug("DSM: configured for ADI2 new IF @%08x:\n", DSM_ADI2_NEW_BASE);
 	if ( !(dsm_adi2_new_regs = dsm_iomap(DSM_ADI2_NEW_BASE, DSM_ADI2_NEW_SIZE)) )
 		goto error;
-	pr_debug("ADI2 new IF @%08x:\n", DSM_ADI2_NEW_BASE);
 	pr_debug("RX VER %08x ID %08x\n", 
 	         REG_READ(ADI_NEW_RX_ADDR(dsm_adi2_new_regs, 0x0000)),
 	         REG_READ(ADI_NEW_RX_ADDR(dsm_adi2_new_regs, 0x0004)));
