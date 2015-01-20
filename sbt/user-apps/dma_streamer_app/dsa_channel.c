@@ -816,11 +816,20 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 	LOG_INFO("Checking AD9361 mode:\n");
 	for ( dev = 0; dev <= 1; dev++ )
 	{
+		if ( !evt->rx[dev] && !evt->tx[dev] )
+			continue;
+
 		// get current ENSM mode and FDD config setting
 		if ( ad9361_get_ensm_mode(dev, &mode) < 0 )
+		{
+			LOG_ERROR("ad9361_get_ensm_mode: %s\n", strerror(errno));
 			return -1;
+		}
 		if ( ad9361_get_frequency_division_duplex_mode_enable(dev, &fdd) < 0 )
+		{
+			LOG_ERROR("ad9361_get_frequency_division_duplex_mode_enable: %s\n", strerror(errno));
 			return -1;
+		}
 
 		// check for transfers setup for each direction
 		need = 0;
@@ -877,7 +886,10 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 					// put the chip in FDD mode
 					LOG_INFO("%s: setting to FDD\n", dev ? "AD2" : "AD1");
 					if ( ad9361_set_ensm_mode(dev, AD9361_ENSM_MODE_FDD) < 0 )
+					{
+						LOG_ERROR("ad9361_set_ensm_mode: %s\n", strerror(errno));
 						return -1;
+					}
 
 					// record this device was activated to wait for it to be ready
 					dsa_channel_ensm_wake |= DC_DEV_IDX_TO_MASK(dev);
