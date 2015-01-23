@@ -13,7 +13,7 @@
 
 # Linux kernel source
 SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
-SBT_KERNEL_GIT_BRANCH := sdrdc-devel
+SBT_KERNEL_GIT_BRANCH := tdsdr-devel
 #SBT_KERNEL_GIT_USER   := 
 #SBT_KERNEL_GIT_EMAIL  := 
 export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
@@ -29,13 +29,13 @@ export SBT_PETALINUX_VER := 2013.04
 # BSP selection
 # Select the default BSP "SDRDC" for normal SMP use.  Select the BSP "SDRDC-AMP" for AMP
 # use with FreeRTOS, as described in Xilinx UG978 "Zynq AMP Linux FreeRTOS Guide"
-export SBT_BSP := SDRDC
+#export SBT_BSP := SDRDC
 #export SBT_BSP := SDRDC-AMP
-#export SBT_BSP := TDSDR
+export SBT_BSP := TDSDR
 
 # Boot.bin selection
-export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/SDRDC/boot.bin
-#export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/TDSDR/boot.bin
+#export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/SDRDC/boot.bin
+export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/TDSDR/boot.bin
 
 
 # You shouldn't need to modify anything beyond here

@@ -1,0 +1,6 @@
+the_ROM_image:
+{
+	[bootloader]./zynq_fsbl_01192148.elf
+	./01_19_2015_1802.bit
+	./u-boot_01182241.elf
+}
