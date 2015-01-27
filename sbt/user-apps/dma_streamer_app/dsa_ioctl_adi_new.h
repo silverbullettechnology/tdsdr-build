@@ -131,6 +131,8 @@
 #define ADI_NEW_RX_IQCOR_COEFF_2(x)     (((x) & 0xFFFF) << 0)
 #define ADI_NEW_RX_TO_IQCOR_COEFF_2(x)  (((x) >> 0) & 0xFFFF)
 
+#define ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(c)   (0x0418 + (c) * 0x40)
+
 
 /* DAC COMMON */
 #define ADI_NEW_TX_REG_PCORE_VER                0x0000

@@ -537,6 +537,19 @@ for ( ret = 0; ret <= argc; ret++ )
 				// Rate 3 for T2R2 mode
 				reg = ADI_NEW_TX_TO_RATE(3);
 				dsa_ioctl_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
+
+				// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
+				dsa_ioctl_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_PCORE_VER, &reg);
+				if ( (reg & 0xFFFF0000) == 0x00080000 )
+				{
+					int ch;
+
+					printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
+					for ( ch = 0; ch < 4; ch++ )
+						dsa_ioctl_adi_new_write(dev, ADI_NEW_TX,
+						                        ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
+						                        0x02);
+				}
 			}
 		} 
 
@@ -656,42 +669,10 @@ for ( ret = 0; ret <= argc; ret++ )
 	// Show FIFO numbers before transfer
 	if ( fifo )
 	{
-		// new ADIs: debuggin
-		if ( dsa_adi_new )
-			for ( dev = 0; dev < 2; dev++ )
-			{
-				unsigned long  reg;
+		struct dsm_fifo_counts fb;
 
-				if ( !dsa_evt.tx[dev] )
-					continue;
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, &reg);
-				printf("REG_CNTRL_2 %08x\n", reg);
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, &reg);
-				printf("ADI_NEW_TX_REG_RATECNTRL %08x\n", reg);
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, 0x54, &reg);
-				printf("CLK_FREQ %08x\n", reg);
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, 0x58, &reg);
-				printf("CLK_RATIO %08x\n", reg);
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, 0x5c, &reg);
-				printf("REG_STATUS %08x\n", reg);
-
-				dsa_ioctl_adi_new_read(dev, ADI_NEW_TX, 0x88, &reg);
-				printf("REG_UI_STATUS %08x\n", reg);
-			}
-
-		// old ADIs: show old FIFOs
-		else
-		{
-			struct dsm_fifo_counts fb;
-
-			dsa_ioctl_adi_old_get_fifo_cnt(&fb);
-			dsa_main_show_fifos(&fb);
-		}
+		dsa_ioctl_adi_old_get_fifo_cnt(&fb);
+		dsa_main_show_fifos(&fb);
 	}
 
 	// For TX transfers, check 
