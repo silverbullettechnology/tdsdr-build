@@ -1,0 +1,41 @@
+#include <assert.h>
+
+//#include <cal_ctl/main.h>
+
+#include "api_types.h"
+//#include "main.h"
+
+#ifndef _INCLUDE_LIB_LIB_H_
+#define _INCLUDE_LIB_LIB_H_
+
+void cal_test_function();
+
+int cal_ctl_spiwritearray(UINT16 *wr_data, UINT16 size);
+
+int cal_ctl_spitransaction(UINT16 *wr_data, UINT16 *rd_data, UINT16 size);
+
+int cal_ctl_dev_reopen (int num, int reinit);
+
+int cal_ctl_cal_spare_1(int val);
+
+int cal_ctl_cal_spare_2(int val);
+
+int cal_ctl_cal_rstn(int val);
+
+int cal_ctl_adi1_tx_en(int val);
+
+int cal_ctl_cal_reserve1(int val);
+
+int cal_ctl_cal_reserve2(int val);
+
+int cal_ctl_cal_reserve4(int val);
+
+int cal_ctl_cal_reserve3(int val);
+
+int cal_ctl_adi2_tx_en(int val);
+
+int cal_ctl_cal_spare_3(int val);
+
+int cal_ctl_cal_spare_4(int val);
+
+#endif /* _INCLUDE_LIB_LIB_H_ */

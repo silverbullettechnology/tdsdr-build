@@ -500,9 +500,9 @@
 			#address-cells = <0x1>;
 			ranges;
 
-			gpio-sck  = < &ps7_gpio_0 91 0 >;
-			gpio-mosi = < &ps7_gpio_0 90 0 >;
-			gpio-miso = < &ps7_gpio_0 89 0 >;
+			gpio-sck  = < &ps7_gpio_0 102 0 >;
+			gpio-mosi = < &ps7_gpio_0 101 0 >;
+			gpio-miso = < &ps7_gpio_0 100 0 >;
 			cs-gpios  = <
 				&ps7_gpio_0 74 0
 				&ps7_gpio_0 75 0
@@ -510,31 +510,31 @@
 				&ps7_gpio_0 77 0
 				&ps7_gpio_0 78 0
 			>;
-			num-chipselects = <2>;
+			num-chipselects = <5>;
 
 			spidev@0 {
 				compatible = "spidev";
-				spi-max-frequency = <2600000>;
+				spi-max-frequency = <100000>;
 				reg = <0>;
 			};
 			spidev@1 {
 				compatible = "spidev";
-				spi-max-frequency = <2600000>;
+				spi-max-frequency = <100000>;
 				reg = <1>;
 			};
 			spidev@2 {
 				compatible = "spidev";
-				spi-max-frequency = <2600000>;
+				spi-max-frequency = <100000>;
 				reg = <2>;
 			};
 			spidev@3 {
 				compatible = "spidev";
-				spi-max-frequency = <2600000>;
+				spi-max-frequency = <100000>;
 				reg = <3>;
 			};
 			spidev@4 {
 				compatible = "spidev";
-				spi-max-frequency = <2600000>;
+				spi-max-frequency = <100000>;
 				reg = <4>;
 			};
 		};
