@@ -20,4 +20,8 @@
 #include <linux/kernel.h>
 
 
+int  sd_loop_proc_init (void);
+void sd_loop_proc_exit (void);
+
+
 #endif /* _INCLUDE_LOOP_PROC_H_ */

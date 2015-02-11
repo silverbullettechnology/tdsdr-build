@@ -29,8 +29,16 @@ extern struct sd_fifo_config   sd_loop_user_fifo_cfg;
 
 extern struct sd_srio_config   sd_srio_cfg;
 
+extern int sd_loop_tx_dest;
+
 struct device *sd_loop_init (void);
 void           sd_loop_exit (void);
+
+
+void sd_loop_set_dest_init_reg (u32 init_reg);
+u32  sd_loop_get_dest_init_reg (void);
+void sd_loop_set_dest_targ_reg (u32 targ_reg);
+u32  sd_loop_get_dest_targ_reg (void);
 
 
 #endif // _INCLUDE_LOOP_TEST_H_
