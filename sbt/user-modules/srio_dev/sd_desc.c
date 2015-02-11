@@ -65,7 +65,6 @@ void sd_desc_unmap (struct sd_desc *desc, struct device *dev,
 	dma_unmap_single(dev, desc->phys, desc->size, dir);
 }
 
-
 void sd_desc_free (struct sd_desc *desc)
 {
 	kfree(desc->virt);
@@ -79,5 +78,40 @@ void sd_desc_free (struct sd_desc *desc)
 	if ( !list_empty(&desc->list) )
 		list_del_init(&desc->list);
 }
+
+
+void sd_desc_clean_ring (struct sd_desc *ring, int len, struct device *dev, int rx_dma)
+{
+	int idx;
+
+	for ( idx = 0; idx < len; idx++ )
+	{
+		if ( rx_dma )
+			sd_desc_unmap(&ring[idx], dev, DMA_DEV_TO_MEM);
+		sd_desc_free(&ring[idx]);
+	}
+}
+
+int sd_desc_setup_ring (struct sd_desc *ring, int len, size_t size, struct device *dev, int rx_dma)
+{
+	int  idx, ret;
+
+	for ( idx = 0; idx < len; idx++ )
+		if ( (ret = sd_desc_alloc(&ring[idx], size)) )
+		{
+			pr_err("RX slot %d sd_desc_alloc() failed, stop\n", idx);
+			sd_desc_clean_ring(ring, idx - 1, dev, rx_dma);
+			return ret;
+		}
+		else if ( rx_dma && (ret = sd_desc_map(&ring[idx], dev, DMA_DEV_TO_MEM)) )
+		{
+			pr_err("RX slot %d sd_desc_map() failed, stop\n", idx);
+			sd_desc_clean_ring(ring, idx - 1, dev, rx_dma);
+			return ret;
+		}
+
+	return 0;
+}
+
 
 

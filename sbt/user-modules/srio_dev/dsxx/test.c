@@ -125,7 +125,7 @@ void sd_dsxx_rx_check (void *buf, size_t len)
 		sd_dsxx_rx_stats.valids++;
 }
 
-static void sd_dsxx_rx_done (struct sd_desc *desc)
+static void sd_dsxx_rx_done (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 	printk("%s: RX desc %p used %08x, left %d\n", __func__,
 	       desc, desc->used, sd_dsxx_rx_reps_left);
@@ -133,7 +133,7 @@ static void sd_dsxx_rx_done (struct sd_desc *desc)
 	sd_dsxx_rx_check(desc->virt, desc->used);
 
 	// give buffer back to RX ring
-	sd_fifo_rx_enqueue(&sd_dsxx_fifo, desc);
+	sd_fifo_rx_enqueue(fifo, desc);
 
 	//sd_dsxx_rx_slot = slot;
 	sd_dsxx_rx_reps_left--;
@@ -218,7 +218,7 @@ static uint64_t sd_dsxx_tx_sum (uint64_t sum, const void *buff, size_t size)
 }
 
 
-void sd_dsxx_tx_done (struct sd_desc *desc)
+void sd_dsxx_tx_done (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 //	sd_dsxx_tx_slot = slot;
 	complete(&sd_dsxx_tx_complete);
@@ -435,29 +435,25 @@ struct device *sd_dsxx_init (void)
 	sd_fifo_init_dir(&sd_dsxx_fifo.tx, sd_dsxx_tx_done, HZ);
 	sd_fifo_init_dir(&sd_dsxx_fifo.rx, sd_dsxx_rx_done, HZ);
 
-	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
-		if ( sd_desc_alloc(&sd_dsxx_rx_ring[idx], BUFF_SIZE) )
-		{
-			pr_err("RX slot %d sd_desc_alloc() failed, stop\n", idx);
-			goto unfifo;
-		}
-		else
-		{
-			if ( (sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM)) &&
-			     sd_desc_map(&sd_dsxx_rx_ring[idx], sd_dsxx_dev, DMA_DEV_TO_MEM) )
-			{
-				pr_err("RX slot %d sd_desc_map() failed, stop\n", idx);
-				goto unfifo;
-			}
+	ret = sd_desc_setup_ring(sd_dsxx_rx_ring, RX_RING_SIZE, BUFF_SIZE,
+	                         sd_dsxx_mdev.this_device,
+	                         sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
+	if ( ret )
+	{
+		pr_err("sd_fifo_init() failed (%d), stop\n", ret);
+		goto unfifo;
+	}
 
-			sd_dsxx_rx_ring[idx].info = idx;
-			sd_fifo_rx_enqueue(&sd_dsxx_fifo, &sd_dsxx_rx_ring[idx]);
-		}
+	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
+	{
+		sd_dsxx_rx_ring[idx].info = idx;
+		sd_fifo_rx_enqueue(&sd_dsxx_fifo, &sd_dsxx_rx_ring[idx]);
+	}
 
 	if ( (ret = sd_dsxx_proc_init()) )
 	{
 		pr_err("Failed to init /proc, stop\n");
-		goto unfifo;
+		goto unring;
 	}
 
 //	if ( want > 0 )
@@ -480,13 +476,11 @@ struct device *sd_dsxx_init (void)
 	sd_dsxx_dev = sd_dsxx_mdev.this_device;
 	return sd_dsxx_mdev.this_device;
 
+unring:
+	sd_desc_clean_ring(sd_dsxx_rx_ring, RX_RING_SIZE, sd_dsxx_dev,
+	                   sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
+
 unfifo:
-	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
-	{
-		if ( sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM) )
-			sd_desc_unmap(&sd_dsxx_rx_ring[idx], sd_dsxx_dev, DMA_DEV_TO_MEM);
-		sd_desc_free(&sd_dsxx_rx_ring[idx]);
-	}
 	sd_fifo_exit(&sd_dsxx_fifo);
 
 unreg:
@@ -498,16 +492,10 @@ unreg:
 
 void sd_dsxx_exit (void)
 {
-	int idx;
-
 	sd_dsxx_proc_exit();
 
-	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
-	{
-		if ( sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM) )
-			sd_desc_unmap(&sd_dsxx_rx_ring[idx], sd_dsxx_dev, DMA_DEV_TO_MEM);
-		sd_desc_free(&sd_dsxx_rx_ring[idx]);
-	}
+	sd_desc_clean_ring(sd_dsxx_rx_ring, RX_RING_SIZE, sd_dsxx_dev,
+	                   sd_dsxx_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
 
 	sd_fifo_exit(&sd_dsxx_fifo);
 

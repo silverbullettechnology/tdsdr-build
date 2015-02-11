@@ -63,11 +63,14 @@ struct sd_fifo_regs
 };
 
 
+struct sd_fifo;
+
+
 /* Callback: each desc will be detached from its queue on TX or RX complete and passed to
  * the registered callback.  RX callback is responsible for dispatching the message and 
  * enqueueing a replacement (which may be the same desc).  TX callback is responsible for
  * freeing the desc. */
-typedef void (* sd_callback) (struct sd_desc *desc);
+typedef void (* sd_callback) (struct sd_fifo *fifo, struct sd_desc *desc);
 
 
 struct sd_fifo_stats

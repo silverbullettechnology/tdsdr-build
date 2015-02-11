@@ -86,7 +86,7 @@ modules:
 	@if [ ! -f $(KSRC)/Module.symvers ]; then \
 		echo "ERROR: Please compile the Linux kernel first by \"make\""; \
 	else \
-		$(MAKE) -C $(KSRC) M=$(LOCALPWD) modules V=1; \
+		$(MAKE) -C $(KSRC) M=$(LOCALPWD) modules; \
 	fi
 
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))

@@ -443,7 +443,7 @@ static void sd_fifo_rx_dma_complete (void *param)
 	{
 		list_del_init(&desc->list);
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
-		sf->rx.func(desc);
+		sf->rx.func(sf, desc);
 		REG_RMW(&sf->regs->ier, 0, RFPF|RC);
 		sf->rx.stats.completes++;
 
@@ -650,7 +650,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 
 			/* unlock: caller may call _tx_enqueue */
 			spin_unlock_irqrestore(&sf->tx.lock, flags);
-			sf->tx.func(desc);
+			sf->tx.func(sf, desc);
 			spin_lock_irqsave(&sf->tx.lock, flags);
 
 			/* start next TX if needed */
@@ -822,7 +822,7 @@ next:
 
 						/* unlock - caller may use _rx_enqueue to replenish the queue */
 						spin_unlock_irqrestore(&sf->rx.lock, flags);
-						sf->rx.func(desc);
+						sf->rx.func(sf, desc);
 						spin_lock_irqsave(&sf->rx.lock, flags);
 
 						sf->rx.stats.completes++;
