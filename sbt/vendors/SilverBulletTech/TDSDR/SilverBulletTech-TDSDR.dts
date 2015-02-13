@@ -97,6 +97,7 @@
 
 		/* New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git */
 		dmac_0_rx: dma@7c400000 {
+status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
@@ -112,6 +113,7 @@
 			};
 		};
 		dma_0_tx: dma@7c420000 {
+status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
@@ -127,6 +129,7 @@
 			};
 		};
 		dmac_1_rx: dma@7c440000 {
+status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
@@ -142,6 +145,7 @@
 			};
 		};
 		dma_1_tx: dma@7c460000 {
+status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
@@ -495,6 +499,7 @@
 		} ;
 
 		spi1 {
+status="disabled";
 			bus-num = <1>;
 			compatible = "spi-gpio";
 			#address-cells = <0x1>;
@@ -540,6 +545,7 @@
 		};
 
 		spi2: spi@e0006000 {
+status="disabled";
 			bus-num = <2>;
 
 			compatible = "spi-gpio";

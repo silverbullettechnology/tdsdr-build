@@ -72,12 +72,11 @@ void sd_loop_gpio_exit (void);
 void sd_loop_gpio_srio_reset (void);
 void sd_loop_gpio_prbs_reset (void);
 
-void sd_loop_gpio_print_srio (void);
-void sd_loop_gpio_print_gt_prbs (void);
+size_t sd_loop_gpio_print_srio    (char *dst, size_t max);
+size_t sd_loop_gpio_print_gt_prbs (char *dst, size_t max);
 
-void sd_loop_gpio_prbs_force_err (int en);
-
-void sd_loop_gpio_set_gt_prbs (int mode);
+void sd_loop_gpio_prbs_force_err  (int en);
+void sd_loop_gpio_set_gt_prbs     (int mode);
 void sd_loop_gpio_set_gt_loopback (int mode);
 
 

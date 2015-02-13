@@ -247,6 +247,8 @@ int sd_xparameters_init (void)
 		goto error;
 	printk("DSNK Pause regs %08x -> %p\n", SD_DSNK_PAUSE, sd_dsnk_pause);
 #endif
+#else
+	printk("No CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX, skipped DSXX setup\n");
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX
 
 
@@ -308,6 +310,17 @@ int sd_xparameters_init (void)
 	sd_srio_cfg.addr = 0;
 #endif
 
+	printk("CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP setup:\n");
+	printk("  Init FIFO: regs %08x data %08x irq %d\n", sd_loop_init_fifo_cfg.regs,
+	       sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
+	printk("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
+	       sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
+	printk("  User FIFO: regs %08x data %08x irq %d\n", sd_loop_user_fifo_cfg.regs,
+	       sd_loop_user_fifo_cfg.data, sd_loop_user_fifo_cfg.irq);
+	printk("  SRIO Core: regs %08x addr %08x\n",
+	       sd_srio_cfg.regs, sd_srio_cfg.addr);
+#else
+	printk("No CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP, skipped Loop setup\n");
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 
 

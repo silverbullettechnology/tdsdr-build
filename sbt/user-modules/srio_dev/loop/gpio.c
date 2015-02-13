@@ -105,26 +105,36 @@ void sd_loop_gpio_prbs_reset (void)
 	gpio_set_value(GT_RX_PRBS_CNT_RESET_PIN, 0);
 }
 
-void sd_loop_gpio_print_srio (void)
+size_t sd_loop_gpio_print_srio (char *dst, size_t max)
 {
-	printk("link_initialized   [%d]\n", gpio_get_value(LINK_INITIALIZED_PIN));
-	printk("port_initialized   [%d]\n", gpio_get_value(PORT_INITIALIZED_PIN));
-	printk("clk_lock_out       [%d]\n", gpio_get_value(CLK_LOCK_OUT_PIN));
-	printk("srio_mode_1x       [%d]\n", gpio_get_value(SRIO_MODE_1X_PIN));
-	printk("port_error         [%d]\n", gpio_get_value(PORT_ERROR_PIN));
-	printk("gtrx_disperr_or    [%d]\n", gpio_get_value(GTRX_DISPERR_OR_PIN));
-	printk("gtrx_notintable_or [%d]\n", gpio_get_value(GTRX_NOTINTABLE_OR_PIN));
-	printk("\n");
+	char *p = dst;
+	char *e = dst + max;
+
+	p += scnprintf(p, e - p, "link_initialized   [%d]\n", gpio_get_value(LINK_INITIALIZED_PIN));
+	p += scnprintf(p, e - p, "port_initialized   [%d]\n", gpio_get_value(PORT_INITIALIZED_PIN));
+	p += scnprintf(p, e - p, "clk_lock_out       [%d]\n", gpio_get_value(CLK_LOCK_OUT_PIN));
+	p += scnprintf(p, e - p, "srio_mode_1x       [%d]\n", gpio_get_value(SRIO_MODE_1X_PIN));
+	p += scnprintf(p, e - p, "port_error         [%d]\n", gpio_get_value(PORT_ERROR_PIN));
+	p += scnprintf(p, e - p, "gtrx_disperr_or    [%d]\n", gpio_get_value(GTRX_DISPERR_OR_PIN));
+	p += scnprintf(p, e - p, "gtrx_notintable_or [%d]\n", gpio_get_value(GTRX_NOTINTABLE_OR_PIN));
+	p += scnprintf(p, e - p, "\n");
+
+	return p - dst;
 }
 
-void sd_loop_gpio_print_gt_prbs (void)
+size_t sd_loop_gpio_print_gt_prbs (char *dst, size_t max)
 {
-	printk("rx_cdr_hold      [%d]\n",     gpio_get_value(GT_RXCDRHOLD_PIN));
-	printk("rx_loopback      [%d%d%d]\n", gpio_get_value(LOOPBACK2_PIN), gpio_get_value(LOOPBACK1_PIN), gpio_get_value(LOOPBACK0_PIN));
-	printk("rx_prbs_sel      [%d%d%d]\n", gpio_get_value(GT_PRBSSEL2_PIN), gpio_get_value(GT_PRBSSEL1_PIN), gpio_get_value(GT_PRBSSEL0_PIN));
-	printk("rx_prbs_cnt_rst  [%d]\n",     gpio_get_value(GT_RX_PRBS_CNT_RESET_PIN));
-	printk("rx_prbs_err      [%d]\n",     gpio_get_value(GT_RXPRBS_ERR_PIN));
-	printk("prbs_force_err   [%d]\n",     gpio_get_value(GT_TXPRBSFORCEERR_PIN));
+	char *p = dst;
+	char *e = dst + max;
+
+	p += scnprintf(p, e - p, "rx_cdr_hold      [%d]\n",     gpio_get_value(GT_RXCDRHOLD_PIN));
+	p += scnprintf(p, e - p, "rx_loopback      [%d%d%d]\n", gpio_get_value(LOOPBACK2_PIN), gpio_get_value(LOOPBACK1_PIN), gpio_get_value(LOOPBACK0_PIN));
+	p += scnprintf(p, e - p, "rx_prbs_sel      [%d%d%d]\n", gpio_get_value(GT_PRBSSEL2_PIN), gpio_get_value(GT_PRBSSEL1_PIN), gpio_get_value(GT_PRBSSEL0_PIN));
+	p += scnprintf(p, e - p, "rx_prbs_cnt_rst  [%d]\n",     gpio_get_value(GT_RX_PRBS_CNT_RESET_PIN));
+	p += scnprintf(p, e - p, "rx_prbs_err      [%d]\n",     gpio_get_value(GT_RXPRBS_ERR_PIN));
+	p += scnprintf(p, e - p, "prbs_force_err   [%d]\n",     gpio_get_value(GT_TXPRBSFORCEERR_PIN));
+
+	return p - dst;
 }
 
 void sd_loop_gpio_prbs_force_err (int en)

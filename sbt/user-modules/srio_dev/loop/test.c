@@ -26,6 +26,8 @@
 #include "srio_dev.h"
 #include "sd_xparameters.h"
 #include "loop/test.h"
+#include "loop/gpio.h"
+#include "loop/proc.h"
 #include "sd_regs.h"
 
 
@@ -155,13 +157,19 @@ ssize_t sd_loop_write (struct file *f, const char __user *user, size_t size, lof
 	// late alloc TX buffer
 	if ( !sd_loop_tx_desc.virt )
 	{
+		u32 *hdr;
 		if ( sd_desc_alloc(&sd_loop_tx_desc, BUFF_SIZE) )
 		{
 			pr_err("Memory alloc failed\n");
 			return -ENOMEM;
 		}
 
-		sd_loop_tx_desc.used = 0;
+		// HELLO header (see PG007 Fig 3-1)
+		hdr = (u32 *)sd_loop_tx_desc.virt;
+		hdr[0] = 0xa0000600; // lsw
+		hdr[1] = 0x02602ff9; // msw
+		sd_loop_tx_desc.used = 8;
+
 		printk("%s allocated sd_loop_tx_desc.virt %p\n", __func__, sd_loop_tx_desc.virt);
 	}
 
@@ -262,10 +270,22 @@ struct device *sd_loop_init (void)
 	pr_debug("  SRIO Core: regs %08x addr %08x\n",
 	         sd_srio_cfg.regs, sd_srio_cfg.addr);
 
+	if ( (ret = sd_loop_gpio_init()) )
+	{
+		pr_err("sd_loop_gpio_init(): %d\n", ret);
+		return NULL;
+	}
+
+	if ( (ret = sd_loop_proc_init()) )
+	{
+		pr_err("sd_loop_proc_init(): %d\n", ret);
+		goto gpio;
+	}
+
 	if ( (ret = sd_fifo_init(&sd_loop_init_fifo, &sd_loop_init_fifo_cfg)) )
 	{
 		pr_err("sd_fifo_init() for initiator failed: %d\n", ret);
-		return NULL;
+		goto proc;
 	}
 	sd_fifo_init_dir(&sd_loop_init_fifo.tx, sd_loop_tx_done, HZ);
 	sd_fifo_init_dir(&sd_loop_init_fifo.rx, sd_loop_rx_done, HZ);
@@ -339,6 +359,9 @@ struct device *sd_loop_init (void)
 		sd_fifo_rx_enqueue(&sd_loop_user_fifo, &sd_loop_user_rx_ring[idx]);
 	}
 
+	// reset core
+	sd_loop_gpio_set_gt_loopback(0);
+	sd_loop_gpio_srio_reset();
 
 	// success
 	sd_loop_dev = sd_loop_mdev.this_device;
@@ -368,6 +391,12 @@ fifo_targ:
 fifo_init:
 	sd_fifo_exit(&sd_loop_init_fifo);
 
+proc:
+	sd_loop_proc_exit();
+
+gpio:
+	sd_loop_gpio_exit();
+
 	return NULL;
 }
 
@@ -385,5 +414,6 @@ void sd_loop_exit (void)
 	sd_fifo_exit(&sd_loop_user_fifo);
 	sd_fifo_exit(&sd_loop_targ_fifo);
 	sd_fifo_exit(&sd_loop_init_fifo);
+	sd_loop_proc_exit();
 }
 
