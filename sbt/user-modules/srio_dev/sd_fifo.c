@@ -102,30 +102,23 @@ void sd_dump_regs (struct sd_fifo *sf)
 #endif
 
 
-/** Bits for sd_fifo_reset mask parameter */
-#define FR_TX  1
-#define FR_RX  2
-#define FR_SRR 4
-#define FR_ALL 7
-
-
 /** Reset FIFO's TX, RX, and/or AXI-Stream 
  *
- *  \note  Caller should hold &sf->rx.lock if FR_RX is set in mask
- *  \note  FR_TX and FR_RX will cause TRC and RRC IRQs respectively when reset is complete
+ *  \note  Caller should hold &sf->rx.lock if SD_FR_RX is set in mask
+ *  \note  SD_FR_TX and SD_FR_RX will cause TRC and RRC IRQs respectively when reset is complete
  *
  *  \param  sf    Pointer to sd_fifo struct
- *  \param  mask  Bitmask of FR_* bits
+ *  \param  mask  Bitmask of SD_FR_* bits
  */
-static void sd_fifo_reset (struct sd_fifo *sf, int mask)
+void sd_fifo_reset (struct sd_fifo *sf, int mask)
 {
-	if ( mask & FR_TX )
+	if ( mask & SD_FR_TX )
 	{
 		pr_info("%s: start TX reset\n", __func__);
 		REG_RMW(&sf->regs->ier, TFPE|TFPF|TSE|TC|TPOE, TRC);
 		sf->tx.stats.resets++;
 	}
-	if ( mask & FR_RX )
+	if ( mask & SD_FR_RX )
 	{
 		pr_info("%s: start RX reset\n", __func__);
 		REG_RMW(&sf->regs->ier, RFPE|RFPF|RRC|RC|TC|RPUE|RPORE|RPURE, RRC);
@@ -139,9 +132,9 @@ static void sd_fifo_reset (struct sd_fifo *sf, int mask)
 		}
 	}
 
-	if ( mask & FR_TX  ) REG_WRITE(&sf->regs->tdfr, RESET_VAL);
-	if ( mask & FR_RX  ) REG_WRITE(&sf->regs->rdfr, RESET_VAL);
-	if ( mask & FR_SRR ) REG_WRITE(&sf->regs->srr,  RESET_VAL);
+	if ( mask & SD_FR_TX  ) REG_WRITE(&sf->regs->tdfr, RESET_VAL);
+	if ( mask & SD_FR_RX  ) REG_WRITE(&sf->regs->rdfr, RESET_VAL);
+	if ( mask & SD_FR_SRR ) REG_WRITE(&sf->regs->srr,  RESET_VAL);
 }
 
 
@@ -158,6 +151,11 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
+	if (list_empty(&sf->tx.queue))
+	{
+		pr_err("%s: empty queue\n", __func__);
+		return;
+	}
 	BUG_ON(list_empty(&sf->tx.queue));
 
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
@@ -191,7 +189,7 @@ static void sd_fifo_tx_dma_timeout (unsigned long param)
 
 	pr_err("%s: reset TX path\n", __func__);
 	sf->tx.stats.timeouts++;
-	sd_fifo_reset(sf, FR_TX);
+	sd_fifo_reset(sf, SD_FR_TX);
 }
 
 
@@ -206,6 +204,11 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	struct dma_async_tx_descriptor *xfer;
 	struct sd_desc                 *desc;
 
+	if (list_empty(&sf->tx.queue))
+	{
+		pr_err("%s: empty queue\n", __func__);
+		return;
+	}
 	BUG_ON(list_empty(&sf->tx.queue));
 
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
@@ -218,7 +221,7 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	{
 		pr_err("device_prep_dma_memcpy() failed\n");
 		sf->tx.stats.errors++;
-		sd_fifo_reset(sf, FR_TX);
+		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
 	pr_debug("%s: device_prep_dma_memcpy(): %p\n", __func__, xfer);
@@ -262,6 +265,11 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	uint32_t        tdfv;
 
 	/* no reason to ever be here with an empty TX queue */
+	if (list_empty(&sf->tx.queue))
+	{
+		pr_err("%s: empty queue\n", __func__);
+		return;
+	}
 	BUG_ON(list_empty(&sf->tx.queue));
 
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
@@ -312,6 +320,11 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	struct sd_desc *desc;
 
+	if (list_empty(&sf->tx.queue))
+	{
+		pr_err("%s: empty queue\n", __func__);
+		return;
+	}
 	BUG_ON(list_empty(&sf->tx.queue));
 
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
@@ -405,12 +418,18 @@ static void sd_fifo_rx_dma_timeout (unsigned long param)
 	sf->rx.stats.timeouts++;
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
+	if (list_empty(&sf->tx.queue))
+	{
+		pr_err("%s: empty queue\n", __func__);
+		spin_unlock_irqrestore(&sf->rx.lock, flags);
+		return;
+	}
 	BUG_ON(list_empty(&sf->rx.queue));
 	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
 
 	pr_err("%s: reset RX path\n", __func__);
 	dmaengine_terminate_all(sf->rx.chan);
-	sd_fifo_reset(sf, FR_RX);
+	sd_fifo_reset(sf, SD_FR_RX);
 	spin_unlock_irqrestore(&sf->rx.lock, flags);
 }
 
@@ -504,7 +523,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	{
 		pr_err("device_prep_dma_memcpy() failed\n");
 		sf->rx.stats.errors++;
-		sd_fifo_reset(sf, FR_RX);
+		sd_fifo_reset(sf, SD_FR_RX);
 		return;
 	}
 	pr_debug("%s: device_prep_dma_memcpy(): %p\n", __func__, xfer);
@@ -519,7 +538,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	{
 		pr_err("tx_submit() failed, stop\n");
 		sf->rx.stats.errors++;
-		sd_fifo_reset(sf, FR_RX);
+		sd_fifo_reset(sf, SD_FR_RX);
 		return;
 	}
 	pr_debug("tx_submit() ok, cookie %lx\n", (unsigned long)sf->rx.cookie);
@@ -692,7 +711,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 		pr_err("TX error(s): { %s%s}, reset TX FIFO\n",
 		       isr & TSE  ? "TSE "  : "",
 		       isr & TPOE ? "TPOE " : "");
-		sd_fifo_reset(sf, FR_TX);
+		sd_fifo_reset(sf, SD_FR_TX);
 	}
 
 
@@ -855,7 +874,7 @@ next:
 		       isr & RPURE ? "RPURE " : "");
 
 		spin_lock_irqsave(&sf->rx.lock, flags);
-		sd_fifo_reset(sf, FR_RX);
+		sd_fifo_reset(sf, SD_FR_RX);
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
 	}
 
@@ -1011,7 +1030,7 @@ int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg)
 
 	/* Reset FIFOs on startup, including a LLR / SRR reset of the Stream interface
 	 * For some reason this zeros the IER */
-	sd_fifo_reset(sf, FR_ALL);
+	sd_fifo_reset(sf, SD_FR_ALL);
 
 	/* Full reset of the FIFO zeroes the IER */
 	REG_WRITE(&sf->regs->ier, TRC|RRC);

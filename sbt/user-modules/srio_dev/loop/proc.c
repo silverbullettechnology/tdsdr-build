@@ -23,6 +23,7 @@
 #include <linux/ctype.h>
 
 #include "srio_dev.h"
+#include "sd_fifo.h"
 #include "loop/test.h"
 #include "loop/gpio.h"
 #include "loop/proc.h"
@@ -66,13 +67,13 @@ static ssize_t sd_loop_proc_dest_init_write (struct file *f, const char __user *
 	if ( copy_from_user(b, u, s) )
 		return -EFAULT;
 
-	for ( p = b; *p && !isdigit(*p); p++ ) ;
-	for ( q = p; *q &&  isdigit(*q); q++ ) ;
+	for ( p = b; *p && !isxdigit(*p); p++ ) ;
+	for ( q = p; *q &&  isxdigit(*q); q++ ) ;
 	*q++ = '\0';
 	if ( kstrtoul(p, 16, &reg) )
 		goto einval;
 
-	printk("dest init: %08lx\n", reg);
+	printk("dest init: '%s' -> '%s' -> %08lx\n", b, p, reg);
 	sd_loop_set_dest_init_reg(reg);
 
 	*o += s;
@@ -123,13 +124,13 @@ static ssize_t sd_loop_proc_dest_targ_write (struct file *f, const char __user *
 	if ( copy_from_user(b, u, s) )
 		return -EFAULT;
 
-	for ( p = b; *p && !isdigit(*p); p++ ) ;
-	for ( q = p; *q &&  isdigit(*q); q++ ) ;
+	for ( p = b; *p && !isxdigit(*p); p++ ) ;
+	for ( q = p; *q &&  isxdigit(*q); q++ ) ;
 	*q++ = '\0';
 	if ( kstrtoul(p, 16, &reg) )
 		goto einval;
 
-	printk("dest targ: %08lx\n", reg);
+	printk("dest targ: '%s' -> '%s' -> %08lx\n", b, p, reg);
 	sd_loop_set_dest_targ_reg(reg);
 
 	*o += s;
@@ -186,7 +187,7 @@ static ssize_t sd_loop_proc_dest_fifo_write (struct file *f, const char __user *
 	if ( kstrtoul(p, 10, &dest) )
 		goto einval;
 
-	printk("dest set: %lu\n", dest);
+	printk("dest set: '%s' -> '%s' -> %lu\n", b, p, dest);
 	sd_loop_tx_dest = dest;
 
 	*o += s;
@@ -343,7 +344,7 @@ static ssize_t sd_loop_proc_gt_prbs_write (struct file *f, const char __user *u,
 		goto einval;
 
 	sd_loop_gpio_set_gt_prbs(gt_prbs = val);
-	printk("gt_prbs set: %lu\n", val);
+	printk("gt_prbs set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
 	return s;
@@ -401,7 +402,7 @@ static ssize_t sd_loop_proc_gt_loopback_write (struct file *f, const char __user
 		goto einval;
 
 	sd_loop_gpio_set_gt_loopback(gt_loopback = val);
-	printk("gt_loopback set: %lu\n", val);
+	printk("gt_loopback set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
 	return s;
@@ -454,7 +455,7 @@ static ssize_t sd_loop_proc_pcie_srio_sel_write (struct file *f, const char __us
 		case '0': gpio_set_value(SRIO_PCIE_SEL_PIN, 0); break;
 		case '1': gpio_set_value(SRIO_PCIE_SEL_PIN, 1); break;
 	}
-	printk("force_err: %d\n", gpio_get_value(SRIO_PCIE_SEL_PIN));
+	printk("pcie_srio_sel: %d\n", gpio_get_value(SRIO_PCIE_SEL_PIN));
 
 	*o += s;
 	return s;
@@ -465,6 +466,37 @@ struct file_operations  sd_loop_proc_pcie_srio_sel_fops =
 	write:  sd_loop_proc_pcie_srio_sel_write,
 };
 
+
+static struct proc_dir_entry *sd_loop_proc_reset;
+static ssize_t sd_loop_proc_reset_write (struct file *f, const char __user *u, size_t s,
+                                                 loff_t *o)
+{
+	char  b[128];
+
+	if ( *o )
+		return 0;
+
+	if ( s >= sizeof(b) )
+		s = sizeof(b) - 1;
+	b[s] = '\0';
+
+	if ( copy_from_user(b, u, s) )
+		return -EFAULT;
+
+	sd_loop_gpio_srio_reset();
+	printk("SRIO reset\n");
+
+	sd_fifo_reset(&sd_loop_init_fifo, SD_FR_ALL);
+	sd_fifo_reset(&sd_loop_targ_fifo, SD_FR_ALL);
+	sd_fifo_reset(&sd_loop_user_fifo, SD_FR_ALL);
+
+	*o += s;
+	return s;
+}
+struct file_operations  sd_loop_proc_reset_fops =
+{
+	write:  sd_loop_proc_reset_write,
+};
 
 
 
@@ -480,6 +512,7 @@ void sd_loop_proc_exit (void)
 	if ( sd_loop_proc_gt_prbs       ) proc_remove(sd_loop_proc_gt_prbs);
 	if ( sd_loop_proc_force_err     ) proc_remove(sd_loop_proc_force_err);
 	if ( sd_loop_proc_pcie_srio_sel ) proc_remove(sd_loop_proc_pcie_srio_sel);
+	if ( sd_loop_proc_reset         ) proc_remove(sd_loop_proc_reset);
 
 	if ( sd_loop_proc_root ) proc_remove(sd_loop_proc_root);
 }
@@ -535,6 +568,10 @@ int sd_loop_proc_init (void)
 	if ( !sd_loop_proc_pcie_srio_sel )
 		goto fail;
 
+	sd_loop_proc_reset = proc_create("reset", 0666, sd_loop_proc_root,
+	                                         &sd_loop_proc_reset_fops);
+	if ( !sd_loop_proc_reset )
+		goto fail;
 
 	return 0;
 

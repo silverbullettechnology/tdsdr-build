@@ -72,7 +72,7 @@ void sd_loop_set_dest_init_reg (u32 init_reg)
 }
 u32 sd_loop_get_dest_init_reg (void)
 {
-	return sd_loop_init_reg;
+	return REG_READ(&sd_loop_addr_base[0]);
 }
 
 void sd_loop_set_dest_targ_reg (u32 targ_reg)
@@ -82,7 +82,7 @@ void sd_loop_set_dest_targ_reg (u32 targ_reg)
 }
 u32 sd_loop_get_dest_targ_reg (void)
 {
-	return sd_loop_targ_reg;
+	return REG_READ(&sd_loop_addr_base[1]);
 }
 
 
@@ -216,14 +216,17 @@ static int sd_loop_release (struct inode *i, struct file *f)
 		switch ( sd_loop_tx_dest )
 		{
 			case 0:
+				pr_debug("Enqueu in Initiator fifo\n");
 				sd_fifo_tx_enqueue(&sd_loop_init_fifo, &sd_loop_tx_desc);
 				break;
 
 			case 1:
+				pr_debug("Enqueu in Target fifo\n");
 				sd_fifo_tx_enqueue(&sd_loop_user_fifo, &sd_loop_tx_desc);
 				break;
 
 			case 2:
+				pr_debug("Enqueu in User fifo\n");
 				sd_fifo_tx_enqueue(&sd_loop_targ_fifo, &sd_loop_tx_desc);
 				break;
 		}
@@ -246,6 +249,7 @@ static int sd_loop_release (struct inode *i, struct file *f)
 static struct file_operations sd_loop_fops = 
 {
 	open:    sd_loop_open,
+	write:   sd_loop_write,
 	release: sd_loop_release,
 };
 
@@ -359,6 +363,8 @@ struct device *sd_loop_init (void)
 		sd_fifo_rx_enqueue(&sd_loop_user_fifo, &sd_loop_user_rx_ring[idx]);
 	}
 
+	init_completion(&sd_loop_tx_complete);
+
 	// reset core
 	sd_loop_gpio_set_gt_loopback(0);
 	sd_loop_gpio_srio_reset();
@@ -397,12 +403,14 @@ proc:
 gpio:
 	sd_loop_gpio_exit();
 
+	printk("LOOP test init done\n");
 	return NULL;
 }
 
 
 void sd_loop_exit (void)
 {
+	printk("LOOP test exit start\n");
 	sd_desc_clean_ring(sd_loop_user_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
 	                   sd_loop_user_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
 	sd_desc_clean_ring(sd_loop_init_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
@@ -415,5 +423,7 @@ void sd_loop_exit (void)
 	sd_fifo_exit(&sd_loop_targ_fifo);
 	sd_fifo_exit(&sd_loop_init_fifo);
 	sd_loop_proc_exit();
+	sd_loop_gpio_exit();
+	printk("LOOP test exit done\n");
 }
 

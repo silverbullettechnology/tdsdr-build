@@ -27,6 +27,13 @@
 #include "sd_desc.h"
 
 
+/** Bits for sd_fifo_reset mask parameter */
+#define SD_FR_TX  1
+#define SD_FR_RX  2
+#define SD_FR_SRR 4
+#define SD_FR_ALL 7
+
+
 /* FIFO config, filled in by xparameters for memory addresses and IRQ numbers, passed to
  * sd_fifo_init().  Temporary, to be replaced by a device-tree child node in the end */
 struct sd_fifo_config
@@ -128,6 +135,17 @@ int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg);
  *  \param  sf   Pointer to sd_fifo struct
  */
 void sd_fifo_exit (struct sd_fifo *sf);
+
+
+/** Reset FIFO's TX, RX, and/or AXI-Stream 
+ *
+ *  \note  Caller should hold &sf->rx.lock if SD_FR_RX is set in mask
+ *  \note  SD_FR_TX and SD_FR_RX will cause TRC and RRC IRQs respectively when reset is complete
+ *
+ *  \param  sf    Pointer to sd_fifo struct
+ *  \param  mask  Bitmask of SD_FR_* bits
+ */
+void sd_fifo_reset (struct sd_fifo *sf, int mask);
 
 
 /** Setup RX or TX direction struct

@@ -89,13 +89,13 @@ void sd_loop_gpio_srio_reset (void)
 	gpio_set_value(PHY_LINK_RST_PIN, 0);
 	gpio_set_value(FORCE_REINIT_PIN, 0);
 
-	msleep(1000);
+	msleep(10);
 
 	gpio_set_value(SYS_RST_PIN,      0);
 	gpio_set_value(PHY_LINK_RST_PIN, 0);
 	gpio_set_value(FORCE_REINIT_PIN, 0);
 
-	msleep(1000);
+	msleep(10);
 }
 
 void sd_loop_gpio_prbs_reset (void)
