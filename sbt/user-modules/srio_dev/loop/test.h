@@ -22,10 +22,8 @@
 
 extern struct sd_fifo          sd_loop_init_fifo;
 extern struct sd_fifo          sd_loop_targ_fifo;
-extern struct sd_fifo          sd_loop_user_fifo;
 extern struct sd_fifo_config   sd_loop_init_fifo_cfg;
 extern struct sd_fifo_config   sd_loop_targ_fifo_cfg;
-extern struct sd_fifo_config   sd_loop_user_fifo_cfg;
 
 extern struct sd_srio_config   sd_srio_cfg;
 
@@ -35,10 +33,8 @@ struct device *sd_loop_init (void);
 void           sd_loop_exit (void);
 
 
-void sd_loop_set_dest_init_reg (u32 init_reg);
-u32  sd_loop_get_dest_init_reg (void);
-void sd_loop_set_dest_targ_reg (u32 targ_reg);
-u32  sd_loop_get_dest_targ_reg (void);
+void sd_loop_set_tuser (u32 tuser);
+u32  sd_loop_get_tuser (void);
 
 
 #endif // _INCLUDE_LOOP_TEST_H_

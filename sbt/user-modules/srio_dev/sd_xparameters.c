@@ -126,25 +126,6 @@
 #endif
 
 
-#if defined(XPAR_AXI_SRIO_USERDEF_FIFO_BASEADDR)
-#define SD_USER_FIFO_REGS XPAR_AXI_SRIO_USERDEF_FIFO_BASEADDR
-#else
-#error NO SD_USER_FIFO_REGS
-#endif
-
-#if defined(XPAR_AXI_SRIO_USERDEF_FIFO_AXI4_BASEADDR)
-#define SD_USER_FIFO_DATA XPAR_AXI_SRIO_USERDEF_FIFO_AXI4_BASEADDR
-#else
-#error NO SD_USER_FIFO_DATA
-#endif
-
-#if defined(XPAR_FABRIC_AXI_SRIO_USERDEF_FIFO_INTERRUPT_INTR)
-#define SD_USER_FIFO_IRQ XPAR_FABRIC_AXI_SRIO_USERDEF_FIFO_INTERRUPT_INTR
-#else
-#warning NO SD_USER_FIFO_IRQ
-#endif
-
-
 #if defined(XPAR_SRIO_GEN2_0_BASEADDR)
 #define SD_SRIO_CORE_REGS XPAR_SRIO_GEN2_0_BASEADDR
 #else
@@ -283,21 +264,6 @@ int sd_xparameters_init (void)
 	sd_loop_targ_fifo_cfg.irq = -1;
 #endif
 
-	memset(&sd_loop_user_fifo_cfg, 0, sizeof(struct sd_fifo_config));
-#ifdef SD_USER_FIFO_REGS
-	sd_loop_user_fifo_cfg.regs = SD_USER_FIFO_REGS;
-#endif
-#if defined(SD_USER_FIFO_DATA) && (SD_USER_FIFO_DATA != SD_USER_FIFO_REGS)
-	sd_loop_user_fifo_cfg.data = SD_USER_FIFO_DATA;
-#else
-	sd_loop_user_fifo_cfg.data = sd_loop_user_fifo_cfg.regs;
-#endif
-#ifdef SD_USER_FIFO_IRQ
-	sd_loop_user_fifo_cfg.irq = SD_USER_FIFO_IRQ;
-#else
-	sd_loop_user_fifo_cfg.irq = -1;
-#endif
-
 #ifdef SD_SRIO_CORE_REGS
 	sd_srio_cfg.regs = SD_SRIO_CORE_REGS;
 #else
@@ -315,8 +281,6 @@ int sd_xparameters_init (void)
 	       sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
 	printk("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
 	       sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
-	printk("  User FIFO: regs %08x data %08x irq %d\n", sd_loop_user_fifo_cfg.regs,
-	       sd_loop_user_fifo_cfg.data, sd_loop_user_fifo_cfg.irq);
 	printk("  SRIO Core: regs %08x addr %08x\n",
 	       sd_srio_cfg.regs, sd_srio_cfg.addr);
 #else

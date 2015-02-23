@@ -32,9 +32,9 @@
 static struct proc_dir_entry *sd_loop_proc_root;
 
 
-static struct proc_dir_entry *sd_loop_proc_dest_init;
-static ssize_t sd_loop_proc_dest_init_read (struct file *f, char __user *u, size_t s,
-                                            loff_t *o)
+static struct proc_dir_entry *sd_loop_proc_tuser;
+static ssize_t sd_loop_proc_tuser_read (struct file *f, char __user *u, size_t s,
+                                        loff_t *o)
 {
 	char     b[128];
 	ssize_t  l = 0;
@@ -42,7 +42,7 @@ static ssize_t sd_loop_proc_dest_init_read (struct file *f, char __user *u, size
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%08x\n", sd_loop_get_dest_init_reg());
+	l = snprintf(b, sizeof(b), "%08x\n", sd_loop_get_tuser());
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -50,7 +50,7 @@ static ssize_t sd_loop_proc_dest_init_read (struct file *f, char __user *u, size
 	*o += l;
 	return l;
 }
-static ssize_t sd_loop_proc_dest_init_write (struct file *f, const char __user *u,
+static ssize_t sd_loop_proc_tuser_write (struct file *f, const char __user *u,
                                              size_t s, loff_t *o)
 {
 	unsigned long  reg;
@@ -74,7 +74,7 @@ static ssize_t sd_loop_proc_dest_init_write (struct file *f, const char __user *
 		goto einval;
 
 	printk("dest init: '%s' -> '%s' -> %08lx\n", b, p, reg);
-	sd_loop_set_dest_init_reg(reg);
+	sd_loop_set_tuser(reg);
 
 	*o += s;
 	return s;
@@ -82,67 +82,10 @@ static ssize_t sd_loop_proc_dest_init_write (struct file *f, const char __user *
 einval:
 	return -EINVAL;
 }
-struct file_operations  sd_loop_proc_dest_init_fops =
+struct file_operations  sd_loop_proc_tuser_fops =
 {
-	read:   sd_loop_proc_dest_init_read,
-	write:  sd_loop_proc_dest_init_write,
-};
-
-
-static struct proc_dir_entry *sd_loop_proc_dest_targ;
-static ssize_t sd_loop_proc_dest_targ_read (struct file *f, char __user *u, size_t s,
-                                            loff_t *o)
-{
-	char     b[128];
-	ssize_t  l = 0;
-
-	if ( *o )
-		return 0;
-
-	l = snprintf(b, sizeof(b), "%08x\n", sd_loop_get_dest_targ_reg());
-
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_loop_proc_dest_targ_write (struct file *f, const char __user *u,
-                                             size_t s, loff_t *o)
-{
-	unsigned long  reg;
-	char           b[128];
-	char          *p, *q;
-
-	if ( *o )
-		return 0;
-
-	if ( s >= sizeof(b) )
-		s = sizeof(b) - 1;
-	b[s] = '\0';
-
-	if ( copy_from_user(b, u, s) )
-		return -EFAULT;
-
-	for ( p = b; *p && !isxdigit(*p); p++ ) ;
-	for ( q = p; *q &&  isxdigit(*q); q++ ) ;
-	*q++ = '\0';
-	if ( kstrtoul(p, 16, &reg) )
-		goto einval;
-
-	printk("dest targ: '%s' -> '%s' -> %08lx\n", b, p, reg);
-	sd_loop_set_dest_targ_reg(reg);
-
-	*o += s;
-	return s;
-
-einval:
-	return -EINVAL;
-}
-struct file_operations  sd_loop_proc_dest_targ_fops =
-{
-	read:   sd_loop_proc_dest_targ_read,
-	write:  sd_loop_proc_dest_targ_write,
+	read:   sd_loop_proc_tuser_read,
+	write:  sd_loop_proc_tuser_write,
 };
 
 
@@ -488,7 +431,6 @@ static ssize_t sd_loop_proc_reset_write (struct file *f, const char __user *u, s
 
 	sd_fifo_reset(&sd_loop_init_fifo, SD_FR_ALL);
 	sd_fifo_reset(&sd_loop_targ_fifo, SD_FR_ALL);
-	sd_fifo_reset(&sd_loop_user_fifo, SD_FR_ALL);
 
 	*o += s;
 	return s;
@@ -502,8 +444,7 @@ struct file_operations  sd_loop_proc_reset_fops =
 
 void sd_loop_proc_exit (void)
 {
-	if ( sd_loop_proc_dest_init ) proc_remove(sd_loop_proc_dest_init);
-	if ( sd_loop_proc_dest_targ ) proc_remove(sd_loop_proc_dest_targ);
+	if ( sd_loop_proc_tuser ) proc_remove(sd_loop_proc_tuser);
 	if ( sd_loop_proc_dest_fifo ) proc_remove(sd_loop_proc_dest_fifo);
 	if ( sd_loop_proc_prbs_stat ) proc_remove(sd_loop_proc_prbs_stat);
 	if ( sd_loop_proc_srio_stat ) proc_remove(sd_loop_proc_srio_stat);
@@ -522,14 +463,9 @@ int sd_loop_proc_init (void)
 	if ( !(sd_loop_proc_root = proc_mkdir("srio_dev", NULL)) )
 		return -ENOMEM;
 
-	sd_loop_proc_dest_init = proc_create("init", 0666, sd_loop_proc_root,
-	                                     &sd_loop_proc_dest_init_fops);
-	if ( !sd_loop_proc_dest_init )
-		goto fail;
-
-	sd_loop_proc_dest_targ = proc_create("targ", 0666, sd_loop_proc_root,
-	                                     &sd_loop_proc_dest_targ_fops);
-	if ( !sd_loop_proc_dest_targ )
+	sd_loop_proc_tuser = proc_create("tuser", 0666, sd_loop_proc_root,
+	                                 &sd_loop_proc_tuser_fops);
+	if ( !sd_loop_proc_tuser )
 		goto fail;
 
 

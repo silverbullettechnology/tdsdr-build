@@ -36,10 +36,8 @@
 
 struct sd_fifo         sd_loop_init_fifo;
 struct sd_fifo         sd_loop_targ_fifo;
-struct sd_fifo         sd_loop_user_fifo;
 struct sd_fifo_config  sd_loop_init_fifo_cfg;
 struct sd_fifo_config  sd_loop_targ_fifo_cfg;
-struct sd_fifo_config  sd_loop_user_fifo_cfg;
 struct sd_srio_config  sd_srio_cfg;
 
 int sd_loop_tx_dest;
@@ -50,13 +48,10 @@ int sd_loop_tx_dest;
 
 static struct device *sd_loop_dev;
 
-static u32 *sd_loop_addr_base = NULL;
-static u32  sd_loop_init_reg;
-static u32  sd_loop_targ_reg;
+static u32  sd_loop_tuser = 0x00020002;
 
 static struct sd_desc  sd_loop_init_rx_ring[RX_RING_SIZE];
 static struct sd_desc  sd_loop_targ_rx_ring[RX_RING_SIZE];
-static struct sd_desc  sd_loop_user_rx_ring[RX_RING_SIZE];
 static struct sd_desc  sd_loop_tx_desc;
 
 static struct completion  sd_loop_tx_complete;
@@ -65,24 +60,15 @@ static struct completion  sd_loop_tx_complete;
 
 /******* Test code *******/
 
-void sd_loop_set_dest_init_reg (u32 init_reg)
+void sd_loop_set_tuser (u32 tuser)
 {
-	sd_loop_init_reg = init_reg;
-	REG_WRITE(&sd_loop_addr_base[0], init_reg);
+	sd_loop_tuser = tuser;
+//	REG_WRITE(&sd_loop_addr_base[0], init_reg);
 }
-u32 sd_loop_get_dest_init_reg (void)
+u32 sd_loop_get_tuser (void)
 {
-	return REG_READ(&sd_loop_addr_base[0]);
-}
-
-void sd_loop_set_dest_targ_reg (u32 targ_reg)
-{
-	sd_loop_targ_reg = targ_reg;
-	REG_WRITE(&sd_loop_addr_base[1], targ_reg);
-}
-u32 sd_loop_get_dest_targ_reg (void)
-{
-	return REG_READ(&sd_loop_addr_base[1]);
+	return sd_loop_tuser;
+//	return REG_READ(&sd_loop_addr_base[0]);
 }
 
 
@@ -166,9 +152,10 @@ ssize_t sd_loop_write (struct file *f, const char __user *user, size_t size, lof
 
 		// HELLO header (see PG007 Fig 3-1)
 		hdr = (u32 *)sd_loop_tx_desc.virt;
-		hdr[0] = 0xa0000600; // lsw
-		hdr[1] = 0x02602ff9; // msw
-		sd_loop_tx_desc.used = 8;
+		*hdr++ = sd_loop_tuser; // src/dst -> tuser
+		*hdr++ = 0xa0000600; // lsw
+		*hdr++ = 0x02602ff9; // msw
+		sd_loop_tx_desc.used = (hdr - (u32 *)sd_loop_tx_desc.virt) * sizeof(u32);
 
 		printk("%s allocated sd_loop_tx_desc.virt %p\n", __func__, sd_loop_tx_desc.virt);
 	}
@@ -222,11 +209,6 @@ static int sd_loop_release (struct inode *i, struct file *f)
 
 			case 1:
 				pr_debug("Enqueu in Target fifo\n");
-				sd_fifo_tx_enqueue(&sd_loop_user_fifo, &sd_loop_tx_desc);
-				break;
-
-			case 2:
-				pr_debug("Enqueu in User fifo\n");
 				sd_fifo_tx_enqueue(&sd_loop_targ_fifo, &sd_loop_tx_desc);
 				break;
 		}
@@ -269,8 +251,6 @@ struct device *sd_loop_init (void)
 	         sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
 	pr_debug("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
 	         sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
-	pr_debug("  User FIFO: regs %08x data %08x irq %d\n", sd_loop_user_fifo_cfg.regs,
-	         sd_loop_user_fifo_cfg.data, sd_loop_user_fifo_cfg.irq);
 	pr_debug("  SRIO Core: regs %08x addr %08x\n",
 	         sd_srio_cfg.regs, sd_srio_cfg.addr);
 
@@ -302,26 +282,10 @@ struct device *sd_loop_init (void)
 	sd_fifo_init_dir(&sd_loop_targ_fifo.tx, sd_loop_tx_done, HZ);
 	sd_fifo_init_dir(&sd_loop_targ_fifo.rx, sd_loop_rx_done, HZ);
 
-	if ( (ret = sd_fifo_init(&sd_loop_user_fifo, &sd_loop_user_fifo_cfg)) )
-	{
-		pr_err("sd_fifo_init() for user failed: %d\n", ret);
-		goto fifo_targ;
-	}
-	sd_fifo_init_dir(&sd_loop_user_fifo.tx, sd_loop_tx_done, HZ);
-	sd_fifo_init_dir(&sd_loop_user_fifo.rx, sd_loop_rx_done, HZ);
-
-	if ( !(sd_loop_addr_base = sd_iomap(sd_srio_cfg.addr, PAGE_SIZE)) )
-	{
-		pr_err("sd_iomap() for addr regs failed\n");
-		goto fifo_user;
-	}
-	sd_loop_set_dest_init_reg(0x00ab0012);
-	sd_loop_set_dest_targ_reg(0x003f0081);
-
 	if ( (ret = misc_register(&sd_loop_mdev)) < 0 )
 	{
 		pr_err("misc_register() failed\n");
-		goto addr_base;
+		goto targ_fifo;
 	}
 
 	ret = sd_desc_setup_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, BUFF_SIZE,
@@ -342,15 +306,6 @@ struct device *sd_loop_init (void)
 		goto targ_ring;
 	}
 
-	ret = sd_desc_setup_ring(sd_loop_user_rx_ring, RX_RING_SIZE, BUFF_SIZE,
-	                         sd_loop_mdev.this_device,
-	                         sd_loop_user_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
-	if ( ret ) 
-	{
-		pr_err("sd_desc_setup_ring() for user failed: %d\n", ret);
-		goto init_ring;
-	}
-
 	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
 	{
 		sd_loop_init_rx_ring[idx].info = idx;
@@ -358,9 +313,6 @@ struct device *sd_loop_init (void)
 
 		sd_loop_targ_rx_ring[idx].info = idx;
 		sd_fifo_rx_enqueue(&sd_loop_targ_fifo, &sd_loop_targ_rx_ring[idx]);
-
-		sd_loop_user_rx_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(&sd_loop_user_fifo, &sd_loop_user_rx_ring[idx]);
 	}
 
 	init_completion(&sd_loop_tx_complete);
@@ -374,10 +326,6 @@ struct device *sd_loop_init (void)
 	return sd_loop_mdev.this_device;
 
 
-init_ring:
-	sd_desc_clean_ring(sd_loop_init_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
-	                   sd_loop_init_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
-
 targ_ring:
 	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
 	                   sd_loop_targ_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
@@ -385,13 +333,7 @@ targ_ring:
 misc_dev:
 	misc_deregister(&sd_loop_mdev);
 
-addr_base:
-	sd_unmap(sd_loop_addr_base, sd_srio_cfg.addr, PAGE_SIZE);
-
-fifo_user:
-	sd_fifo_exit(&sd_loop_user_fifo);
-
-fifo_targ:
+targ_fifo:
 	sd_fifo_exit(&sd_loop_targ_fifo);
 
 fifo_init:
@@ -411,15 +353,11 @@ gpio:
 void sd_loop_exit (void)
 {
 	printk("LOOP test exit start\n");
-	sd_desc_clean_ring(sd_loop_user_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
-	                   sd_loop_user_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
 	sd_desc_clean_ring(sd_loop_init_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
 	                   sd_loop_init_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
 	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
 	                   sd_loop_targ_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
 	misc_deregister(&sd_loop_mdev);
-	sd_unmap(sd_loop_addr_base, sd_srio_cfg.addr, PAGE_SIZE);
-	sd_fifo_exit(&sd_loop_user_fifo);
 	sd_fifo_exit(&sd_loop_targ_fifo);
 	sd_fifo_exit(&sd_loop_init_fifo);
 	sd_loop_proc_exit();

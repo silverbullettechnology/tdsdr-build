@@ -65,7 +65,6 @@ static int __init srio_exp_init (void)
 	{
 		sd_loop_init_fifo_cfg.dma = dma;
 		sd_loop_targ_fifo_cfg.dma = dma;
-		sd_loop_user_fifo_cfg.dma = dma;
 		if ( !sd_loop_init() )
 		{
 			pr_err("LOOP test failed, stop\n");
