@@ -100,6 +100,7 @@ modules:
 
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))
 	$(MAKE) -C $(KSRC) M=$(LOCALPWD) INSTALL_MOD_PATH=${ROMFSDIR} modules_install
+	install -m744 srio-test.sh $(ROMFSDIR)/bin
 
 .PHONY: romfs image
 
