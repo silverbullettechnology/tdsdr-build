@@ -41,6 +41,7 @@ ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
 			$(ROMFSDIR)/lib/firmware/freertos; \
 	fi
 endif
+	install -m755 srio-loop-test.sh $(ROMFSDIR)/bin
 
 image: 
 	echo image

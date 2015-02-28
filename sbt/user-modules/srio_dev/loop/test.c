@@ -317,8 +317,12 @@ struct device *sd_loop_init (void)
 
 	init_completion(&sd_loop_tx_complete);
 
+	// set GTX output to baseline
+	sd_loop_gpio_set_gt_txdiffctrl   (SD_LOOP_GT_TXDIFFCTRL);
+	sd_loop_gpio_set_gt_txprecursor  (SD_LOOP_GT_TXPRECURSOR);
+	sd_loop_gpio_set_gt_txpostcursor (SD_LOOP_GT_TXPOSTCURSOR);
+
 	// reset core
-	sd_loop_gpio_set_gt_loopback(0);
 	sd_loop_gpio_srio_reset();
 
 	// success

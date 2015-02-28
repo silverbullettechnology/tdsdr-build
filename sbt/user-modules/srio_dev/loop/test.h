@@ -19,6 +19,10 @@
 #define _INCLUDE_LOOP_TEST_H_
 #include <linux/kernel.h>
 
+#define SD_LOOP_GT_TXDIFFCTRL   8
+#define SD_LOOP_GT_TXPRECURSOR  0
+#define SD_LOOP_GT_TXPOSTCURSOR 0
+
 
 extern struct sd_fifo          sd_loop_init_fifo;
 extern struct sd_fifo          sd_loop_targ_fifo;

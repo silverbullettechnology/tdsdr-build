@@ -1384,6 +1384,7 @@ CONFIG_USER_APPS_ROMFS_HACKS=y
 CONFIG_USER_APPS_SDRDC_STRESS_TEST=n
 CONFIG_USER_APPS_SBT_AD9361_EXAMPLE=y
 CONFIG_USER_APPS_MEMTESTER=y
+CONFIG_USER_APPS_SRIO_LOOP_TEST=n
 
 #
 # User Libraries
@@ -1403,7 +1404,7 @@ CONFIG_USER_MODULES_SRIO_DEV=y
 CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP=y
 CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX=n
 # CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST is not set
-CONFIG_USER_MODULES_SRIO_DEV_BSP="/SBT/C2E/pl/viv_xllfifo_srio_loopback_4x_tdsdr_01_29_2015_1545/viv_xllfifo_srio_loopback/viv_xllfifo_srio_loopback.sdk/loopbacktest_bsp/ps7_cortexa9_0/include"
+CONFIG_USER_MODULES_SRIO_DEV_BSP="/SBT/C2E/pl/SRIO/viv_xllfifo_srio_loopback_4x_tdsdr_02_23_2015_1421-5.0G/./viv_xllfifo_srio_loopback/viv_xllfifo_srio_loopback.sdk/selftest_bsp/ps7_cortexa9_0/include"
 
 #
 # PetaLinux Demo Applications

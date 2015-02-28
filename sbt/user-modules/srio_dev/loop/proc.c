@@ -194,172 +194,6 @@ struct file_operations  sd_loop_proc_prbs_stat_fops =
 };
 
 
-static struct proc_dir_entry *sd_loop_proc_force_err;
-static ssize_t sd_loop_proc_force_err_read (struct file *f, char __user *u, size_t s,
-                                            loff_t *o)
-{
-	char     b[128];
-	ssize_t  l = 0;
-
-	if ( *o )
-		return 0;
-
-	l = snprintf(b, sizeof(b), "%d\n", gpio_get_value(GT_TXPRBSFORCEERR_PIN));
-
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_loop_proc_force_err_write (struct file *f, const char __user *u, size_t s,
-                                             loff_t *o)
-{
-	char  b[128];
-
-	if ( *o )
-		return 0;
-
-	if ( s >= sizeof(b) )
-		s = sizeof(b) - 1;
-	b[s] = '\0';
-
-	if ( copy_from_user(b, u, s) )
-		return -EFAULT;
-	
-	switch ( b[0] )
-	{
-		case '0': sd_loop_gpio_prbs_force_err(0); break;
-		case '1': sd_loop_gpio_prbs_force_err(1); break;
-	}
-	printk("force_err: %d\n", gpio_get_value(GT_TXPRBSFORCEERR_PIN));
-
-	*o += s;
-	return s;
-}
-struct file_operations  sd_loop_proc_force_err_fops =
-{
-	read:   sd_loop_proc_force_err_read,
-	write:  sd_loop_proc_force_err_write,
-};
-
-
-static unsigned long gt_prbs;
-static struct proc_dir_entry *sd_loop_proc_gt_prbs;
-static ssize_t sd_loop_proc_gt_prbs_read (struct file *f, char __user *u, size_t s,
-                                          loff_t *o)
-{
-	char     b[128];
-	ssize_t  l = 0;
-
-	if ( *o )
-		return 0;
-
-	l = snprintf(b, sizeof(b), "%lu\n", gt_prbs);
-
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_loop_proc_gt_prbs_write (struct file *f, const char __user *u, size_t s,
-                                           loff_t *o)
-{
-	unsigned long  val;
-	char           b[128];
-	char          *p, *q;
-
-	if ( *o )
-		return 0;
-
-	if ( s >= sizeof(b) )
-		s = sizeof(b) - 1;
-	b[s] = '\0';
-
-	if ( copy_from_user(b, u, s) )
-		return -EFAULT;
-
-	for ( p = b; *p && !isdigit(*p); p++ ) ;
-	for ( q = p; *q &&  isdigit(*q); q++ ) ;
-	*q++ = '\0';
-	if ( kstrtoul(p, 10, &val) )
-		goto einval;
-
-	sd_loop_gpio_set_gt_prbs(gt_prbs = val);
-	printk("gt_prbs set: '%s' -> '%s' -> %lu\n", b, p, val);
-
-	*o += s;
-	return s;
-
-einval:
-	return -EINVAL;
-}
-struct file_operations  sd_loop_proc_gt_prbs_fops =
-{
-	read:   sd_loop_proc_gt_prbs_read,
-	write:  sd_loop_proc_gt_prbs_write,
-};
-
-
-static unsigned long gt_loopback;
-static struct proc_dir_entry *sd_loop_proc_gt_loopback;
-static ssize_t sd_loop_proc_gt_loopback_read (struct file *f, char __user *u, size_t s,
-                                              loff_t *o)
-{
-	char     b[128];
-	ssize_t  l = 0;
-
-	if ( *o )
-		return 0;
-
-	l = snprintf(b, sizeof(b), "%lu\n", gt_loopback);
-
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_loop_proc_gt_loopback_write (struct file *f, const char __user *u, size_t s,
-                                               loff_t *o)
-{
-	unsigned long  val;
-	char           b[128];
-	char          *p, *q;
-
-	if ( *o )
-		return 0;
-
-	if ( s >= sizeof(b) )
-		s = sizeof(b) - 1;
-	b[s] = '\0';
-
-	if ( copy_from_user(b, u, s) )
-		return -EFAULT;
-
-	for ( p = b; *p && !isdigit(*p); p++ ) ;
-	for ( q = p; *q &&  isdigit(*q); q++ ) ;
-	*q++ = '\0';
-	if ( kstrtoul(p, 10, &val) )
-		goto einval;
-
-	sd_loop_gpio_set_gt_loopback(gt_loopback = val);
-	printk("gt_loopback set: '%s' -> '%s' -> %lu\n", b, p, val);
-
-	*o += s;
-	return s;
-
-einval:
-	return -EINVAL;
-}
-struct file_operations  sd_loop_proc_gt_loopback_fops =
-{
-	read:   sd_loop_proc_gt_loopback_read,
-	write:  sd_loop_proc_gt_loopback_write,
-};
-
-
 static struct proc_dir_entry *sd_loop_proc_pcie_srio_sel;
 static ssize_t sd_loop_proc_pcie_srio_sel_read (struct file *f, char __user *u, size_t s,
                                                 loff_t *o)
@@ -370,7 +204,7 @@ static ssize_t sd_loop_proc_pcie_srio_sel_read (struct file *f, char __user *u, 
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%d\n", gpio_get_value(SRIO_PCIE_SEL_PIN));
+	l = snprintf(b, sizeof(b), "%d\n", sd_loop_gpio_get_pcie_srio_sel());
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -395,10 +229,10 @@ static ssize_t sd_loop_proc_pcie_srio_sel_write (struct file *f, const char __us
 
 	switch ( b[0] )
 	{
-		case '0': gpio_set_value(SRIO_PCIE_SEL_PIN, 0); break;
-		case '1': gpio_set_value(SRIO_PCIE_SEL_PIN, 1); break;
+		case '0': sd_loop_gpio_set_pcie_srio_sel(0); break;
+		case '1': sd_loop_gpio_set_pcie_srio_sel(1); break;
 	}
-	printk("pcie_srio_sel: %d\n", gpio_get_value(SRIO_PCIE_SEL_PIN));
+	printk("pcie_srio_sel: %d\n", sd_loop_gpio_get_pcie_srio_sel());
 
 	*o += s;
 	return s;
@@ -441,6 +275,200 @@ struct file_operations  sd_loop_proc_reset_fops =
 };
 
 
+static struct proc_dir_entry *sd_loop_proc_gt_txdiffctrl;
+static ssize_t sd_loop_proc_gt_txdiffctrl_read (struct file *f, char __user *u, size_t s,
+                                        loff_t *o)
+{
+	char     b[128];
+	ssize_t  l = 0;
+
+	if ( *o )
+		return 0;
+
+	l = snprintf(b, sizeof(b), "%d\n", sd_loop_gpio_get_gt_txdiffctrl());
+
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
+
+	*o += l;
+	return l;
+}
+static ssize_t sd_loop_proc_gt_txdiffctrl_write (struct file *f, const char __user *u,
+                                             size_t s, loff_t *o)
+{
+	unsigned long  val;
+	char           b[128];
+	char          *p, *q;
+
+	if ( *o )
+		return 0;
+
+	if ( s >= sizeof(b) )
+		s = sizeof(b) - 1;
+	b[s] = '\0';
+
+	if ( copy_from_user(b, u, s) )
+		return -EFAULT;
+
+	for ( p = b; *p && !isdigit(*p); p++ ) ;
+	for ( q = p; *q &&  isdigit(*q); q++ ) ;
+	*q++ = '\0';
+	if ( kstrtoul(p, 10, &val) )
+		goto einval;
+
+	printk("dest init: '%s' -> '%s' -> %lu\n", b, p, val);
+	sd_loop_gpio_set_gt_txdiffctrl(val);
+
+	*o += s;
+	return s;
+
+einval:
+	return -EINVAL;
+}
+struct file_operations  sd_loop_proc_gt_txdiffctrl_fops =
+{
+	read:   sd_loop_proc_gt_txdiffctrl_read,
+	write:  sd_loop_proc_gt_txdiffctrl_write,
+};
+
+
+static struct proc_dir_entry *sd_loop_proc_gt_txprecursor;
+static ssize_t sd_loop_proc_gt_txprecursor_read (struct file *f, char __user *u, size_t s,
+                                        loff_t *o)
+{
+	char     b[128];
+	ssize_t  l = 0;
+
+	if ( *o )
+		return 0;
+
+	l = snprintf(b, sizeof(b), "%d\n", sd_loop_gpio_get_gt_txprecursor());
+
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
+
+	*o += l;
+	return l;
+}
+static ssize_t sd_loop_proc_gt_txprecursor_write (struct file *f, const char __user *u,
+                                             size_t s, loff_t *o)
+{
+	unsigned long  val;
+	char           b[128];
+	char          *p, *q;
+
+	if ( *o )
+		return 0;
+
+	if ( s >= sizeof(b) )
+		s = sizeof(b) - 1;
+	b[s] = '\0';
+
+	if ( copy_from_user(b, u, s) )
+		return -EFAULT;
+
+	for ( p = b; *p && !isdigit(*p); p++ ) ;
+	for ( q = p; *q &&  isdigit(*q); q++ ) ;
+	*q++ = '\0';
+	if ( kstrtoul(p, 10, &val) )
+		goto einval;
+
+	printk("dest init: '%s' -> '%s' -> %lu\n", b, p, val);
+	sd_loop_gpio_set_gt_txprecursor(val);
+
+	*o += s;
+	return s;
+
+einval:
+	return -EINVAL;
+}
+struct file_operations  sd_loop_proc_gt_txprecursor_fops =
+{
+	read:   sd_loop_proc_gt_txprecursor_read,
+	write:  sd_loop_proc_gt_txprecursor_write,
+};
+
+
+static struct proc_dir_entry *sd_loop_proc_gt_txpostcursor;
+static ssize_t sd_loop_proc_gt_txpostcursor_read (struct file *f, char __user *u, size_t s,
+                                        loff_t *o)
+{
+	char     b[128];
+	ssize_t  l = 0;
+
+	if ( *o )
+		return 0;
+
+	l = snprintf(b, sizeof(b), "%d\n", sd_loop_gpio_get_gt_txpostcursor());
+
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
+
+	*o += l;
+	return l;
+}
+static ssize_t sd_loop_proc_gt_txpostcursor_write (struct file *f, const char __user *u,
+                                             size_t s, loff_t *o)
+{
+	unsigned long  val;
+	char           b[128];
+	char          *p, *q;
+
+	if ( *o )
+		return 0;
+
+	if ( s >= sizeof(b) )
+		s = sizeof(b) - 1;
+	b[s] = '\0';
+
+	if ( copy_from_user(b, u, s) )
+		return -EFAULT;
+
+	for ( p = b; *p && !isdigit(*p); p++ ) ;
+	for ( q = p; *q &&  isdigit(*q); q++ ) ;
+	*q++ = '\0';
+	if ( kstrtoul(p, 10, &val) )
+		goto einval;
+
+	printk("dest init: '%s' -> '%s' -> %lu\n", b, p, val);
+	sd_loop_gpio_set_gt_txpostcursor(val);
+
+	*o += s;
+	return s;
+
+einval:
+	return -EINVAL;
+}
+struct file_operations  sd_loop_proc_gt_txpostcursor_fops =
+{
+	read:   sd_loop_proc_gt_txpostcursor_read,
+	write:  sd_loop_proc_gt_txpostcursor_write,
+};
+
+
+static struct proc_dir_entry *sd_loop_proc_counts;
+static ssize_t sd_loop_proc_counts_read (struct file *f, char __user *u, size_t s,
+                                            loff_t *o)
+{
+	static char  b[4096];
+	ssize_t      l = 0;
+
+	if ( *o )
+		return 0;
+
+	l = sd_loop_gpio_print_counts(b, sizeof(b));
+
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
+
+	*o += l;
+	return l;
+}
+struct file_operations  sd_loop_proc_counts_fops =
+{
+	read:   sd_loop_proc_counts_read,
+};
+
 
 void sd_loop_proc_exit (void)
 {
@@ -449,11 +477,14 @@ void sd_loop_proc_exit (void)
 	if ( sd_loop_proc_prbs_stat ) proc_remove(sd_loop_proc_prbs_stat);
 	if ( sd_loop_proc_srio_stat ) proc_remove(sd_loop_proc_srio_stat);
 
-	if ( sd_loop_proc_gt_loopback   ) proc_remove(sd_loop_proc_gt_loopback);
-	if ( sd_loop_proc_gt_prbs       ) proc_remove(sd_loop_proc_gt_prbs);
-	if ( sd_loop_proc_force_err     ) proc_remove(sd_loop_proc_force_err);
 	if ( sd_loop_proc_pcie_srio_sel ) proc_remove(sd_loop_proc_pcie_srio_sel);
 	if ( sd_loop_proc_reset         ) proc_remove(sd_loop_proc_reset);
+
+	if ( sd_loop_proc_gt_txdiffctrl   ) proc_remove(sd_loop_proc_gt_txdiffctrl);
+	if ( sd_loop_proc_gt_txprecursor  ) proc_remove(sd_loop_proc_gt_txprecursor);
+	if ( sd_loop_proc_gt_txpostcursor ) proc_remove(sd_loop_proc_gt_txpostcursor);
+
+	if ( sd_loop_proc_counts  ) proc_remove(sd_loop_proc_counts);
 
 	if ( sd_loop_proc_root ) proc_remove(sd_loop_proc_root);
 }
@@ -484,21 +515,6 @@ int sd_loop_proc_init (void)
 	if ( !sd_loop_proc_prbs_stat )
 		goto fail;
 
-	sd_loop_proc_force_err = proc_create("force_err", 0666, sd_loop_proc_root,
-	                                     &sd_loop_proc_force_err_fops);
-	if ( !sd_loop_proc_force_err )
-		goto fail;
-
-	sd_loop_proc_gt_loopback = proc_create("gt_loopback", 0666, sd_loop_proc_root,
-	                                       &sd_loop_proc_gt_loopback_fops);
-	if ( !sd_loop_proc_gt_loopback )
-		goto fail;
-
-	sd_loop_proc_gt_prbs = proc_create("gt_prbs", 0666, sd_loop_proc_root,
-	                                   &sd_loop_proc_gt_prbs_fops);
-	if ( !sd_loop_proc_gt_prbs )
-		goto fail;
-
 	sd_loop_proc_pcie_srio_sel = proc_create("pcie_srio_sel", 0666, sd_loop_proc_root,
 	                                         &sd_loop_proc_pcie_srio_sel_fops);
 	if ( !sd_loop_proc_pcie_srio_sel )
@@ -507,6 +523,26 @@ int sd_loop_proc_init (void)
 	sd_loop_proc_reset = proc_create("reset", 0666, sd_loop_proc_root,
 	                                         &sd_loop_proc_reset_fops);
 	if ( !sd_loop_proc_reset )
+		goto fail;
+
+	sd_loop_proc_gt_txdiffctrl = proc_create("diffctrl", 0666, sd_loop_proc_root,
+	                                         &sd_loop_proc_gt_txdiffctrl_fops);
+	if ( !sd_loop_proc_gt_txdiffctrl )
+		goto fail;
+
+	sd_loop_proc_gt_txprecursor = proc_create("precursor", 0666, sd_loop_proc_root,
+	                                          &sd_loop_proc_gt_txprecursor_fops);
+	if ( !sd_loop_proc_gt_txprecursor )
+		goto fail;
+
+	sd_loop_proc_gt_txpostcursor = proc_create("postcursor", 0666, sd_loop_proc_root,
+	                                           &sd_loop_proc_gt_txpostcursor_fops);
+	if ( !sd_loop_proc_gt_txpostcursor )
+		goto fail;
+
+	sd_loop_proc_counts = proc_create("counts", 0444, sd_loop_proc_root,
+	                                  &sd_loop_proc_counts_fops);
+	if ( !sd_loop_proc_counts )
 		goto fail;
 
 	return 0;
