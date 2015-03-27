@@ -434,12 +434,12 @@
 						"dbg_apb";     /* 47 */
 					compatible = "xlnx,ps7-clkc";
 					fclk-enable = <0xf>;
-					ps-clk-frequency = <38400000>;
+					ps-clk-frequency = <40000000>;
 				} ;
 				ad9361_clkin: clock@0 {
 					#clock-cells = <0>;
 					compatible = "fixed-clock";
-					clock-frequency = <38400000>;
+					clock-frequency = <40000000>;
 					clock-output-names = "ad9361_ext_refclk";
 				};
 			} ;
