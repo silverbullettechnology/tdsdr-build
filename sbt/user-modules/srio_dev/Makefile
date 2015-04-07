@@ -63,7 +63,7 @@ srio-y := srio_dev.o sd_xparameters.o sd_fifo.o sd_desc.o
 
 srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX) += dsxx/test.o dsxx/proc.o dsxx/regs.o
 
-srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP) += loop/test.o loop/proc.o loop/gpio.o
+srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP) += loop/test.o loop/proc.o loop/regs.o
 
 EXTRA_CFLAGS += -I$(PWD)
 

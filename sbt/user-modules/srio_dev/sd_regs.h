@@ -23,8 +23,8 @@
 /* Need to put this somewhere better */
 struct sd_srio_config
 {
-	resource_size_t  regs;
-	resource_size_t  addr;
+	resource_size_t  maint;
+	resource_size_t  sys_regs;
 };
 
 

@@ -61,7 +61,7 @@ static int __init srio_exp_init (void)
 	else
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
-	if ( sd_srio_cfg.regs )
+	if ( sd_srio_cfg.maint )
 	{
 		sd_loop_init_fifo_cfg.dma = dma;
 		sd_loop_targ_fifo_cfg.dma = dma;
@@ -100,7 +100,7 @@ static void __exit srio_exp_exit (void)
 		sd_dsxx_exit();
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
-	if ( sd_srio_cfg.regs )
+	if ( sd_srio_cfg.maint )
 		sd_loop_exit();
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 

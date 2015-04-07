@@ -26,7 +26,7 @@
 #include "srio_dev.h"
 #include "sd_xparameters.h"
 #include "loop/test.h"
-#include "loop/gpio.h"
+#include "loop/regs.h"
 #include "loop/proc.h"
 #include "sd_regs.h"
 
@@ -63,12 +63,10 @@ static struct completion  sd_loop_tx_complete;
 void sd_loop_set_tuser (u32 tuser)
 {
 	sd_loop_tuser = tuser;
-//	REG_WRITE(&sd_loop_addr_base[0], init_reg);
 }
 u32 sd_loop_get_tuser (void)
 {
 	return sd_loop_tuser;
-//	return REG_READ(&sd_loop_addr_base[0]);
 }
 
 
@@ -251,19 +249,19 @@ struct device *sd_loop_init (void)
 	         sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
 	pr_debug("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
 	         sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
-	pr_debug("  SRIO Core: regs %08x addr %08x\n",
-	         sd_srio_cfg.regs, sd_srio_cfg.addr);
+	pr_debug("  SRIO Core: maint %08x sys_regs %08x\n",
+	         sd_srio_cfg.maint, sd_srio_cfg.sys_regs);
 
-	if ( (ret = sd_loop_gpio_init()) )
+	if ( (ret = sd_loop_regs_init()) )
 	{
-		pr_err("sd_loop_gpio_init(): %d\n", ret);
+		pr_err("sd_loop_regs_init(): %d\n", ret);
 		return NULL;
 	}
 
 	if ( (ret = sd_loop_proc_init()) )
 	{
 		pr_err("sd_loop_proc_init(): %d\n", ret);
-		goto gpio;
+		goto maint;
 	}
 
 	if ( (ret = sd_fifo_init(&sd_loop_init_fifo, &sd_loop_init_fifo_cfg)) )
@@ -317,13 +315,13 @@ struct device *sd_loop_init (void)
 
 	init_completion(&sd_loop_tx_complete);
 
-	// set GTX output to baseline
-	sd_loop_gpio_set_gt_txdiffctrl   (SD_LOOP_GT_TXDIFFCTRL);
-	sd_loop_gpio_set_gt_txprecursor  (SD_LOOP_GT_TXPRECURSOR);
-	sd_loop_gpio_set_gt_txpostcursor (SD_LOOP_GT_TXPOSTCURSOR);
-
 	// reset core
-	sd_loop_gpio_srio_reset();
+	sd_loop_regs_set_gt_loopback(0);
+	sd_loop_regs_set_gt_diffctrl(8);
+	sd_loop_regs_set_gt_txprecursor(0);
+	sd_loop_regs_set_gt_txpostcursor(0);
+	sd_loop_regs_set_gt_rxlpmen(0);
+	sd_loop_regs_srio_reset();
 
 	// success
 	sd_loop_dev = sd_loop_mdev.this_device;
@@ -346,8 +344,8 @@ fifo_init:
 proc:
 	sd_loop_proc_exit();
 
-gpio:
-	sd_loop_gpio_exit();
+maint:
+	sd_loop_regs_exit();
 
 	printk("LOOP test init done\n");
 	return NULL;
@@ -365,7 +363,7 @@ void sd_loop_exit (void)
 	sd_fifo_exit(&sd_loop_targ_fifo);
 	sd_fifo_exit(&sd_loop_init_fifo);
 	sd_loop_proc_exit();
-	sd_loop_gpio_exit();
+	sd_loop_regs_exit();
 	printk("LOOP test exit done\n");
 }
 

@@ -132,10 +132,10 @@
 #error NO SD_SRIO_CORE_REGS
 #endif
 
-#if defined(XPAR_SRIO_SRC_DEST_REG_0_BASEADDR)
-#define SD_SRIO_ADDR_REGS XPAR_SRIO_SRC_DEST_REG_0_BASEADDR
+#if defined(XPAR_SRIO_SYS_REG_0_BASEADDR)
+#define SD_SRIO_SYS_REGS XPAR_SRIO_SYS_REG_0_BASEADDR
 #else
-#error NO SD_SRIO_ADDR_REGS
+#error NO SD_SRIO_SYS_REGS
 #endif
 
 
@@ -265,15 +265,15 @@ int sd_xparameters_init (void)
 #endif
 
 #ifdef SD_SRIO_CORE_REGS
-	sd_srio_cfg.regs = SD_SRIO_CORE_REGS;
+	sd_srio_cfg.maint = SD_SRIO_CORE_REGS;
 #else
-	sd_srio_cfg.regs = 0;
+	sd_srio_cfg.maint = 0;
 #endif
 
-#ifdef SD_SRIO_ADDR_REGS
-	sd_srio_cfg.addr = SD_SRIO_ADDR_REGS;
+#ifdef SD_SRIO_SYS_REGS
+	sd_srio_cfg.sys_regs = SD_SRIO_SYS_REGS;
 #else
-	sd_srio_cfg.addr = 0;
+	sd_srio_cfg.sys_regs = 0;
 #endif
 
 	printk("CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP setup:\n");
@@ -281,8 +281,8 @@ int sd_xparameters_init (void)
 	       sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
 	printk("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
 	       sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
-	printk("  SRIO Core: regs %08x addr %08x\n",
-	       sd_srio_cfg.regs, sd_srio_cfg.addr);
+	printk("  SRIO Core: maint %08x sys_regs %08x\n",
+	       sd_srio_cfg.maint, sd_srio_cfg.sys_regs);
 #else
 	printk("No CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP, skipped Loop setup\n");
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
