@@ -18,6 +18,10 @@
  */
 #ifndef _INCLUDE_SRIO_DEV_H
 #define _INCLUDE_SRIO_DEV_H
+#include <linux/kernel.h>
+#include <linux/device.h>
+#include <linux/rio.h>
+#include <linux/io.h>
 
 
 #define SD_DRIVER_NODE "srio_dev"
@@ -25,6 +29,21 @@
 #define BUFF_SIZE     65536
 #define RX_RING_SIZE 8
 #define TX_RING_SIZE 8
+
+#include "sd_fifo.h"
+
+struct srio_dev
+{
+	struct device     *dev;
+	struct rio_mport   mport;
+
+	struct sd_fifo    *init;
+	struct sd_fifo    *targ;
+
+	uint32_t __iomem  *maint;
+	uint32_t __iomem  *sys_regs;
+};
+
 
 #define REG_WRITE(addr, val) \
 	do{ \
@@ -49,11 +68,6 @@
 		/* printk("%08x\n", reg); */ \
 		iowrite32(reg, (addr)); \
 	}while(0)
-
-
-#include "sd_fifo.h"
-
-//extern struct sd_fifo  sd_fifo;
 
 
 #endif /* _INCLUDE_SRIO_DEV_H */

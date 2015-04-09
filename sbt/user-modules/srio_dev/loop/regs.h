@@ -20,7 +20,7 @@
 #include <linux/kernel.h>
 
 
-int  sd_loop_regs_init (void);
+int  sd_loop_regs_init (void __iomem *regs);
 void sd_loop_regs_exit (void);
 
 void sd_loop_regs_srio_reset          (void);

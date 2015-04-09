@@ -38,46 +38,9 @@
 #include "sd_desc.h"
 #include "sd_fifo.h"
 
-struct srio_dev
-{
-	struct device     *dev;
-	struct rio_mport   mport;
-
-	struct sd_fifo    *init;
-	struct sd_fifo    *targ;
-
-	uint32_t __iomem  *maint;
-	uint32_t __iomem  *sys_regs;
-};
-
-
-#if 0
-static void sd_res_printk (const struct resource *r, char *name, int l)
-{
-	printk("%s: %p", name, r);
-	if ( !r )
-	{
-		printk("\n");
-		return;
-	}
-
-	printk(": name '%s' start %08x end %08x flags %08lx\n",
-	       r->name ? r->name : "(null)",
-		   r->start, r->end, r->flags);
-
-	if ( r->parent && l < 3 )
-	{
-		printk("%*sparent: ", l, "\t\t\t");
-		sd_res_printk(r->parent, name, l + 1);
-	}
-}
-#endif
-
 
 static int sd_of_probe (struct platform_device *pdev)
 {
-//	struct device_node    *child;
-//	struct device_node    *node = pdev->dev.of_node;
 	struct srio_dev       *sd;
 	struct resource       *maint;
 	struct resource       *sys_regs;
@@ -102,7 +65,6 @@ static int sd_of_probe (struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	sd->dev = &pdev->dev;
-printk("%s: pdev in %p, sd alloc at %p, dev %p\n", __func__, pdev, sd, sd->dev);
 
 
 	sd->maint = devm_ioremap_resource(sd->dev, maint);
@@ -111,7 +73,6 @@ printk("%s: pdev in %p, sd alloc at %p, dev %p\n", __func__, pdev, sd, sd->dev);
 		dev_err(sd->dev, "maintenance ioremap fail, stop\n");
 		goto kfree;
 	}
-printk("maint mapped %08x -> %p\n", maint->start, sd->maint);
 
 	sd->sys_regs = devm_ioremap_resource(sd->dev, sys_regs);
 	if ( IS_ERR(sd->sys_regs) )
@@ -119,7 +80,6 @@ printk("maint mapped %08x -> %p\n", maint->start, sd->maint);
 		dev_err(sd->dev, "system regs ioremap fail, stop\n");
 		goto maint;
 	}
-printk("sys_regs mapped %08x -> %p\n", sys_regs->start, sd->sys_regs);
 
 
 	if ( !(sd->init = sd_fifo_probe(pdev, "init")) )
@@ -128,7 +88,6 @@ printk("sys_regs mapped %08x -> %p\n", sys_regs->start, sd->sys_regs);
 		ret = -ENXIO;
 		goto sys_regs;
 	}
-printk("initiator fifo init ok: %p\n", sd->init);
 
 	if ( !(sd->targ = sd_fifo_probe(pdev, "targ")) )
 	{
@@ -136,7 +95,16 @@ printk("initiator fifo init ok: %p\n", sd->init);
 		ret = -ENXIO;
 		goto fifo;
 	}
-printk("target fifo init ok: %p\n", sd->targ);
+
+
+#ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
+	if ( !sd_loop_init(sd) )
+	{
+		pr_err("LOOP test failed, stop\n");
+		ret = -EINVAL;
+		goto targ;
+	}
+#endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 
 
 //	sd_mport_attach(&sd->mport);
@@ -146,6 +114,9 @@ printk("target fifo init ok: %p\n", sd->targ);
 	platform_set_drvdata(pdev, sd);
 
 	return ret;
+
+targ:
+	sd_fifo_free(sd->targ);
 
 fifo:
 	sd_fifo_free(sd->init);

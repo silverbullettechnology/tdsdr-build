@@ -19,17 +19,12 @@
 #define _INCLUDE_LOOP_TEST_H_
 #include <linux/kernel.h>
 
-
-extern struct sd_fifo          sd_loop_init_fifo;
-extern struct sd_fifo          sd_loop_targ_fifo;
-extern struct sd_fifo_config   sd_loop_init_fifo_cfg;
-extern struct sd_fifo_config   sd_loop_targ_fifo_cfg;
-
-extern struct sd_srio_config   sd_srio_cfg;
+#include "srio_dev.h"
 
 extern int sd_loop_tx_dest;
+extern struct srio_dev *sd_dev;
 
-struct device *sd_loop_init (void);
+struct device *sd_loop_init (struct srio_dev *sd);
 void           sd_loop_exit (void);
 
 

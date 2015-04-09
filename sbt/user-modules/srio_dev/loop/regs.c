@@ -54,22 +54,14 @@ struct sd_sys_reg
 static struct sd_sys_reg __iomem *sys_reg;
 
 
-int sd_loop_regs_init (void)
+int sd_loop_regs_init (void __iomem *regs)
 {
-	sys_reg = sd_iomap(BASE, sizeof(struct sd_sys_reg));
-	if ( ! sys_reg )
-	{
-		printk("%s: regs setup fail\n", SD_DRIVER_NODE);
-		return -ENODEV;
-	}
-
-	printk("%s: regs setup success\n", SD_DRIVER_NODE);
+	sys_reg = regs;
 	return 0;
 }
 
 void sd_loop_regs_exit (void)
 {
-	sd_unmap(sys_reg, BASE, sizeof(struct sd_sys_reg));
 }
 
 void sd_loop_regs_srio_reset (void)

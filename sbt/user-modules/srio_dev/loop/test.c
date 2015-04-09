@@ -33,20 +33,13 @@
 
 /******* Exported vars *******/
 
-
-struct sd_fifo         sd_loop_init_fifo;
-struct sd_fifo         sd_loop_targ_fifo;
-struct sd_fifo_config  sd_loop_init_fifo_cfg;
-struct sd_fifo_config  sd_loop_targ_fifo_cfg;
-struct sd_srio_config  sd_srio_cfg;
-
 int sd_loop_tx_dest;
-
+struct srio_dev *sd_dev;
 
 
 /******* Static vars *******/
 
-static struct device *sd_loop_dev;
+static struct miscdevice mdev;
 
 static u32  sd_loop_tuser = 0x00020002;
 
@@ -189,8 +182,8 @@ static int sd_loop_release (struct inode *i, struct file *f)
 			printk("  used rounded up to %d bytes\n", sd_loop_tx_desc.used);
 		}
 
-		if ( (sd_loop_init_fifo_cfg.dma & (1 << DMA_MEM_TO_DEV)) &&
-		     sd_desc_map(&sd_loop_tx_desc, sd_loop_dev, DMA_MEM_TO_DEV) )
+		if ( sd_dev->init->tx.chan &&
+		     sd_desc_map(&sd_loop_tx_desc, mdev.this_device, DMA_MEM_TO_DEV) )
 		{
 			pr_err("DMA map failed\n");
 			sd_desc_free(&sd_loop_tx_desc);
@@ -202,12 +195,12 @@ static int sd_loop_release (struct inode *i, struct file *f)
 		{
 			case 0:
 				pr_debug("Enqueu in Initiator fifo\n");
-				sd_fifo_tx_enqueue(&sd_loop_init_fifo, &sd_loop_tx_desc);
+				sd_fifo_tx_enqueue(sd_dev->init, &sd_loop_tx_desc);
 				break;
 
 			case 1:
 				pr_debug("Enqueu in Target fifo\n");
-				sd_fifo_tx_enqueue(&sd_loop_targ_fifo, &sd_loop_tx_desc);
+				sd_fifo_tx_enqueue(sd_dev->targ, &sd_loop_tx_desc);
 				break;
 		}
 
@@ -217,8 +210,8 @@ static int sd_loop_release (struct inode *i, struct file *f)
 		else
 			pr_err("TX timed out\n");
 
-		if ( sd_loop_init_fifo_cfg.dma & (1 << DMA_MEM_TO_DEV) )
-			sd_desc_unmap(&sd_loop_tx_desc, sd_loop_dev, DMA_MEM_TO_DEV);
+		if ( sd_dev->init->tx.chan )
+			sd_desc_unmap(&sd_loop_tx_desc, mdev.this_device, DMA_MEM_TO_DEV);
 
 		sd_desc_free(&sd_loop_tx_desc);
 	}
@@ -233,26 +226,20 @@ static struct file_operations sd_loop_fops =
 	release: sd_loop_release,
 };
 
-static struct miscdevice sd_loop_mdev =
+static struct miscdevice mdev =
 {
 	MISC_DYNAMIC_MINOR,
 	SD_DRIVER_NODE,
 	&sd_loop_fops
 };
 
-struct device *sd_loop_init (void)
+struct device *sd_loop_init (struct srio_dev *sd)
 {
-	int idx, ret;
+	int idx, ret, dma;
 
-	pr_debug("%s starts:\n", __func__);
-	pr_debug("  Init FIFO: regs %08x data %08x irq %d\n", sd_loop_init_fifo_cfg.regs,
-	         sd_loop_init_fifo_cfg.data, sd_loop_init_fifo_cfg.irq);
-	pr_debug("  Targ FIFO: regs %08x data %08x irq %d\n", sd_loop_targ_fifo_cfg.regs,
-	         sd_loop_targ_fifo_cfg.data, sd_loop_targ_fifo_cfg.irq);
-	pr_debug("  SRIO Core: maint %08x sys_regs %08x\n",
-	         sd_srio_cfg.maint, sd_srio_cfg.sys_regs);
+	sd_dev = sd;
 
-	if ( (ret = sd_loop_regs_init()) )
+	if ( (ret = sd_loop_regs_init(sd->sys_regs)) )
 	{
 		pr_err("sd_loop_regs_init(): %d\n", ret);
 		return NULL;
@@ -261,56 +248,46 @@ struct device *sd_loop_init (void)
 	if ( (ret = sd_loop_proc_init()) )
 	{
 		pr_err("sd_loop_proc_init(): %d\n", ret);
-		goto maint;
+		goto regs;
 	}
 
-	if ( (ret = sd_fifo_init(&sd_loop_init_fifo, &sd_loop_init_fifo_cfg)) )
-	{
-		pr_err("sd_fifo_init() for initiator failed: %d\n", ret);
-		goto proc;
-	}
-	sd_fifo_init_dir(&sd_loop_init_fifo.tx, sd_loop_tx_done, HZ);
-	sd_fifo_init_dir(&sd_loop_init_fifo.rx, sd_loop_rx_done, HZ);
-
-	if ( (ret = sd_fifo_init(&sd_loop_targ_fifo, &sd_loop_targ_fifo_cfg)) )
-	{
-		pr_err("sd_fifo_init() for target failed: %d\n", ret);
-		goto fifo_init;
-	}
-	sd_fifo_init_dir(&sd_loop_targ_fifo.tx, sd_loop_tx_done, HZ);
-	sd_fifo_init_dir(&sd_loop_targ_fifo.rx, sd_loop_rx_done, HZ);
-
-	if ( (ret = misc_register(&sd_loop_mdev)) < 0 )
+	if ( (ret = misc_register(&mdev)) < 0 )
 	{
 		pr_err("misc_register() failed\n");
-		goto targ_fifo;
+		goto proc;
 	}
 
+	dma = sd_dev->targ->rx.chan ? 1 << DMA_DEV_TO_MEM : 0;
 	ret = sd_desc_setup_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, BUFF_SIZE,
-	                         sd_loop_mdev.this_device,
-	                         sd_loop_targ_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
+	                         mdev.this_device, dma);
+
 	if ( ret ) 
 	{
 		pr_err("sd_desc_setup_ring() for target failed: %d\n", ret);
 		goto misc_dev;
 	}
 
+	dma = sd_dev->init->rx.chan ? 1 << DMA_DEV_TO_MEM : 0;
 	ret = sd_desc_setup_ring(sd_loop_init_rx_ring, RX_RING_SIZE, BUFF_SIZE,
-	                         sd_loop_mdev.this_device,
-	                         sd_loop_init_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
+	                         mdev.this_device, dma);
 	if ( ret ) 
 	{
 		pr_err("sd_desc_setup_ring() for initator failed: %d\n", ret);
 		goto targ_ring;
 	}
 
+	sd_fifo_init_dir(&sd_dev->init->tx, sd_loop_tx_done, HZ);
+	sd_fifo_init_dir(&sd_dev->init->rx, sd_loop_rx_done, HZ);
+	sd_fifo_init_dir(&sd_dev->targ->tx, sd_loop_tx_done, HZ);
+	sd_fifo_init_dir(&sd_dev->targ->rx, sd_loop_rx_done, HZ);
+
 	for ( idx = 0; idx < RX_RING_SIZE; idx++ )
 	{
 		sd_loop_init_rx_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(&sd_loop_init_fifo, &sd_loop_init_rx_ring[idx]);
+		sd_fifo_rx_enqueue(sd_dev->init, &sd_loop_init_rx_ring[idx]);
 
 		sd_loop_targ_rx_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(&sd_loop_targ_fifo, &sd_loop_targ_rx_ring[idx]);
+		sd_fifo_rx_enqueue(sd_dev->targ, &sd_loop_targ_rx_ring[idx]);
 	}
 
 	init_completion(&sd_loop_tx_complete);
@@ -324,27 +301,20 @@ struct device *sd_loop_init (void)
 	sd_loop_regs_srio_reset();
 
 	// success
-	sd_loop_dev = sd_loop_mdev.this_device;
-	return sd_loop_mdev.this_device;
+	return mdev.this_device;
 
 
 targ_ring:
-	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
-	                   sd_loop_targ_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
+	dma = sd_dev->targ->rx.chan ? 1 << DMA_DEV_TO_MEM : 0;
+	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, mdev.this_device, dma);
 
 misc_dev:
-	misc_deregister(&sd_loop_mdev);
-
-targ_fifo:
-	sd_fifo_exit(&sd_loop_targ_fifo);
-
-fifo_init:
-	sd_fifo_exit(&sd_loop_init_fifo);
+	misc_deregister(&mdev);
 
 proc:
 	sd_loop_proc_exit();
 
-maint:
+regs:
 	sd_loop_regs_exit();
 
 	printk("LOOP test init done\n");
@@ -354,14 +324,21 @@ maint:
 
 void sd_loop_exit (void)
 {
+	int dma;
+
 	printk("LOOP test exit start\n");
-	sd_desc_clean_ring(sd_loop_init_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
-	                   sd_loop_init_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
-	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, sd_loop_mdev.this_device,
-	                   sd_loop_targ_fifo_cfg.dma & (1 << DMA_DEV_TO_MEM));
-	misc_deregister(&sd_loop_mdev);
-	sd_fifo_exit(&sd_loop_targ_fifo);
-	sd_fifo_exit(&sd_loop_init_fifo);
+	sd_fifo_init_dir(&sd_dev->init->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd_dev->init->rx, NULL, HZ);
+	sd_fifo_init_dir(&sd_dev->targ->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd_dev->targ->rx, NULL, HZ);
+
+	dma = sd_dev->init->rx.chan ? 1 << DMA_DEV_TO_MEM : 0;
+	sd_desc_clean_ring(sd_loop_init_rx_ring, RX_RING_SIZE, mdev.this_device, dma);
+
+	dma = sd_dev->targ->rx.chan ? 1 << DMA_DEV_TO_MEM : 0;
+	sd_desc_clean_ring(sd_loop_targ_rx_ring, RX_RING_SIZE, mdev.this_device, dma);
+
+	misc_deregister(&mdev);
 	sd_loop_proc_exit();
 	sd_loop_regs_exit();
 	printk("LOOP test exit done\n");
