@@ -18,13 +18,18 @@
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/err.h>
+#include <linux/rio.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
-#include <linux/platform_device.h>
 #include <linux/of_address.h>
-#include <linux/rio.h>
-#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/ioport.h>
+
 
 #include "srio_dev.h"
 #include "dsxx/test.h"
@@ -38,56 +43,101 @@ struct srio_dev
 	struct device     *dev;
 	struct rio_mport   mport;
 
-	struct sd_fifo     init;
-	struct sd_fifo     targ;
+	struct sd_fifo    *init;
+	struct sd_fifo    *targ;
 
-	uint32_t __iomem  *regs;
+	uint32_t __iomem  *maint;
+	uint32_t __iomem  *sys_regs;
 };
 
 
-static int sd_of_fifo_probe (struct sd_fifo *sf, struct device_node *node)
+#if 0
+static void sd_res_printk (const struct resource *r, char *name, int l)
 {
-	struct sd_fifo_config  cfg;
+	printk("%s: %p", name, r);
+	if ( !r )
+	{
+		printk("\n");
+		return;
+	}
 
-	cfg.irq = irq_of_parse_and_map(node, 0);
+	printk(": name '%s' start %08x end %08x flags %08lx\n",
+	       r->name ? r->name : "(null)",
+		   r->start, r->end, r->flags);
 
-	return -ENOSYS;
+	if ( r->parent && l < 3 )
+	{
+		printk("%*sparent: ", l, "\t\t\t");
+		sd_res_printk(r->parent, name, l + 1);
+	}
 }
+#endif
+
 
 static int sd_of_probe (struct platform_device *pdev)
 {
-	struct device_node    *child;
-	struct device_node    *node = pdev->dev.of_node;
+//	struct device_node    *child;
+//	struct device_node    *node = pdev->dev.of_node;
 	struct srio_dev       *sd;
+	struct resource       *maint;
+	struct resource       *sys_regs;
 	int                    ret = 0;
 
-	sd = devm_kzalloc(&pdev->dev, sizeof(*sd), GFP_KERNEL);
+
+	if ( !(maint = platform_get_resource_byname(pdev, IORESOURCE_MEM, "maint")) )
+	{
+		dev_err(&pdev->dev, "resource maint undefined.\n");
+		return -ENXIO;
+	}
+
+	if ( !(sys_regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sys-regs")) )
+	{
+		dev_err(&pdev->dev, "resource sys-regs undefined.\n");
+		return -ENXIO;
+	}
+
+	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
 	if (!sd) {
-		dev_err(&pdev->dev, "Memory alloc fail, stop\n");
+		dev_err(&pdev->dev, "memory alloc fail, stop\n");
 		return -ENOMEM;
 	}
 	sd->dev = &pdev->dev;
+printk("%s: pdev in %p, sd alloc at %p, dev %p\n", __func__, pdev, sd, sd->dev);
 
-	if ( !(sd->regs = of_iomap(node, 0)) )
+
+	sd->maint = devm_ioremap_resource(sd->dev, maint);
+	if ( IS_ERR(sd->maint) )
 	{
-		dev_err(&pdev->dev, "Register iomap fail, stop\n");
+		dev_err(sd->dev, "maintenance ioremap fail, stop\n");
+		goto kfree;
+	}
+printk("maint mapped %08x -> %p\n", maint->start, sd->maint);
+
+	sd->sys_regs = devm_ioremap_resource(sd->dev, sys_regs);
+	if ( IS_ERR(sd->sys_regs) )
+	{
+		dev_err(sd->dev, "system regs ioremap fail, stop\n");
+		goto maint;
+	}
+printk("sys_regs mapped %08x -> %p\n", sys_regs->start, sd->sys_regs);
+
+
+	if ( !(sd->init = sd_fifo_probe(pdev, "init")) )
+	{
+		dev_err(&pdev->dev, "initiator fifo probe fail, stop\n");
 		ret = -ENXIO;
-		goto sd_kfree;
+		goto sys_regs;
 	}
+printk("initiator fifo init ok: %p\n", sd->init);
 
-	child = of_get_child_by_name(node, "init-fifo");
-	if ( !child || (ret = sd_of_fifo_probe(&sd->init, child)) )
+	if ( !(sd->targ = sd_fifo_probe(pdev, "targ")) )
 	{
-		dev_err(&pdev->dev, "Probe init FIFO fail, stop\n");
-		goto sd_fifo;
+		dev_err(&pdev->dev, "target fifo probe fail, stop\n");
+		ret = -ENXIO;
+		goto fifo;
 	}
+printk("target fifo init ok: %p\n", sd->targ);
 
-	child = of_get_child_by_name(node, "targ-fifo");
-	if ( !child || (ret = sd_of_fifo_probe(&sd->targ, child)) )
-	{
-		dev_err(&pdev->dev, "Probe targ FIFO fail, stop\n");
-		goto sd_fifo;
-	}
 
 //	sd_mport_attach(&sd->mport);
 //	if ( (ret = rio_register_mport(&sd->mport)) )
@@ -95,13 +145,18 @@ static int sd_of_probe (struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sd);
 
-	return 0;
+	return ret;
 
-sd_fifo:
-	sd_fifo_exit(&sd->init);
-	sd_fifo_exit(&sd->targ);
+fifo:
+	sd_fifo_free(sd->init);
 
-sd_kfree:
+sys_regs:
+	devm_iounmap(sd->dev, sd->sys_regs);
+
+maint:
+	devm_iounmap(sd->dev, sd->maint);
+
+kfree:
 	kfree(sd);
 
 	return ret;
@@ -113,8 +168,12 @@ static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
 
-	sd_fifo_exit(&sd->init);
-	sd_fifo_exit(&sd->targ);
+
+printk("%s: pdev in %p, sd alloc at %p, dev %p\n", __func__, pdev, sd, sd->dev);
+	platform_set_drvdata(pdev, NULL);
+
+	sd_fifo_free(sd->init);
+	sd_fifo_free(sd->targ);
 
 	kfree(sd);
 

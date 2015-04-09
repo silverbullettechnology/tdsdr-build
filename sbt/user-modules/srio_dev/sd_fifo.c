@@ -17,6 +17,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <linux/kernel.h>
+#include <linux/device.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/skbuff.h>
@@ -949,51 +950,76 @@ static int sd_fifo_init_dma (struct sd_fifo_dir *fd, enum dma_transfer_direction
 
 /** Init FIFO
  *
- *  \param  sf   Pointer to sd_fifo struct
- *  \param  cfg  Fifo config structure
+ *  \param  pdev  Platform device struct pointer
+ *  \param  pref  Prefix for names in devicetree
  *
- *  \return  0 on success, <0 on error
+ *  \return  sd_fifo struct on success, NULL on error
  */
-int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg)
+struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 {
-	int  ret = 0;
+	struct sd_fifo  *sf;
+	struct resource *regs;
+	struct resource *data;
+	struct resource *irq;
+	char             name[32];
+	int              ret = 0;
 
-	if ( !cfg->regs || !cfg->data || cfg->irq < 0 )
+	if ( !(sf = kzalloc(sizeof(*sf), GFP_KERNEL)) )
 	{
-		pr_err("%s: bad config: regs %08x, data %08x, irq %d, stop\n", __func__,
-		       cfg->regs, cfg->data, cfg->irq);
-		return -EINVAL;
+		dev_err(&pdev->dev, "memory alloc fail, stop\n");
+		return NULL;
 	}
-	memcpy(&sf->cfg, cfg, sizeof(struct sd_fifo_config));
-	pr_debug("%s: using config: regs %08x, data %08x, irq %d\n", __func__,
-	         cfg->regs, cfg->data, cfg->irq);
+	sf->dev = &pdev->dev;
 
-	if ( !(sf->regs = sd_iomap(cfg->regs, sizeof(struct sd_fifo_regs))) )
+
+	snprintf(name, sizeof(name), "%s-regs", pref);
+	if ( !(regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, name)) )
+		goto resource;
+
+	snprintf(name, sizeof(name), "%s-irq", pref);
+	if ( !(irq = platform_get_resource_byname(pdev, IORESOURCE_IRQ, name)) )
+		goto resource;
+
+	snprintf(name, sizeof(name), "%s-data", pref);
+	if ( !(data = platform_get_resource_byname(pdev, IORESOURCE_MEM, name)) )
+		data = regs;
+
+	pr_debug("using config: regs %08x, data %08x, irq %d\n",
+	         regs->start, data->start, irq->start);
+
+	sf->regs = devm_ioremap_resource(sf->dev, regs);
+	if ( IS_ERR(sf->regs) )
 	{
-		pr_err("%s: failed to iomap(%08x), stop\n", __func__, cfg->regs);
-		return -ENODEV;
+		dev_err(sf->dev, "regs ioremap fail, stop\n");
+		goto free;
 	}
+printk("%s regs mapped %08x -> %p\n", pref, regs->start, sf->regs);
 
-	if ( cfg->data == cfg->regs )
+	if ( data == regs )
 		sf->data = sf->regs;
-	else if ( !(sf->data = sd_iomap(cfg->data, sizeof(struct sd_fifo_regs))) )
+	else
 	{
-		pr_err("%s: failed to iomap(%08x), stop\n", __func__, cfg->data);
-		ret = -ENODEV;
-		goto unmap;
+		sf->data = devm_ioremap_resource(sf->dev, data);
+		if ( IS_ERR(sf->data) )
+		{
+			dev_err(sf->dev, "data ioremap fail, stop\n");
+			goto unmap_regs;
+		}
+printk("%s data mapped %08x -> %p\n", pref, data->start, sf->data);
 	}
-	sf->phys = cfg->data;
+	sf->phys = data->start;
 
-	ret = request_irq(cfg->irq, sd_fifo_interrupt, IRQF_TRIGGER_HIGH, SD_DRIVER_NODE, sf);
+	sf->irq = irq->start;
+	ret = request_irq(sf->irq, sd_fifo_interrupt, IRQF_TRIGGER_HIGH, SD_DRIVER_NODE, sf);
 	if ( ret )
 	{
-		pr_err("request_irq(%d): %d, stop\n", sf->cfg.irq, ret);
-		return ret;
+		pr_err("request_irq(%d): %d, stop\n", sf->irq, ret);
+		goto unmap_data;
 	}
-	pr_info("IRQ: %d: OK\n", sf->cfg.irq);
+	pr_info("IRQ: %d: OK\n", sf->irq);
 
-	if ( cfg->dma & (1 << DMA_MEM_TO_DEV) )
-	{
+//	if ( cfg->dma & (1 << DMA_MEM_TO_DEV) )
+//	{
 		pr_debug("Try to setup DMA for TX dir...\n");
 		if ( sd_fifo_init_dma(&sf->tx, DMA_MEM_TO_DEV) )
 		{
@@ -1002,10 +1028,10 @@ int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg)
 		}
 		sf->tx.phys = sf->phys + offsetof(struct sd_fifo_regs, tdfd);
 		pr_debug("%s: TDFD: %08x phys\n", __func__, sf->tx.phys);
-	}
+//	}
 
-	if ( cfg->dma & (1 << DMA_DEV_TO_MEM) )
-	{
+//	if ( cfg->dma & (1 << DMA_DEV_TO_MEM) )
+//	{
 		pr_debug("Try to setup DMA for RX dir...\n");
 		if ( sd_fifo_init_dma(&sf->rx, DMA_DEV_TO_MEM) )
 		{
@@ -1014,7 +1040,7 @@ int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg)
 		}
 		sf->rx.phys = sf->phys + offsetof(struct sd_fifo_regs, rdfd);
 		pr_debug("%s: RDFD: %08x phys\n", __func__, sf->rx.phys);
-	}
+//	}
 
 	spin_lock_init(&sf->rx.lock);
 	spin_lock_init(&sf->tx.lock);
@@ -1035,37 +1061,54 @@ int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg)
 	/* Full reset of the FIFO zeroes the IER */
 	REG_WRITE(&sf->regs->ier, TRC|RRC);
 
-	return 0;
+	printk("%s fifo success\n", pref);
+	return sf;
+
 
 dma:
 	dma_release_channel(sf->tx.chan);
 
 irq:
-	free_irq(sf->cfg.irq, sf);
+	free_irq(sf->irq, sf);
 
-unmap:
-	sd_unmap(sf->regs, cfg->regs, sizeof(struct sd_fifo_regs));
+unmap_data:
+	if ( sf->data != sf->regs )
+		devm_iounmap(sf->dev, sf->data);
 
-	return ret;
+unmap_regs:
+	devm_iounmap(sf->dev, sf->regs);
+
+free:
+	kfree(sf);
+	return NULL;
+
+
+resource:
+	dev_err(sf->dev, "resource %s undefined.\n", name);
+	return NULL;
 }
 
 
-/** Exit FIFO
+/** Free FIFO
  *
  *  \param  sf   Pointer to sd_fifo struct
  */
-void sd_fifo_exit (struct sd_fifo *sf)
+void sd_fifo_free (struct sd_fifo *sf)
 {
+printk("release DMA channels %p & %p\n", sf->tx.chan, sf->rx.chan);
 	if ( sf->tx.chan ) dma_release_channel(sf->tx.chan);
 	if ( sf->rx.chan ) dma_release_channel(sf->rx.chan);
-	sf->tx.chan = NULL;
-	sf->rx.chan = NULL;
 
-	free_irq(sf->cfg.irq, sf);
+printk("free IRQ %d\n", sf->irq);
+	free_irq(sf->irq, sf);
 
+printk("unmap mem %p & %p\n", sf->data, sf->regs);
 	if ( sf->data != sf->regs )
-		sd_unmap(sf->data, sf->cfg.data, sizeof(struct sd_fifo_regs));
+		devm_iounmap(sf->dev, sf->data);
 
-	sd_unmap(sf->regs, sf->cfg.regs, sizeof(struct sd_fifo_regs));
+	devm_iounmap(sf->dev, sf->regs);
+
+printk("free sf %p\n", sf);
+	kfree(sf);
 }
 

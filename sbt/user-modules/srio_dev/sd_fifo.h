@@ -21,6 +21,7 @@
 #include <linux/completion.h>
 #include <linux/dmaengine.h>
 #include <linux/spinlock.h>
+#include <linux/platform_device.h>
 
 
 #include "srio_dev.h"
@@ -105,13 +106,14 @@ struct sd_fifo_dir
 
 struct sd_fifo
 {
+	struct device               *dev;
+	int                          irq;
+
 	/* Note: sd_fifo_regs always maps to an AXI-Lite interface for register access, but 
 	 * sd_fifo_data may point to an AXI-Full interface for burst data. */
 	struct sd_fifo_regs __iomem *regs;
 	struct sd_fifo_regs __iomem *data;
 	dma_addr_t                   phys;
-
-	struct sd_fifo_config        cfg;
 
 	struct sd_fifo_dir           rx;
 	struct sd_fifo_dir           tx;
@@ -122,19 +124,19 @@ struct sd_fifo
 
 /** Init FIFO
  *
- *  \param  sf   Pointer to sd_fifo struct
- *  \param  cfg  Fifo config structure
+ *  \param  pdev  Platform device struct pointer
+ *  \param  pref  Prefix for names in devicetree
  *
- *  \return  0 on success, <0 on error
+ *  \return  sd_fifo struct on success, NULL on error
  */
-int sd_fifo_init (struct sd_fifo *sf, struct sd_fifo_config *cfg);
+struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref);
 
 
-/** Exit FIFO
+/** Free FIFO
  *
  *  \param  sf   Pointer to sd_fifo struct
  */
-void sd_fifo_exit (struct sd_fifo *sf);
+void sd_fifo_free (struct sd_fifo *sf);
 
 
 /** Reset FIFO's TX, RX, and/or AXI-Stream 
