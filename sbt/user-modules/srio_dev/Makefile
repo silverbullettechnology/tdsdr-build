@@ -20,13 +20,6 @@ UCLINUX_BUILD_USER = 1
 -include $(ROOTDIR)/$(CONFIG_LINUXDIR)/.config
 -include $(ROOTDIR)/config.arch
 
-# Allow user to specify location of xparameters.h et al
-ifneq ($(CONFIG_USER_MODULES_SRIO_DEV_BSP),)
-	BOARD_DIR := $(CONFIG_USER_MODULES_SRIO_DEV_BSP)
-else
-	BOARD_DIR := $(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)
-endif
-
 
 # We need NOPEDANTIC, else KBUILD complains
 KBUILD_NOPEDANTIC=1
@@ -58,12 +51,9 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += srio.o
 
-#srio-y := srio_dev.o sd_xparameters.o sd_fifo.o sd_desc.o
-srio-y := sd_of.o sd_fifo.o sd_desc.o
+srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o
 
-srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX) += dsxx/test.o dsxx/proc.o dsxx/regs.o
-
-srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP) += loop/test.o loop/proc.o loop/regs.o
+srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP) += loop/test.o loop/proc.o
 
 EXTRA_CFLAGS += -I$(PWD)
 
@@ -79,9 +69,6 @@ EXTRA_CFLAGS += -Werror
 
 ifeq ($(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP),y)
 EXTRA_CFLAGS += -DCONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP=y
-endif
-ifeq ($(CONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX),y)
-EXTRA_CFLAGS += -DCONFIG_USER_MODULES_SRIO_DEV_TEST_DSXX=y
 endif
 
 

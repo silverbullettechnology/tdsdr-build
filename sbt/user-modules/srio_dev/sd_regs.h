@@ -19,13 +19,7 @@
 #define _INCLUDE_SD_REGS_H_
 #include <linux/kernel.h>
 
-
-/* Need to put this somewhere better */
-struct sd_srio_config
-{
-	resource_size_t  maint;
-	resource_size_t  sys_regs;
-};
+#include "srio_dev.h"
 
 
 /* CAR: Capability Address Registers (base +0x0) */
@@ -86,6 +80,31 @@ struct sd_lpsl_ef_regs
 	}
 	lane[4];  /* 4 lanes: 0x410, 0x430, 0x450, 0x470 */
 };
+
+
+/* SYS_REG registers (SBT Implementation) */
+struct sd_sys_reg
+{
+	uint32_t  ctrl;  /* 0x0: ctrl_reg (RW)  */
+	uint32_t  stat;  /* 0x4: status_reg (R) */
+};
+
+
+void sd_regs_srio_reset (struct srio_dev *sd);
+
+void sd_regs_set_gt_loopback     (struct srio_dev *sd, unsigned mode);
+void sd_regs_set_gt_diffctrl     (struct srio_dev *sd, unsigned val);
+void sd_regs_set_gt_txprecursor  (struct srio_dev *sd, unsigned val);
+void sd_regs_set_gt_txpostcursor (struct srio_dev *sd, unsigned val);
+void sd_regs_set_gt_rxlpmen      (struct srio_dev *sd, unsigned val);
+
+unsigned sd_regs_get_gt_loopback     (struct srio_dev *sd);
+unsigned sd_regs_get_gt_diffctrl     (struct srio_dev *sd);
+unsigned sd_regs_get_gt_txprecursor  (struct srio_dev *sd);
+unsigned sd_regs_get_gt_txpostcursor (struct srio_dev *sd);
+unsigned sd_regs_get_gt_rxlpmen      (struct srio_dev *sd);
+
+size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 
 
 #endif /* _INCLUDE_SD_REGS_H_ */

@@ -23,8 +23,8 @@
 
 #include "srio_dev.h"
 #include "sd_fifo.h"
+#include "sd_regs.h"
 #include "loop/test.h"
-#include "loop/regs.h"
 #include "loop/proc.h"
 
 
@@ -155,7 +155,7 @@ static ssize_t sd_loop_proc_srio_stat_read (struct file *f, char __user *u, size
 	if ( *o )
 		return 0;
 
-	l = sd_loop_regs_print_srio(b, sizeof(b));
+	l = sd_regs_print_srio(sd_dev, b, sizeof(b));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -181,7 +181,7 @@ static ssize_t sd_loop_proc_gt_loopback_read (struct file *f, char __user *u, si
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%u\n", sd_loop_regs_get_gt_loopback());
+	l = snprintf(b, sizeof(b), "%u\n", sd_regs_get_gt_loopback(sd_dev));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -212,7 +212,7 @@ static ssize_t sd_loop_proc_gt_loopback_write (struct file *f, const char __user
 	if ( kstrtoul(p, 10, &val) )
 		goto einval;
 
-	sd_loop_regs_set_gt_loopback(val);
+	sd_regs_set_gt_loopback(sd_dev, val);
 	printk("gt_loopback set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
@@ -238,7 +238,7 @@ static ssize_t sd_loop_proc_gt_diffctrl_read (struct file *f, char __user *u, si
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%u\n", sd_loop_regs_get_gt_diffctrl());
+	l = snprintf(b, sizeof(b), "%u\n", sd_regs_get_gt_diffctrl(sd_dev));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -269,7 +269,7 @@ static ssize_t sd_loop_proc_gt_diffctrl_write (struct file *f, const char __user
 	if ( kstrtoul(p, 10, &val) )
 		goto einval;
 
-	sd_loop_regs_set_gt_diffctrl(val);
+	sd_regs_set_gt_diffctrl(sd_dev, val);
 	printk("gt_diffctrl set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
@@ -295,7 +295,7 @@ static ssize_t sd_loop_proc_gt_txprecursor_read (struct file *f, char __user *u,
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%u\n", sd_loop_regs_get_gt_txprecursor());
+	l = snprintf(b, sizeof(b), "%u\n", sd_regs_get_gt_txprecursor(sd_dev));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -326,7 +326,7 @@ static ssize_t sd_loop_proc_gt_txprecursor_write (struct file *f, const char __u
 	if ( kstrtoul(p, 10, &val) )
 		goto einval;
 
-	sd_loop_regs_set_gt_txprecursor(val);
+	sd_regs_set_gt_txprecursor(sd_dev, val);
 	printk("gt_txprecursor set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
@@ -352,7 +352,7 @@ static ssize_t sd_loop_proc_gt_txpostcursor_read (struct file *f, char __user *u
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%u\n", sd_loop_regs_get_gt_txpostcursor());
+	l = snprintf(b, sizeof(b), "%u\n", sd_regs_get_gt_txpostcursor(sd_dev));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -383,7 +383,7 @@ static ssize_t sd_loop_proc_gt_txpostcursor_write (struct file *f, const char __
 	if ( kstrtoul(p, 10, &val) )
 		goto einval;
 
-	sd_loop_regs_set_gt_txpostcursor(val);
+	sd_regs_set_gt_txpostcursor(sd_dev, val);
 	printk("gt_txpostcursor set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
@@ -409,7 +409,7 @@ static ssize_t sd_loop_proc_gt_rxlpmen_read (struct file *f, char __user *u, siz
 	if ( *o )
 		return 0;
 
-	l = snprintf(b, sizeof(b), "%u\n", sd_loop_regs_get_gt_rxlpmen());
+	l = snprintf(b, sizeof(b), "%u\n", sd_regs_get_gt_rxlpmen(sd_dev));
 
 	if ( copy_to_user(u, b, l) )
 		return -EFAULT;
@@ -440,7 +440,7 @@ static ssize_t sd_loop_proc_gt_rxlpmen_write (struct file *f, const char __user 
 	if ( kstrtoul(p, 10, &val) )
 		goto einval;
 
-	sd_loop_regs_set_gt_rxlpmen(val);
+	sd_regs_set_gt_rxlpmen(sd_dev, val);
 	printk("gt_rxlpmen set: '%s' -> '%s' -> %lu\n", b, p, val);
 
 	*o += s;
@@ -472,7 +472,7 @@ static ssize_t sd_loop_proc_reset_write (struct file *f, const char __user *u, s
 	if ( copy_from_user(b, u, s) )
 		return -EFAULT;
 
-	sd_loop_regs_srio_reset();
+	sd_regs_srio_reset(sd_dev);
 	printk("SRIO reset\n");
 
 	sd_fifo_reset(sd_dev->init, SD_FR_ALL);

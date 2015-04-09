@@ -24,11 +24,11 @@
 #include <linux/ctype.h>
 
 #include "srio_dev.h"
-#include "sd_xparameters.h"
 #include "loop/test.h"
-#include "loop/regs.h"
 #include "loop/proc.h"
 #include "sd_regs.h"
+#include "sd_desc.h"
+#include "sd_fifo.h"
 
 
 /******* Exported vars *******/
@@ -229,7 +229,7 @@ static struct file_operations sd_loop_fops =
 static struct miscdevice mdev =
 {
 	MISC_DYNAMIC_MINOR,
-	SD_DRIVER_NODE,
+	"srio_dev",
 	&sd_loop_fops
 };
 
@@ -239,16 +239,10 @@ struct device *sd_loop_init (struct srio_dev *sd)
 
 	sd_dev = sd;
 
-	if ( (ret = sd_loop_regs_init(sd->sys_regs)) )
-	{
-		pr_err("sd_loop_regs_init(): %d\n", ret);
-		return NULL;
-	}
-
 	if ( (ret = sd_loop_proc_init()) )
 	{
 		pr_err("sd_loop_proc_init(): %d\n", ret);
-		goto regs;
+		return NULL;
 	}
 
 	if ( (ret = misc_register(&mdev)) < 0 )
@@ -293,12 +287,12 @@ struct device *sd_loop_init (struct srio_dev *sd)
 	init_completion(&sd_loop_tx_complete);
 
 	// reset core
-	sd_loop_regs_set_gt_loopback(0);
-	sd_loop_regs_set_gt_diffctrl(8);
-	sd_loop_regs_set_gt_txprecursor(0);
-	sd_loop_regs_set_gt_txpostcursor(0);
-	sd_loop_regs_set_gt_rxlpmen(0);
-	sd_loop_regs_srio_reset();
+	sd_regs_set_gt_loopback(sd_dev, 0);
+	sd_regs_set_gt_diffctrl(sd_dev, 8);
+	sd_regs_set_gt_txprecursor(sd_dev, 0);
+	sd_regs_set_gt_txpostcursor(sd_dev, 0);
+	sd_regs_set_gt_rxlpmen(sd_dev, 0);
+	sd_regs_srio_reset(sd_dev);
 
 	// success
 	return mdev.this_device;
@@ -313,9 +307,6 @@ misc_dev:
 
 proc:
 	sd_loop_proc_exit();
-
-regs:
-	sd_loop_regs_exit();
 
 	printk("LOOP test init done\n");
 	return NULL;
@@ -340,7 +331,6 @@ void sd_loop_exit (void)
 
 	misc_deregister(&mdev);
 	sd_loop_proc_exit();
-	sd_loop_regs_exit();
 	printk("LOOP test exit done\n");
 }
 

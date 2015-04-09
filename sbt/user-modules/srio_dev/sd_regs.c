@@ -1,4 +1,4 @@
-/** \file      loop/regs.c
+/** \file      sd_regs.c
  *  \brief     SYS_REG control
  *
  *  \copyright Copyright 2013,2014 Silver Bullet Technologies
@@ -18,20 +18,8 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
-#include "regs.h"
-#include "../sd_xparameters.h"
-#include "../srio_dev.h"
-
-
-#define BASE 0x83c00000
-
-
-/* SYS_REG registers (SBT Implementation) */
-struct sd_sys_reg
-{
-	uint32_t  ctrl;  /* 0x0: ctrl_reg (RW)  */
-	uint32_t  stat;  /* 0x4: status_reg (R) */
-};
+#include "srio_dev.h"
+#include "sd_regs.h"
 
 
 #define CTRL_SRIO_RESET       0x00000001
@@ -51,31 +39,18 @@ struct sd_sys_reg
 #define STAT_DEVICE_ID              0xFF000000
 
 
-static struct sd_sys_reg __iomem *sys_reg;
-
-
-int sd_loop_regs_init (void __iomem *regs)
+void sd_regs_srio_reset (struct srio_dev *sd)
 {
-	sys_reg = regs;
-	return 0;
-}
-
-void sd_loop_regs_exit (void)
-{
-}
-
-void sd_loop_regs_srio_reset (void)
-{
-	REG_RMW(&sys_reg->ctrl, 0, CTRL_SRIO_RESET);
+	REG_RMW(&sd->sys_regs->ctrl, 0, CTRL_SRIO_RESET);
 	msleep(10);
-	REG_RMW(&sys_reg->ctrl, CTRL_SRIO_RESET, 0);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_SRIO_RESET, 0);
 	msleep(10);
 }
 
 
-size_t sd_loop_regs_print_srio (char *dst, size_t max)
+size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 {
-	uint32_t  v = REG_READ(&sys_reg->ctrl);
+	uint32_t  v = REG_READ(&sd->sys_regs->ctrl);
 	char     *p = dst;
 	char     *e = dst + max;
 
@@ -87,7 +62,7 @@ size_t sd_loop_regs_print_srio (char *dst, size_t max)
 	p += scnprintf(p, e - p, "  gt_txpostcursor: %u\n", (v & CTRL_GT_TXPOSTCURSOR) >> 14);
 	p += scnprintf(p, e - p, "  gt_rxlpmen     : %u\n", (v & CTRL_GT_RXLPMEN     ) >> 19);
 
-	v = REG_READ(&sys_reg->stat);
+	v = REG_READ(&sd->sys_regs->stat);
 	p += scnprintf(p, e - p, "\nstatus:\n");
 	p += scnprintf(p, e - p, "  srio_link_initialized: %u\n", (v & STAT_SRIO_LINK_INITIALIZED)      );
 	p += scnprintf(p, e - p, "  srio_port_initialized: %u\n", (v & STAT_SRIO_PORT_INITIALIZED) >>  1);
@@ -103,53 +78,53 @@ size_t sd_loop_regs_print_srio (char *dst, size_t max)
 }
 
 
-void sd_loop_regs_set_gt_loopback (unsigned mode)
+void sd_regs_set_gt_loopback (struct srio_dev *sd, unsigned mode)
 {
-	REG_RMW(&sys_reg->ctrl, CTRL_SRIO_LOOPBACK, (mode << 2) & CTRL_SRIO_LOOPBACK);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_SRIO_LOOPBACK, (mode << 2) & CTRL_SRIO_LOOPBACK);
 }
 
-void sd_loop_regs_set_gt_diffctrl (unsigned val)
+void sd_regs_set_gt_diffctrl (struct srio_dev *sd, unsigned val)
 {
-	REG_RMW(&sys_reg->ctrl, CTRL_GT_DIFFCTRL, (val << 5) & CTRL_GT_DIFFCTRL);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_DIFFCTRL, (val << 5) & CTRL_GT_DIFFCTRL);
 }
 
-void sd_loop_regs_set_gt_txprecursor (unsigned val)
+void sd_regs_set_gt_txprecursor (struct srio_dev *sd, unsigned val)
 {
-	REG_RMW(&sys_reg->ctrl, CTRL_GT_TXPRECURSOR, (val << 9) & CTRL_GT_TXPRECURSOR);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPRECURSOR, (val << 9) & CTRL_GT_TXPRECURSOR);
 }
 
-void sd_loop_regs_set_gt_txpostcursor (unsigned val)
+void sd_regs_set_gt_txpostcursor (struct srio_dev *sd, unsigned val)
 {
-	REG_RMW(&sys_reg->ctrl, CTRL_GT_TXPOSTCURSOR, (val << 14) & CTRL_GT_TXPOSTCURSOR);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPOSTCURSOR, (val << 14) & CTRL_GT_TXPOSTCURSOR);
 }
 
-void sd_loop_regs_set_gt_rxlpmen (unsigned val)
+void sd_regs_set_gt_rxlpmen (struct srio_dev *sd, unsigned val)
 {
-	REG_RMW(&sys_reg->ctrl, CTRL_GT_RXLPMEN, (val << 19) & CTRL_GT_RXLPMEN);
+	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_RXLPMEN, (val << 19) & CTRL_GT_RXLPMEN);
 }
 
 
-unsigned sd_loop_regs_get_gt_loopback (void)
+unsigned sd_regs_get_gt_loopback (struct srio_dev *sd)
 {
-	return (REG_READ(&sys_reg->ctrl) & CTRL_SRIO_LOOPBACK) >> 2;
+	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_SRIO_LOOPBACK) >> 2;
 }
 
-unsigned sd_loop_regs_get_gt_diffctrl (void)
+unsigned sd_regs_get_gt_diffctrl (struct srio_dev *sd)
 {
-	return (REG_READ(&sys_reg->ctrl) & CTRL_GT_DIFFCTRL) >> 5;
+	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_DIFFCTRL) >> 5;
 }
 
-unsigned sd_loop_regs_get_gt_txprecursor (void)
+unsigned sd_regs_get_gt_txprecursor (struct srio_dev *sd)
 {
-	return (REG_READ(&sys_reg->ctrl) & CTRL_GT_TXPRECURSOR) >> 9;
+	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_TXPRECURSOR) >> 9;
 }
 
-unsigned sd_loop_regs_get_gt_txpostcursor (void)
+unsigned sd_regs_get_gt_txpostcursor (struct srio_dev *sd)
 {
-	return (REG_READ(&sys_reg->ctrl) & CTRL_GT_TXPOSTCURSOR) >> 14;
+	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_TXPOSTCURSOR) >> 14;
 }
 
-unsigned sd_loop_regs_get_gt_rxlpmen (void)
+unsigned sd_regs_get_gt_rxlpmen (struct srio_dev *sd)
 {
-	return (REG_READ(&sys_reg->ctrl) & CTRL_GT_RXLPMEN) >> 19;
+	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_RXLPMEN) >> 19;
 }

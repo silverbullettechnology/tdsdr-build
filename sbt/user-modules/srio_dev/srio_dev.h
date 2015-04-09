@@ -23,14 +23,14 @@
 #include <linux/rio.h>
 #include <linux/io.h>
 
+//#include "sd_regs.h"
 
-#define SD_DRIVER_NODE "srio_dev"
 
 #define BUFF_SIZE     65536
 #define RX_RING_SIZE 8
 #define TX_RING_SIZE 8
 
-#include "sd_fifo.h"
+//#include "sd_fifo.h"
 
 struct srio_dev
 {
@@ -40,8 +40,11 @@ struct srio_dev
 	struct sd_fifo    *init;
 	struct sd_fifo    *targ;
 
+	/* Mapped pointer for the maintenance registers */
 	uint32_t __iomem  *maint;
-	uint32_t __iomem  *sys_regs;
+
+	/* Mapped pointer for the SYS_REG registers */
+	struct sd_sys_reg __iomem  *sys_regs;
 };
 
 

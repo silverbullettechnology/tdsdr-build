@@ -32,7 +32,6 @@
 
 
 #include "srio_dev.h"
-#include "dsxx/test.h"
 #include "loop/test.h"
 #include "sd_regs.h"
 #include "sd_desc.h"

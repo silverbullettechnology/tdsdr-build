@@ -1,18 +1,8 @@
 if USER_MODULES_SRIO_DEV
- 	config USER_MODULES_SRIO_DEV_TEST_DSXX
-	bool "Include data source/sink test"
-	default true
 
  	config USER_MODULES_SRIO_DEV_TEST_LOOP
 	bool "Include loopback test"
 	default true
-
- 	config USER_MODULES_SRIO_DEV_BSP
-	string "Path to Xilinx-generated BSP containing xparameters.h"
-	default "$(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)"
-	help
-	  Enter a path to your hardware project's SDK BSP include path.  You can probably find
-	  it with something like:   find /path/to/hardware-project -name xparameters.h
 
 endif
 

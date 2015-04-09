@@ -993,7 +993,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 		dev_err(sf->dev, "regs ioremap fail, stop\n");
 		goto free;
 	}
-printk("%s regs mapped %08x -> %p\n", pref, regs->start, sf->regs);
+//printk("%s regs mapped %08x -> %p\n", pref, regs->start, sf->regs);
 
 	if ( data == regs )
 		sf->data = sf->regs;
@@ -1005,12 +1005,12 @@ printk("%s regs mapped %08x -> %p\n", pref, regs->start, sf->regs);
 			dev_err(sf->dev, "data ioremap fail, stop\n");
 			goto unmap_regs;
 		}
-printk("%s data mapped %08x -> %p\n", pref, data->start, sf->data);
+//printk("%s data mapped %08x -> %p\n", pref, data->start, sf->data);
 	}
 	sf->phys = data->start;
 
 	sf->irq = irq->start;
-	ret = request_irq(sf->irq, sd_fifo_interrupt, IRQF_TRIGGER_HIGH, SD_DRIVER_NODE, sf);
+	ret = request_irq(sf->irq, sd_fifo_interrupt, IRQF_TRIGGER_HIGH, dev_name(sf->dev), sf);
 	if ( ret )
 	{
 		pr_err("request_irq(%d): %d, stop\n", sf->irq, ret);
