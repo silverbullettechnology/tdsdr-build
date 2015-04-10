@@ -1,4 +1,4 @@
-/** \file      loop/proc.c
+/** \file      sd_test.c
  *  \brief     /proc/ entries for Loopback test
  *
  *  \copyright Copyright 2013,2014 Silver Bullet Technologies
@@ -24,7 +24,7 @@
 #include "srio_dev.h"
 #include "sd_fifo.h"
 #include "sd_regs.h"
-#include "loop/proc.h"
+#include "sd_test.h"
 
 
 static struct proc_dir_entry *sd_test_proc;

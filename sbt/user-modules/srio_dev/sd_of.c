@@ -31,17 +31,20 @@
 #include <linux/ioport.h>
 
 #include "srio_dev.h"
-#include "loop/test.h"
-#include "loop/proc.h"
 #include "sd_regs.h"
 #include "sd_desc.h"
 #include "sd_fifo.h"
 #include "sd_recv.h"
+#include "sd_test.h"
 
 
 // Temporary: should be in the DT
 #ifndef RX_RING_SIZE
 #define RX_RING_SIZE 8
+#endif
+
+#ifndef BUFF_SIZE
+#define BUFF_SIZE 8192
 #endif
 
 
