@@ -1,5 +1,5 @@
-/** \file      sd_recv.h
- *  \brief     Linux Rapidio stack operations
+/** \file      sd_ops.h
+ *  \brief     Stateless Rapidio stack operations
  *
  *  \copyright Copyright 2015 Silver Bullet Technologies
  *
@@ -15,18 +15,15 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_SD_RECV_H
-#define _INCLUDE_SD_RECV_H
+#ifndef _INCLUDE_SD_OPS_H
+#define _INCLUDE_SD_OPS_H
 #include <linux/kernel.h>
-
-#include "srio_dev.h"
-#include "sd_fifo.h"
-#include "sd_desc.h"
-#include "sd_recv.h"
+#include <linux/rio.h>
 
 
-void sd_recv_init (struct sd_fifo *fifo, struct sd_desc *desc);
-void sd_recv_targ (struct sd_fifo *fifo, struct sd_desc *desc);
+int sd_ops_lcread  (struct rio_mport *mport, int index, u32 offset, int len, u32 *data);
+int sd_ops_lcwrite (struct rio_mport *mport, int index, u32 offset, int len, u32  data);
+int sd_ops_dsend   (struct rio_mport *mport, int index, u16 destid, u16 data);
 
 
-#endif /* _INCLUDE_SD_RECV_H */
+#endif /* _INCLUDE_SD_OPS_H */

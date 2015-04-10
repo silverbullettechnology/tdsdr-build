@@ -51,7 +51,8 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += srio.o
 
-srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o sd_recv.o sd_test.o
+srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o sd_recv.o sd_test.o \
+          sd_ops.o sd_rdma.o sd_mbox.o
 
 EXTRA_CFLAGS += -I$(PWD)
 
@@ -60,13 +61,7 @@ EXTRA_CFLAGS += -I$(PWD)
 #CFLAGS_sd_of.o    += -DDEBUG
 #CFLAGS_sd_proc.o  += -DDEBUG
 EXTRA_CFLAGS += -DDEBUG
-
 EXTRA_CFLAGS += -Werror
-
-ifeq ($(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP),y)
-EXTRA_CFLAGS += -DCONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP=y
-endif
-
 
 all:  modules
 

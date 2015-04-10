@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/rio.h>
+#include <linux/rio_drv.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
@@ -36,13 +37,13 @@
 #include "sd_fifo.h"
 #include "sd_recv.h"
 #include "sd_test.h"
+#include "sd_ops.h"
+#include "sd_rdma.h"
+#include "sd_mbox.h"
 
 
-// Temporary: should be in the DT
-#ifndef RX_RING_SIZE
-#define RX_RING_SIZE 8
-#endif
-
+/* Need room for 3 words of header, once that's moved to the desc header this can be
+ * reduced to RIO_MAX_MSG_SIZE */
 #ifndef BUFF_SIZE
 #define BUFF_SIZE 8192
 #endif
@@ -118,6 +119,17 @@ static int sd_of_probe (struct platform_device *pdev)
 		dev_err(sd->dev, "maintenance ioremap fail, stop\n");
 		goto sd_free;
 	}
+#if 0
+printk("maint: 0x%x -> %p\n", maint->start, sd->maint);
+printk("  dev_id  : 0x%08x\n", REG_READ(sd->maint + 0x00));
+printk("  dev_info: 0x%08x\n", REG_READ(sd->maint + 0x04));
+printk("  asm_id  : 0x%08x\n", REG_READ(sd->maint + 0x08));
+printk("  asm_info: 0x%08x\n", REG_READ(sd->maint + 0x0C));
+printk("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
+printk("  swp_info: 0x%08x\n", REG_READ(sd->maint + 0x14));
+printk("  src_ops : 0x%08x\n", REG_READ(sd->maint + 0x18));
+printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
+#endif
 
 	sd->sys_regs = devm_ioremap_resource(sd->dev, sys_regs);
 	if ( IS_ERR(sd->sys_regs) )
@@ -169,8 +181,55 @@ static int sd_of_probe (struct platform_device *pdev)
 		sd_fifo_rx_enqueue(sd->targ_fifo, &sd->targ_ring[idx]);
 	}
 
+	if ( sd_test_init(sd) )
+	{
+		pr_err("Settting up sd_test failed, stop\n");
+		ret = -EINVAL;
+		goto targ_ring;
+	}
+
 	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
 	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
+	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
+
+	/* Local and remote register access */
+	sd->ops.lcread  = sd_ops_lcread;
+	sd->ops.lcwrite = sd_ops_lcwrite;
+	sd->ops.cread   = sd_rdma_cread;
+	sd->ops.cwrite  = sd_rdma_cwrite;
+
+	/* Send doorbell */
+	sd->ops.dsend = sd_ops_dsend;
+
+	/* Mailboxes */
+	sd->ops.open_outb_mbox   = sd_mbox_open_outb_mbox;
+	sd->ops.close_outb_mbox  = sd_mbox_close_outb_mbox;
+	sd->ops.open_inb_mbox    = sd_mbox_open_inb_mbox;
+	sd->ops.close_inb_mbox   = sd_mbox_close_inb_mbox;
+	sd->ops.add_outb_message = sd_mbox_add_outb_message;
+	sd->ops.add_inb_buffer   = sd_mbox_add_inb_buffer;
+	sd->ops.get_inb_message  = sd_mbox_get_inb_message;
+
+	sd->mport.priv       = (void *)sd;
+	sd->mport.ops        = &sd->ops;
+	sd->mport.index      = 0; /* Should come from OF */
+	sd->mport.sys_size   = 0; /* Should come from OF, match PL image */
+	sd->mport.phy_type   = RIO_PHY_SERIAL;
+	sd->mport.phys_efptr = 0x100; /* LPS-EF regs offset */
+
+	INIT_LIST_HEAD(&sd->mport.dbells);
+
+	rio_init_dbell_res(&sd->mport.riores[RIO_DOORBELL_RESOURCE], 0, 0xffff);
+	rio_init_mbox_res(&sd->mport.riores[RIO_INB_MBOX_RESOURCE], 0, 3);
+	rio_init_mbox_res(&sd->mport.riores[RIO_OUTB_MBOX_RESOURCE], 0, 3);
+
+	snprintf(sd->mport.name, RIO_MAX_MPORT_NAME, "%s", dev_name(sd->dev));
+
+#if 0
+	if ( (ret = rio_register_mport(&sd->mport)) )
+		goto test_exit;
+#endif
 
 	// configure transceivers and reset core
 	sd_regs_set_gt_loopback(sd,     sd->gt_loopback);
@@ -180,36 +239,14 @@ static int sd_of_probe (struct platform_device *pdev)
 	sd_regs_set_gt_rxlpmen(sd,      sd->gt_rxlpmen);
 	sd_regs_srio_reset(sd);
 
-	if ( sd_test_init(sd) )
-	{
-		pr_err("Settting up sd_test failed, stop\n");
-		ret = -EINVAL;
-		goto targ_ring;
-	}
-
-#if 0
-	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
-
-	sd_ops_attach(&sd->ops);
-	sd->mport.priv       = (void *)sd;
-	sd->mport.ops        = &sd->ops;
-	sd->mport.index      = 0; /* Should come from OF */
-	sd->mport.sys_size   = 0; /* Should come from OF, match PL image */
-	sd->mport.phy_type   = RIO_PHY_SERIAL;
-	sd->mport.phys_efptr = 0x100; /* LPS-EF regs offset */
-
-	if ( (ret = rio_register_mport(&sd->mport)) )
-	{
-		sd_ops_detach(&sd->ops);
-		goto targ_ring;
-	}
-#endif
-
 	platform_set_drvdata(pdev, sd);
 
 	return ret;
 
+#if 0
+test_exit:
+	sd_test_exit();
+#endif
 
 targ_ring:
 	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);
@@ -255,8 +292,8 @@ static int sd_of_remove (struct platform_device *pdev)
 	sd_fifo_init_dir(&sd->init_fifo->rx, NULL, HZ);
 	sd_fifo_init_dir(&sd->targ_fifo->rx, NULL, HZ);
 
-	sd_desc_clean_ring(sd->init_ring, RX_RING_SIZE, sd->dev);
-	sd_desc_clean_ring(sd->targ_ring, RX_RING_SIZE, sd->dev);
+	sd_desc_clean_ring(sd->init_ring, sd->init_size, sd->dev);
+	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);
 
 	sd_fifo_free(sd->init_fifo);
 	sd_fifo_free(sd->targ_fifo);

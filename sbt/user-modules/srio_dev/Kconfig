@@ -1,9 +1,5 @@
 if USER_MODULES_SRIO_DEV
 
- 	config USER_MODULES_SRIO_DEV_TEST_LOOP
-	bool "Include loopback test"
-	default true
-
 endif
 
 
