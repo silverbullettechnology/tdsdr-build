@@ -1,4 +1,4 @@
-/** \file      loop/proc.h
+/** \file      sd_test.h
  *  \brief     /proc/ entries for Loopback test
  *
  *  \copyright Copyright 2013,2014 Silver Bullet Technologies
@@ -15,13 +15,13 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_LOOP_PROC_H_
-#define _INCLUDE_LOOP_PROC_H_
+#ifndef _INCLUDE_SD_TEST_H_
+#define _INCLUDE_SD_TEST_H_
 #include <linux/kernel.h>
 
 
-int  sd_loop_proc_init (void);
-void sd_loop_proc_exit (void);
+int  sd_test_init (struct srio_dev *sd);
+void sd_test_exit (void);
 
 
-#endif /* _INCLUDE_LOOP_PROC_H_ */
+#endif /* _INCLUDE_SD_TEST_H_ */

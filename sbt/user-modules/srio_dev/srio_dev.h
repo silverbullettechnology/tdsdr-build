@@ -35,13 +35,19 @@ struct srio_dev
 
 	struct sd_fifo    *init_fifo;
 	struct sd_desc    *init_ring;
-	size_t             init_size;
+	u32                init_size;
 
 	struct sd_fifo    *targ_fifo;
 	struct sd_desc    *targ_ring;
-	size_t             targ_size;
+	u32                targ_size;
 
 	uint32_t           devid;
+
+	u32                gt_loopback;
+	u32                gt_diffctrl;
+	u32                gt_txprecursor;
+	u32                gt_txpostcursor;
+	u32                gt_rxlpmen;
 
 	/* Mapped pointer for the maintenance registers */
 	void __iomem  *maint;

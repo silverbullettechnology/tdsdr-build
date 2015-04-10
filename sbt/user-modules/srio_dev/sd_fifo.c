@@ -342,8 +342,8 @@ void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 	BUG_ON(desc->used & 0x03);
 	BUG_ON(!desc->virt);
 	BUG_ON(!desc->used);
-	if ( sf->tx.chan )
-		BUG_ON(!desc->phys);
+	if ( sf->tx.chan && !desc->phys )
+		sd_desc_map(desc, sf->dev, DMA_MEM_TO_DEV);
 
 	desc->offs = 0;
 
@@ -577,6 +577,9 @@ void sd_fifo_rx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 
 	desc->used = 0;
 	desc->offs = 0;
+
+	if ( sf->rx.chan && !desc->phys )
+		sd_desc_map(desc, sf->dev, DMA_DEV_TO_MEM);
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
 	empty = list_empty(&sf->rx.queue);

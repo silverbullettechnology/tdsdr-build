@@ -32,6 +32,7 @@
 
 #include "srio_dev.h"
 #include "loop/test.h"
+#include "loop/proc.h"
 #include "sd_regs.h"
 #include "sd_desc.h"
 #include "sd_fifo.h"
@@ -72,14 +73,35 @@ static int sd_of_probe (struct platform_device *pdev)
 	}
 	sd->dev = &pdev->dev;
 
-	sd->init_size = RX_RING_SIZE;
+
+	/* Default values */
+	sd->init_size       = 8;
+	sd->targ_size       = 8;
+	sd->gt_loopback     = 0;
+	sd->gt_diffctrl     = 8;
+	sd->gt_txprecursor  = 0;
+	sd->gt_txpostcursor = 0;
+	sd->gt_rxlpmen      = 0;
+
+	/* Configure from DT */
+	of_property_read_u32(pdev->dev.of_node, "sbt,init-size",       &sd->init_size);
+	of_property_read_u32(pdev->dev.of_node, "sbt,targ-size",       &sd->targ_size);
+	of_property_read_u32(pdev->dev.of_node, "sbt,gt-loopback",     &sd->gt_loopback);
+	of_property_read_u32(pdev->dev.of_node, "sbt,gt-diffctrl",     &sd->gt_diffctrl);
+	of_property_read_u32(pdev->dev.of_node, "sbt,gt-txprecursor",  &sd->gt_txprecursor);
+	of_property_read_u32(pdev->dev.of_node, "sbt,gt-txpostcursor", &sd->gt_txpostcursor);
+	of_property_read_u32(pdev->dev.of_node, "sbt,gt-rxlpmen",      &sd->gt_rxlpmen);
+
+	if ( sd->init_size < 4 ) sd->init_size = 4;
+	if ( sd->targ_size < 4 ) sd->targ_size = 4;
+
+
 	if ( !(sd->init_ring = kzalloc(sd->init_size * sizeof(struct sd_desc), GFP_KERNEL)) )
 	{
 		dev_err(&pdev->dev, "memory alloc fail, stop\n");
 		goto sd_free;
 	}
 
-	sd->targ_size = RX_RING_SIZE;
 	if ( !(sd->targ_ring = kzalloc(sd->targ_size * sizeof(struct sd_desc), GFP_KERNEL)) )
 	{
 		dev_err(&pdev->dev, "memory alloc fail, stop\n");
@@ -147,22 +169,20 @@ static int sd_of_probe (struct platform_device *pdev)
 	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
 	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
 
-	// reset core
-	sd_regs_set_gt_loopback(sd, 0);
-	sd_regs_set_gt_diffctrl(sd, 8);
-	sd_regs_set_gt_txprecursor(sd, 0);
-	sd_regs_set_gt_txpostcursor(sd, 0);
-	sd_regs_set_gt_rxlpmen(sd, 0);
+	// configure transceivers and reset core
+	sd_regs_set_gt_loopback(sd,     sd->gt_loopback);
+	sd_regs_set_gt_diffctrl(sd,     sd->gt_diffctrl);
+	sd_regs_set_gt_txprecursor(sd,  sd->gt_txprecursor);
+	sd_regs_set_gt_txpostcursor(sd, sd->gt_txpostcursor);
+	sd_regs_set_gt_rxlpmen(sd,      sd->gt_rxlpmen);
 	sd_regs_srio_reset(sd);
 
-#ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
-	if ( !sd_loop_init(sd) )
+	if ( sd_test_init(sd) )
 	{
-		pr_err("LOOP test failed, stop\n");
+		pr_err("Settting up sd_test failed, stop\n");
 		ret = -EINVAL;
 		goto targ_ring;
 	}
-#endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 
 #if 0
 	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
@@ -220,9 +240,7 @@ static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
 
-#ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
-	sd_loop_exit();
-#endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
+	sd_test_exit();
 
 // no way to unregister an mport yet...
 //	rio_unregister_mport(&sd->mport);

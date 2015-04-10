@@ -80,26 +80,31 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 
 void sd_regs_set_gt_loopback (struct srio_dev *sd, unsigned mode)
 {
+	pr_debug("Set gt_loopback to %u\n", mode);
 	REG_RMW(&sd->sys_regs->ctrl, CTRL_SRIO_LOOPBACK, (mode << 2) & CTRL_SRIO_LOOPBACK);
 }
 
 void sd_regs_set_gt_diffctrl (struct srio_dev *sd, unsigned val)
 {
+	pr_debug("Set gt_diffctrl to %u\n", val);
 	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_DIFFCTRL, (val << 5) & CTRL_GT_DIFFCTRL);
 }
 
 void sd_regs_set_gt_txprecursor (struct srio_dev *sd, unsigned val)
 {
+	pr_debug("Set gt_txprecursor to %u\n", val);
 	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPRECURSOR, (val << 9) & CTRL_GT_TXPRECURSOR);
 }
 
 void sd_regs_set_gt_txpostcursor (struct srio_dev *sd, unsigned val)
 {
+	pr_debug("Set gt_txpostcursor to %u\n", val);
 	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPOSTCURSOR, (val << 14) & CTRL_GT_TXPOSTCURSOR);
 }
 
 void sd_regs_set_gt_rxlpmen (struct srio_dev *sd, unsigned val)
 {
+	pr_debug("Set gt_rxlpmen to %u\n", val);
 	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_RXLPMEN, (val << 19) & CTRL_GT_RXLPMEN);
 }
 
