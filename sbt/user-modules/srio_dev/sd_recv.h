@@ -1,7 +1,7 @@
-/** \file      loop/test.h
- *  \brief     SRIO Loopback test
+/** \file      sd_recv.h
+ *  \brief     Linux Rapidio stack operations
  *
- *  \copyright Copyright 2013,2014 Silver Bullet Technologies
+ *  \copyright Copyright 2015 Silver Bullet Technologies
  *
  *             This program is free software; you can redistribute it and/or modify it
  *             under the terms of the GNU General Public License as published by the Free
@@ -15,27 +15,18 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_LOOP_TEST_H_
-#define _INCLUDE_LOOP_TEST_H_
+#ifndef _INCLUDE_RECV_H
+#define _INCLUDE_RECV_H
 #include <linux/kernel.h>
 
 #include "srio_dev.h"
-
-#define BUFF_SIZE     65536
-#define RX_RING_SIZE 8
-#define TX_RING_SIZE 8
-
-
-extern int sd_loop_tx_dest;
-extern struct srio_dev *sd_dev;
-
-struct device *sd_loop_init (struct srio_dev *sd);
-void           sd_loop_exit (void);
+#include "sd_fifo.h"
+#include "sd_desc.h"
+#include "sd_recv.h"
 
 
-void sd_loop_set_tuser (u32 tuser);
-u32  sd_loop_get_tuser (void);
+void sd_recv_init (struct sd_fifo *fifo, struct sd_desc *desc);
+void sd_recv_targ (struct sd_fifo *fifo, struct sd_desc *desc);
 
 
-#endif // _INCLUDE_LOOP_TEST_H_
-
+#endif /* _INCLUDE_RECV_H */

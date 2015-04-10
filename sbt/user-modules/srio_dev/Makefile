@@ -51,7 +51,7 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += srio.o
 
-srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o
+srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o sd_recv.o
 
 srio-$(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP) += loop/test.o loop/proc.o
 

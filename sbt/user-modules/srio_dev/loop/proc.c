@@ -475,8 +475,8 @@ static ssize_t sd_loop_proc_reset_write (struct file *f, const char __user *u, s
 	sd_regs_srio_reset(sd_dev);
 	printk("SRIO reset\n");
 
-	sd_fifo_reset(sd_dev->init, SD_FR_ALL);
-	sd_fifo_reset(sd_dev->targ, SD_FR_ALL);
+	sd_fifo_reset(sd_dev->init_fifo, SD_FR_ALL);
+	sd_fifo_reset(sd_dev->targ_fifo, SD_FR_ALL);
 
 	*o += s;
 	return s;

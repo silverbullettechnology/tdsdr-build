@@ -152,14 +152,9 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	if (list_empty(&sf->tx.queue))
-	{
-		pr_err("%s: empty queue\n", __func__);
-		return;
-	}
 	BUG_ON(list_empty(&sf->tx.queue));
-
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+
 	sf->tx.stats.completes++;
 	REG_WRITE(&sf->regs->tlr, desc->used);
 	REG_RMW(&sf->regs->ier, TFPE, TC|TSE|TPOE);
@@ -205,14 +200,9 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	struct dma_async_tx_descriptor *xfer;
 	struct sd_desc                 *desc;
 
-	if (list_empty(&sf->tx.queue))
-	{
-		pr_err("%s: empty queue\n", __func__);
-		return;
-	}
 	BUG_ON(list_empty(&sf->tx.queue));
-
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+
 	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", __func__,
 	         desc->used, desc->phys, sf->tx.phys);
 	xfer = sf->tx.chan->device->device_prep_dma_memcpy(sf->tx.chan, sf->tx.phys, 
@@ -266,12 +256,8 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	uint32_t        tdfv;
 
 	/* no reason to ever be here with an empty TX queue */
-	if (list_empty(&sf->tx.queue))
-	{
-		pr_err("%s: empty queue\n", __func__);
-		return;
-	}
 	BUG_ON(list_empty(&sf->tx.queue));
+	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
 	if ( !tdfv )
@@ -281,7 +267,6 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 		return;
 	}
 
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 	walk = (desc->virt + desc->offs);
 	left = (desc->used - desc->offs);
 	pr_debug("%s: used %zu - offs %zu = left %zu, cap TDFV %u\n", __func__, 
@@ -318,23 +303,18 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
  */
 static void sd_fifo_tx_start (struct sd_fifo *sf)
 {
-#ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	struct sd_desc *desc;
 
-	if (list_empty(&sf->tx.queue))
-	{
-		pr_err("%s: empty queue\n", __func__);
-		return;
-	}
 	BUG_ON(list_empty(&sf->tx.queue));
-
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+
+#ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	REG_WRITE(&sf->regs->tdr, desc->dest);
 	pr_debug("%s: desc %p: wrote TDR %08x\n", __func__, desc, desc->dest);
 #endif
 
-	/* select DMA or PIO for the bulk transfer */
-	if ( sf->tx.chan )
+	/* select DMA or PIO for the bulk transfer: need DMA channel and desc mapped */
+	if ( sf->tx.chan && desc->phys )
 	{
 		sd_fifo_tx_dma(sf);
 		REG_RMW(&sf->regs->ier, TFPE|TFPF, TC|TSE|TPOE);
@@ -571,7 +551,7 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 
 	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
 	walk = (desc->virt + desc->offs);
-	BUG_ON(desc->offs + size > BUFF_SIZE);
+	BUG_ON(desc->offs + size > desc->size);
 
 	pr_debug("%s: size %08x, offs %08x\n", __func__, size, desc->offs);
 	desc->offs += size;
@@ -669,9 +649,19 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 			pr_debug("TC: IRQ at end of TX desc %p, cleanup\n", desc);
 
 			/* unlock: caller may call _tx_enqueue */
-			spin_unlock_irqrestore(&sf->tx.lock, flags);
-			sf->tx.func(sf, desc);
-			spin_lock_irqsave(&sf->tx.lock, flags);
+			if ( sf->tx.func )
+			{
+				spin_unlock_irqrestore(&sf->tx.lock, flags);
+				sf->tx.func(sf, desc);
+				spin_lock_irqsave(&sf->tx.lock, flags);
+			}
+			else
+			{
+				pr_debug("No tx.func, free in FIFO\n");
+				if ( desc->phys )
+					sd_desc_unmap(desc, sf->dev, DMA_MEM_TO_DEV);
+				sd_desc_free(desc);
+			}
 
 			/* start next TX if needed */
 			if ( !empty && !list_empty(&sf->tx.queue) )
@@ -841,9 +831,14 @@ next:
 						list_del_init(&desc->list);
 
 						/* unlock - caller may use _rx_enqueue to replenish the queue */
-						spin_unlock_irqrestore(&sf->rx.lock, flags);
-						sf->rx.func(sf, desc);
-						spin_lock_irqsave(&sf->rx.lock, flags);
+						if ( sf->rx.func )
+						{
+							spin_unlock_irqrestore(&sf->rx.lock, flags);
+							sf->rx.func(sf, desc);
+							spin_lock_irqsave(&sf->rx.lock, flags);
+						}
+						else
+							list_add_tail(&desc->list, &sf->rx.queue);
 
 						sf->rx.stats.completes++;
 

@@ -23,25 +23,28 @@
 #include <linux/rio.h>
 #include <linux/io.h>
 
-//#include "sd_regs.h"
+#include "sd_fifo.h"
+#include "sd_desc.h"
 
-
-#define BUFF_SIZE     65536
-#define RX_RING_SIZE 8
-#define TX_RING_SIZE 8
-
-//#include "sd_fifo.h"
 
 struct srio_dev
 {
 	struct device     *dev;
 	struct rio_mport   mport;
+	struct rio_ops     ops;
 
-	struct sd_fifo    *init;
-	struct sd_fifo    *targ;
+	struct sd_fifo    *init_fifo;
+	struct sd_desc    *init_ring;
+	size_t             init_size;
+
+	struct sd_fifo    *targ_fifo;
+	struct sd_desc    *targ_ring;
+	size_t             targ_size;
+
+	uint32_t           devid;
 
 	/* Mapped pointer for the maintenance registers */
-	uint32_t __iomem  *maint;
+	void __iomem  *maint;
 
 	/* Mapped pointer for the SYS_REG registers */
 	struct sd_sys_reg __iomem  *sys_regs;

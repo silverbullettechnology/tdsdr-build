@@ -30,12 +30,18 @@
 #include <linux/io.h>
 #include <linux/ioport.h>
 
-
 #include "srio_dev.h"
 #include "loop/test.h"
 #include "sd_regs.h"
 #include "sd_desc.h"
 #include "sd_fifo.h"
+#include "sd_recv.h"
+
+
+// Temporary: should be in the DT
+#ifndef RX_RING_SIZE
+#define RX_RING_SIZE 8
+#endif
 
 
 static int sd_of_probe (struct platform_device *pdev)
@@ -44,6 +50,7 @@ static int sd_of_probe (struct platform_device *pdev)
 	struct resource       *maint;
 	struct resource       *sys_regs;
 	int                    ret = 0;
+	int                    idx;
 
 
 	if ( !(maint = platform_get_resource_byname(pdev, IORESOURCE_MEM, "maint")) )
@@ -65,12 +72,26 @@ static int sd_of_probe (struct platform_device *pdev)
 	}
 	sd->dev = &pdev->dev;
 
+	sd->init_size = RX_RING_SIZE;
+	if ( !(sd->init_ring = kzalloc(sd->init_size * sizeof(struct sd_desc), GFP_KERNEL)) )
+	{
+		dev_err(&pdev->dev, "memory alloc fail, stop\n");
+		goto sd_free;
+	}
+
+	sd->targ_size = RX_RING_SIZE;
+	if ( !(sd->targ_ring = kzalloc(sd->targ_size * sizeof(struct sd_desc), GFP_KERNEL)) )
+	{
+		dev_err(&pdev->dev, "memory alloc fail, stop\n");
+		goto sd_free;
+	}
+
 
 	sd->maint = devm_ioremap_resource(sd->dev, maint);
 	if ( IS_ERR(sd->maint) )
 	{
 		dev_err(sd->dev, "maintenance ioremap fail, stop\n");
-		goto kfree;
+		goto sd_free;
 	}
 
 	sd->sys_regs = devm_ioremap_resource(sd->dev, sys_regs);
@@ -81,44 +102,103 @@ static int sd_of_probe (struct platform_device *pdev)
 	}
 
 
-	if ( !(sd->init = sd_fifo_probe(pdev, "init")) )
+	if ( !(sd->init_fifo = sd_fifo_probe(pdev, "init")) )
 	{
 		dev_err(&pdev->dev, "initiator fifo probe fail, stop\n");
 		ret = -ENXIO;
 		goto sys_regs;
 	}
 
-	if ( !(sd->targ = sd_fifo_probe(pdev, "targ")) )
+	if ( !(sd->targ_fifo = sd_fifo_probe(pdev, "targ")) )
 	{
 		dev_err(&pdev->dev, "target fifo probe fail, stop\n");
 		ret = -ENXIO;
-		goto fifo;
+		goto init_fifo;
 	}
 
+	ret = sd_desc_setup_ring(sd->init_ring, sd->init_size, BUFF_SIZE,
+	                         GFP_KERNEL, sd->dev, sd->init_fifo->rx.chan ? 1 : 0);
+	if ( ret ) 
+	{
+		pr_err("sd_desc_setup_ring() for initator failed: %d\n", ret);
+		goto targ_fifo;
+	}
+
+	ret = sd_desc_setup_ring(sd->targ_ring, sd->targ_size, BUFF_SIZE,
+	                         GFP_KERNEL, sd->dev, sd->targ_fifo->rx.chan ? 1 : 0);
+	if ( ret ) 
+	{
+		pr_err("sd_desc_setup_ring() for target failed: %d\n", ret);
+		goto init_ring;
+	}
+
+	for ( idx = 0; idx < sd->init_size; idx++ )
+	{
+		sd->init_ring[idx].info = idx;
+		sd_fifo_rx_enqueue(sd->init_fifo, &sd->init_ring[idx]);
+	}
+
+	for ( idx = 0; idx < sd->targ_size; idx++ )
+	{
+		sd->targ_ring[idx].info = idx;
+		sd_fifo_rx_enqueue(sd->targ_fifo, &sd->targ_ring[idx]);
+	}
+
+	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
+
+	// reset core
+	sd_regs_set_gt_loopback(sd, 0);
+	sd_regs_set_gt_diffctrl(sd, 8);
+	sd_regs_set_gt_txprecursor(sd, 0);
+	sd_regs_set_gt_txpostcursor(sd, 0);
+	sd_regs_set_gt_rxlpmen(sd, 0);
+	sd_regs_srio_reset(sd);
 
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 	if ( !sd_loop_init(sd) )
 	{
 		pr_err("LOOP test failed, stop\n");
 		ret = -EINVAL;
-		goto targ;
+		goto targ_ring;
 	}
 #endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 
+#if 0
+	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
 
-//	sd_mport_attach(&sd->mport);
-//	if ( (ret = rio_register_mport(&sd->mport)) )
-//		goto sd_fifo;
+	sd_ops_attach(&sd->ops);
+	sd->mport.priv       = (void *)sd;
+	sd->mport.ops        = &sd->ops;
+	sd->mport.index      = 0; /* Should come from OF */
+	sd->mport.sys_size   = 0; /* Should come from OF, match PL image */
+	sd->mport.phy_type   = RIO_PHY_SERIAL;
+	sd->mport.phys_efptr = 0x100; /* LPS-EF regs offset */
+
+	if ( (ret = rio_register_mport(&sd->mport)) )
+	{
+		sd_ops_detach(&sd->ops);
+		goto targ_ring;
+	}
+#endif
 
 	platform_set_drvdata(pdev, sd);
 
 	return ret;
 
-targ:
-	sd_fifo_free(sd->targ);
 
-fifo:
-	sd_fifo_free(sd->init);
+targ_ring:
+	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);
+
+init_ring:
+	sd_desc_clean_ring(sd->init_ring, sd->init_size, sd->dev);
+
+targ_fifo:
+	sd_fifo_free(sd->targ_fifo);
+
+init_fifo:
+	sd_fifo_free(sd->init_fifo);
 
 sys_regs:
 	devm_iounmap(sd->dev, sd->sys_regs);
@@ -126,7 +206,9 @@ sys_regs:
 maint:
 	devm_iounmap(sd->dev, sd->maint);
 
-kfree:
+sd_free:
+	kfree(sd->targ_ring);
+	kfree(sd->init_ring);
 	kfree(sd);
 
 	return ret;
@@ -138,12 +220,25 @@ static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
+	sd_loop_exit();
+#endif // CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP
 
-printk("%s: pdev in %p, sd alloc at %p, dev %p\n", __func__, pdev, sd, sd->dev);
+// no way to unregister an mport yet...
+//	rio_unregister_mport(&sd->mport);
+
 	platform_set_drvdata(pdev, NULL);
 
-	sd_fifo_free(sd->init);
-	sd_fifo_free(sd->targ);
+	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd->init_fifo->rx, NULL, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->rx, NULL, HZ);
+
+	sd_desc_clean_ring(sd->init_ring, RX_RING_SIZE, sd->dev);
+	sd_desc_clean_ring(sd->targ_ring, RX_RING_SIZE, sd->dev);
+
+	sd_fifo_free(sd->init_fifo);
+	sd_fifo_free(sd->targ_fifo);
 
 	kfree(sd);
 

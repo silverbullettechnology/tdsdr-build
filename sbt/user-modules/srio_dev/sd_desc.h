@@ -36,7 +36,7 @@ struct sd_desc
 };
 
 
-int sd_desc_alloc (struct sd_desc *desc, size_t size);
+int sd_desc_alloc (struct sd_desc *desc, size_t size, gfp_t flags);
 
 void sd_desc_free (struct sd_desc *desc);
 
@@ -46,9 +46,9 @@ int sd_desc_map (struct sd_desc *desc, struct device *dev,
 void sd_desc_unmap (struct sd_desc *desc, struct device *dev,
                     enum dma_transfer_direction dir);
 
-int  sd_desc_setup_ring (struct sd_desc *ring, int len, size_t size, struct device *dev,
-                         int rx_dma);
+int sd_desc_setup_ring (struct sd_desc *ring, int len, size_t size, gfp_t flags,
+                        struct device *dev, int rx_dma);
 
-void sd_desc_clean_ring (struct sd_desc *ring, int size, struct device *dev, int rx_dma);
+void sd_desc_clean_ring (struct sd_desc *ring, int len, struct device *dev);
 
 #endif 
