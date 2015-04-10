@@ -63,8 +63,6 @@ EXTRA_CFLAGS += -I$(PWD)
 #CFLAGS_sd_proc.o  += -DDEBUG
 EXTRA_CFLAGS += -DDEBUG
 
-CFLAGS_sd_xparameters.o += -I $(BOARD_DIR)
-
 EXTRA_CFLAGS += -Werror
 
 ifeq ($(CONFIG_USER_MODULES_SRIO_DEV_TEST_LOOP),y)

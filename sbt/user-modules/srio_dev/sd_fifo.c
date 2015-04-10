@@ -25,7 +25,6 @@
 #include <linux/spinlock.h>
 
 #include "srio_dev.h"
-#include "sd_xparameters.h"
 #include "sd_fifo.h"
 #include "sd_desc.h"
 
