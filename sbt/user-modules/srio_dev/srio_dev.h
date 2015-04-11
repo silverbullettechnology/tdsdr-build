@@ -27,6 +27,13 @@
 #include "sd_desc.h"
 
 
+/* Need room for 3 words of header, once that's moved to the desc header this can be
+ * reduced to RIO_MAX_MSG_SIZE */
+#ifndef BUFF_SIZE
+#define BUFF_SIZE 8192
+#endif
+
+
 struct srio_dev
 {
 	struct device     *dev;

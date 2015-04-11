@@ -40,13 +40,8 @@
 #include "sd_ops.h"
 #include "sd_rdma.h"
 #include "sd_mbox.h"
+#include "sd_user.h"
 
-
-/* Need room for 3 words of header, once that's moved to the desc header this can be
- * reduced to RIO_MAX_MSG_SIZE */
-#ifndef BUFF_SIZE
-#define BUFF_SIZE 8192
-#endif
 
 
 static int sd_of_probe (struct platform_device *pdev)
@@ -188,11 +183,7 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		goto targ_ring;
 	}
 
-	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
-	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
-
+#if 0
 	/* Local and remote register access */
 	sd->ops.lcread  = sd_ops_lcread;
 	sd->ops.lcwrite = sd_ops_lcwrite;
@@ -226,9 +217,20 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 
 	snprintf(sd->mport.name, RIO_MAX_MPORT_NAME, "%s", dev_name(sd->dev));
 
-#if 0
+	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
+	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
+
 	if ( (ret = rio_register_mport(&sd->mport)) )
 		goto test_exit;
+#else
+	if ( sd_user_init(sd) )
+	{
+		pr_err("Settting up sd_user failed, stop\n");
+		ret = -EINVAL;
+		goto test_exit;
+	}
 #endif
 
 	// configure transceivers and reset core
@@ -243,10 +245,8 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 
 	return ret;
 
-#if 0
 test_exit:
 	sd_test_exit();
-#endif
 
 targ_ring:
 	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);

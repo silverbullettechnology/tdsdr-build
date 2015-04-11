@@ -52,7 +52,7 @@ LOCALPWD=$(shell pwd)
 obj-m += srio.o
 
 srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o sd_recv.o sd_test.o \
-          sd_ops.o sd_rdma.o sd_mbox.o
+          sd_ops.o sd_rdma.o sd_mbox.o sd_user.o
 
 EXTRA_CFLAGS += -I$(PWD)
 

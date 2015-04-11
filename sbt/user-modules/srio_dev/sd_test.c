@@ -164,7 +164,10 @@ struct file_operations  sd_test_pattern_fops =
 static struct proc_dir_entry *sd_test_trigger_proc;
 static void sd_test_trigger_apply (void)
 {
-	static struct sd_desc  desc;
+	struct sd_desc *desc;
+
+	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
+		return;
 
 	if ( sd_test_pattern >= ARRAY_SIZE(sd_test_pattern_list) )
 	{
@@ -172,14 +175,14 @@ static void sd_test_trigger_apply (void)
 		return;
 	}
 
-	if ( sd_desc_alloc(&desc, sd_test_pattern_list[sd_test_pattern].size, GFP_KERNEL) )
+	if ( sd_desc_alloc(desc, sd_test_pattern_list[sd_test_pattern].size, GFP_KERNEL) )
 		return;
 
-	memcpy(desc.virt, sd_test_pattern_list[sd_test_pattern].base,
+	memcpy(desc->virt, sd_test_pattern_list[sd_test_pattern].base,
 	       sd_test_pattern_list[sd_test_pattern].size);
-	desc.used = sd_test_pattern_list[sd_test_pattern].size;
+	desc->used = sd_test_pattern_list[sd_test_pattern].size;
 
-	sd_fifo_tx_enqueue(sd_test_dev->init_fifo, &desc);
+	sd_fifo_tx_enqueue(sd_test_dev->init_fifo, desc);
 }
 static ssize_t sd_test_trigger_read (struct file *f, char __user *u, size_t s, loff_t *o)
 {
