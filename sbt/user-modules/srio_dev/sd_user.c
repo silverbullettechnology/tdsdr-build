@@ -137,7 +137,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 		pr_debug("  %p: %09llx..%09llx\n", priv, priv->swrite_min, priv->swrite_max);
 		if ( addr >= priv->swrite_min && addr <= priv->swrite_max )
 		{
-			struct sd_user_q_mesg *qm = kmalloc(size, GFP_KERNEL|GFP_ATOMIC);
+			struct sd_user_q_mesg *qm = kmalloc(size, GFP_ATOMIC);
 			if ( !qm )
 			{
 				pr_err("swrite dropped: kmalloc() failed\n");
@@ -185,7 +185,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 		priv = container_of(walk, struct sd_user_priv, list);
 		if ( info >= priv->dbell_min && info <= priv->dbell_max )
 		{
-			struct sd_user_q_mesg *qm = kmalloc(size, GFP_KERNEL|GFP_ATOMIC);
+			struct sd_user_q_mesg *qm = kmalloc(size, GFP_ATOMIC);
 			if ( !qm )
 			{
 				pr_err("DBELL dropped: kmalloc() failed\n");

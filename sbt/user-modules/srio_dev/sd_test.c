@@ -162,57 +162,40 @@ struct file_operations  sd_test_pattern_fops =
 
 
 static struct proc_dir_entry *sd_test_trigger_proc;
-static void sd_test_trigger_apply (void)
+static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size_t s,
+                                    loff_t *o)
 {
 	struct sd_desc *desc;
 
-	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
-		return;
+	if ( *o )
+		return 0;
 
 	if ( sd_test_pattern >= ARRAY_SIZE(sd_test_pattern_list) )
 	{
 		printk("sd_test_pattern %u invalid\n", sd_test_pattern);
-		return;
+		return -EINVAL;
 	}
 
+	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
+		return -ENOMEM;
+
 	if ( sd_desc_alloc(desc, sd_test_pattern_list[sd_test_pattern].size, GFP_KERNEL) )
-		return;
+	{
+		kfree(desc);
+		return -ENOMEM;
+	}
 
 	memcpy(desc->virt, sd_test_pattern_list[sd_test_pattern].base,
 	       sd_test_pattern_list[sd_test_pattern].size);
 	desc->used = sd_test_pattern_list[sd_test_pattern].size;
 
 	sd_fifo_tx_enqueue(sd_test_dev->init_fifo, desc);
-}
-static ssize_t sd_test_trigger_read (struct file *f, char __user *u, size_t s, loff_t *o)
-{
-	char    *b = "Trigger\n";
-	ssize_t  l = strlen(b);
-
-	if ( *o )
-		return 0;
-
-	sd_test_trigger_apply();
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size_t s,
-                                    loff_t *o)
-{
-	if ( *o )
-		return 0;
-
-	sd_test_trigger_apply();
 
 	*o += s;
 	return s;
 }
 struct file_operations  sd_test_trigger_fops =
 {
-	read:   sd_test_trigger_read,
 	write:  sd_test_trigger_write,
 };
 
@@ -250,21 +233,6 @@ static void sd_test_reset_apply (void)
 	sd_fifo_reset(sd_test_dev->init_fifo, SD_FR_ALL);
 	sd_fifo_reset(sd_test_dev->targ_fifo, SD_FR_ALL);
 }
-static ssize_t sd_test_reset_read (struct file *f, char __user *u, size_t s, loff_t *o)
-{
-	char    *b = "Reset\n";
-	ssize_t  l = strlen(b);
-
-	if ( *o )
-		return 0;
-
-	sd_test_reset_apply();
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
 static ssize_t sd_test_reset_write (struct file *f, const char __user *u, size_t s,
                                     loff_t *o)
 {
@@ -278,7 +246,6 @@ static ssize_t sd_test_reset_write (struct file *f, const char __user *u, size_t
 }
 struct file_operations  sd_test_reset_fops =
 {
-	read:   sd_test_reset_read,
 	write:  sd_test_reset_write,
 };
 
