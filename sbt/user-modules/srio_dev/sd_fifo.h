@@ -117,8 +117,6 @@ struct sd_fifo
 
 	struct sd_fifo_dir           rx;
 	struct sd_fifo_dir           tx;
-
-//	struct sd_desc               rx_ring[RX_RING_SIZE];
 };
 
 

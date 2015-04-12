@@ -186,13 +186,18 @@ static void sd_test_trigger_apply (void)
 }
 static ssize_t sd_test_trigger_read (struct file *f, char __user *u, size_t s, loff_t *o)
 {
+	char    *b = "Trigger\n";
+	ssize_t  l = strlen(b);
+
 	if ( *o )
 		return 0;
 
 	sd_test_trigger_apply();
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
 
-	*o += s;
-	return s;
+	*o += l;
+	return l;
 }
 static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size_t s,
                                     loff_t *o)
@@ -247,13 +252,18 @@ static void sd_test_reset_apply (void)
 }
 static ssize_t sd_test_reset_read (struct file *f, char __user *u, size_t s, loff_t *o)
 {
+	char    *b = "Reset\n";
+	ssize_t  l = strlen(b);
+
 	if ( *o )
 		return 0;
 
 	sd_test_reset_apply();
+	if ( copy_to_user(u, b, l) )
+		return -EFAULT;
 
-	*o += s;
-	return s;
+	*o += l;
+	return l;
 }
 static ssize_t sd_test_reset_write (struct file *f, const char __user *u, size_t s,
                                     loff_t *o)

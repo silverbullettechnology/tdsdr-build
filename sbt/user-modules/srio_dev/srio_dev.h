@@ -50,6 +50,14 @@ struct srio_dev
 
 	uint32_t           devid;
 
+	/* RX MESSAGE (type 11): number of listeners and reassembly cache */
+	int                mbox_users[RIO_MAX_MBOX];
+	struct sd_desc    *mbox_cache[RIO_MAX_MBOX];
+
+	/* RX DBELL (type 10) and SWRITE (type 6): number of listeners */
+	int                dbell_users;
+	int                swrite_users;
+
 	u32                gt_loopback;
 	u32                gt_diffctrl;
 	u32                gt_txprecursor;
