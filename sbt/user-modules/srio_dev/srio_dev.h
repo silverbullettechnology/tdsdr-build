@@ -97,4 +97,8 @@ struct srio_dev
 	}while(0)
 
 
+// temporary, in sd_user
+void hexdump_buff (const void *buf, int len);
+
+
 #endif /* _INCLUDE_SRIO_DEV_H */

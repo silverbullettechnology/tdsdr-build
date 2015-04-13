@@ -24,45 +24,6 @@
 #include "sd_recv.h"
 
 
-static void hexdump_line (const unsigned char *ptr, const unsigned char *org, int len)
-{
-	char  buff[80];
-	char *p = buff;
-	int   i;
-
-	p += sprintf (p, "%04x: ", (unsigned)(ptr - org));
-
-	for ( i = 0; i < len; i++ )
-		p += sprintf (p, "%02x ", ptr[i]);
-
-	for ( ; i < 16; i++ )
-	{
-		*p++ = ' ';
-		*p++ = ' ';
-		*p++ = ' ';
-	}
-
-	for ( i = 0; i < len; i++ )
-		*p++ = isprint(ptr[i]) ? ptr[i] : '.';
-	*p = '\0';
-
-	printk("%s\n", buff);
-}
-
-static void hexdump_buff (const unsigned char *buf, int len)
-{
-	const unsigned char *ptr = buf;
-
-	while ( len >= 16 )
-	{
-		hexdump_line(ptr, buf, 16);
-		ptr += 16;
-		len -= 16;
-	}
-	if ( len )
-		hexdump_line(ptr, buf, len);
-}
-
 void sd_recv_init (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 	printk("%s: RX desc %p used %08x:\n", __func__, desc, desc->used);

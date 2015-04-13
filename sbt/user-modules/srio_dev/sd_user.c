@@ -91,7 +91,7 @@ static void hexdump_line (const unsigned char *ptr, const unsigned char *org, in
 	pr_debug("%s\n", buff);
 }
 
-static void hexdump_buff (const void *buf, int len)
+void hexdump_buff (const void *buf, int len)
 {
 	const unsigned char *org = buf;
 	const unsigned char *ptr = buf;
@@ -376,8 +376,8 @@ static int sd_user_open (struct inode *i, struct file *f)
 	priv->mbox_sub   = 0;
 	priv->dbell_min  = 0xFFFF;
 	priv->dbell_max  = 0x0000;
-	priv->swrite_max = 0x3FFFFFFFF;
-	priv->swrite_min = 0x000000000;
+	priv->swrite_min = 0x3FFFFFFFF;
+	priv->swrite_max = 0x000000000;
 
 	f->private_data = priv;
 	pr_debug("%s: open: f %p, priv %p\n", __func__, f, priv);
@@ -388,9 +388,9 @@ static int sd_user_open (struct inode *i, struct file *f)
 	spin_unlock_irqrestore(&lock, flags);
 
 // temporary
-sd_user_mbox_count();
-sd_user_dbell_count();
-sd_user_swrite_count();
+//sd_user_mbox_count();
+//sd_user_dbell_count();
+//sd_user_swrite_count();
 
 	return 0;
 }
@@ -460,37 +460,69 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 
 static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, loff_t *o)
 {
-	struct sd_user_priv *priv = f->private_data;
-	struct sd_desc *desc;
-	uint8_t        *dest;
-	u32            *hdr;
+	struct sd_user_mesg *mesg;
+	struct sd_desc      *desc;
+	u32                 *hdr;
+	int                  size = s;
+
+	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
+	if ( s > PAGE_SIZE || s < offsetof(struct sd_user_mesg, mesg) )
+		return -EINVAL;
+
+	if ( !(mesg = (struct sd_user_mesg *)__get_free_page(GFP_KERNEL)) )
+		return -ENOMEM;
+
+	if ( copy_from_user(mesg, b, s) )
+	{
+		free_page((unsigned long)mesg);
+		return -EFAULT;
+	}
 
 	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
+	{
+		free_page((unsigned long)mesg);
 		return -ENOMEM;
+	}
 
 	if ( sd_desc_alloc(desc, BUFF_SIZE, GFP_KERNEL) )
 	{
 		kfree(desc);
+		free_page((unsigned long)mesg);
 		return -ENOMEM;
 	}
 
-	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
-
-	// HELLO header (see PG007 Fig 3-1)
+	// TUSER word, then HELLO header (see PG007 Fig 3-1)
 	hdr = (u32 *)desc->virt;
-	*hdr++ = priv->tuser;
-	*hdr++ = 0xa0000600; // lsw
-	*hdr++ = 0x02602ff9; // msw
-	desc->used = (hdr - (u32 *)desc->virt) * sizeof(u32);
+	hdr[0] = (mesg->src_addr << 16) | mesg->dst_addr;
+	switch ( mesg->type )
+	{
+		case 6: // SWRITE
+			hdr[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
+			hdr[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
+			hdr[2] |= 0x00600000;
+			size -= offsetof(struct sd_user_mesg,        mesg) +
+			        offsetof(struct sd_user_mesg_swrite, data);
+			memcpy(desc->virt + 12, mesg->mesg.swrite.data, size);
+			desc->used = size + 12;
+			break;
 
-	if ( (desc->used + s) > BUFF_SIZE )
-		return -EINVAL;
+		case 10: // DBELL
+			hdr[1] = mesg->mesg.dbell.info << 16;
+			hdr[2] = 0x00A00000; // TODO: TID
+			desc->used = 12;
+			break;
 
-	dest = desc->virt + desc->used;
-	if ( copy_from_user(dest, b, s) )
-		return -EFAULT;
+		case 11: // MESSAGE
+			break;
 
-	desc->used += s;
+		default:
+			sd_desc_free(desc);
+			kfree(desc);
+			free_page((unsigned long)mesg);
+			return -EINVAL;
+	}
+	free_page((unsigned long)mesg);
+
 	if ( desc->used & 0x03 )
 		desc->used = (desc->used + 1) & ~0x03;
 
@@ -513,6 +545,8 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 
 	if ( _IOC_TYPE(cmd) != MAGIC_SD_USER )
 		return -EINVAL;
+
+	printk("%s(f, cmd %x, arg %lx)\n", __func__, cmd, arg);
 
 	switch ( cmd )
 	{
@@ -547,6 +581,7 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			priv->mbox_sub = val;
 			spin_unlock_irqrestore(&priv->lock, flags);
 			sd_user_mbox_count();
+			pr_debug("%p: set mbox_sub %lx\n", priv, priv->mbox_sub);
 			return 0;
 
 
@@ -576,6 +611,8 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			priv->dbell_max = u16x2[1];
 			spin_unlock_irqrestore(&priv->lock, flags);
 			sd_user_dbell_count();
+			pr_debug("%p: set dbell_min %x, max %x\n",
+			         priv, priv->dbell_min, priv->dbell_max);
 			return 0;
 
 
@@ -605,6 +642,8 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			priv->swrite_max = u64x2[1];
 			spin_unlock_irqrestore(&priv->lock, flags);
 			sd_user_swrite_count();
+			pr_debug("%p: set swrite_min %llx, max %llx\n",
+			         priv, priv->swrite_min, priv->swrite_max);
 			return 0;
 	}
 
@@ -663,7 +702,7 @@ static struct file_operations sd_user_fops =
 static struct miscdevice mdev =
 {
 	MISC_DYNAMIC_MINOR,
-	"srio",
+	SD_USER_DEV_NODE,
 	&sd_user_fops
 };
 

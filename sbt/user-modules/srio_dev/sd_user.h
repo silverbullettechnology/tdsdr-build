@@ -27,6 +27,9 @@
 #endif
 
 
+#define  SD_USER_DEV_NODE  "srio"
+
+
 struct sd_user_mesg_mbox
 {
 	int   mbox;
@@ -77,12 +80,12 @@ struct sd_user_mesg
 #define SD_USER_IOCS_MBOX_SUB       _IOW(MAGIC_SD_USER, 3, unsigned long)
 
 // Get/set range of doorbell values to be notified for
-#define SD_USER_IOCG_DBELL_SUB      _IOR(MAGIC_SD_USER, 4, uint16_t[2])
-#define SD_USER_IOCS_DBELL_SUB      _IOW(MAGIC_SD_USER, 5, uint16_t[2])
+#define SD_USER_IOCG_DBELL_SUB      _IOR(MAGIC_SD_USER, 4, uint16_t *)
+#define SD_USER_IOCS_DBELL_SUB      _IOW(MAGIC_SD_USER, 5, uint16_t *)
 
 // Get/set range of swrite addresses to be notified for
-#define SD_USER_IOCG_SWRITE_SUB     _IOR(MAGIC_SD_USER, 6, uint64_t[2])
-#define SD_USER_IOCS_SWRITE_SUB     _IOW(MAGIC_SD_USER, 7, uint64_t[2])
+#define SD_USER_IOCG_SWRITE_SUB     _IOR(MAGIC_SD_USER, 6, uint64_t *)
+#define SD_USER_IOCS_SWRITE_SUB     _IOW(MAGIC_SD_USER, 7, uint64_t *)
 
 
 #ifdef __KERNEL__
