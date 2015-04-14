@@ -6,7 +6,7 @@ APP_OBJS := st_main.o st_term.o
 CFLAGS   += -I$(PETALINUX)/software/user-modules/srio_dev
 
 CFLAGS += -Wall -Werror
-LDLIBS += -s
+LDLIBS += -s -lrt
 
 all: $(APP)
 

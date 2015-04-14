@@ -32,9 +32,9 @@
 
 struct sd_user_mesg_mbox
 {
-	int   mbox;
-	int   letter;
-	char  data[0];
+	int       mbox;
+	int       letter;
+	uint32_t  data[0];
 };
 
 struct sd_user_mesg_swrite

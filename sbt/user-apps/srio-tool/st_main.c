@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <time.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -52,7 +53,8 @@ uint16_t  opt_dbell_range[2]  = { 0, 0xFFFF }; // sub all dbells
 uint64_t  opt_swrite_range[2] = { 0, 0x3FFFFFFFF }; // sub all swrites
 
 long      opt_mbox_send    = 0;
-uint16_t  opt_dbell_send   = 0x1000;
+long      opt_mbox_letter  = 0;
+uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
 
 
@@ -122,7 +124,9 @@ void menu (void)
 	printf("Commands understood:\n"
 	       "Q - exit\n"
 		   "1 - Send a short SWRITE\n"
-		   "2 - Send a DBELL\n\n");
+		   "2 - Send a DBELL\n"
+		   "3 - Send a short MESSAGE\n"
+		   "4 - Ping peer with a DBELL\n\n");
 }
 
 
@@ -147,7 +151,7 @@ int main (int argc, char **argv)
 				break;
 		}
 
-	setbuf(stdout, NULL);
+//	setbuf(stdout, NULL);
 
 	int dev = open(DEV_NODE, O_RDWR|O_NONBLOCK);
 	if ( dev < 0 )
@@ -182,6 +186,9 @@ int main (int argc, char **argv)
 	int             sel;
 	int             ret;
 
+	struct timespec  send_ts, recv_ts;
+	uint64_t         send_ns, recv_ns, diff_ns;
+
 	mesg   = (struct sd_user_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
 	swrite = &mesg->mesg.swrite;
@@ -215,14 +222,13 @@ int main (int argc, char **argv)
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
 		{
+			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
 			memset(buff, 0, sizeof(buff));
 			if ( (size = read(dev, buff, sizeof(buff))) < 0 )
 			{
 				perror("read() from driver");
 				break;
 			}
-			printf("\nRECV raw buffer:\n");
-			hexdump_buff(buff, size);
 			printf("\nRECV %d bytes: ", size);
 
 			if ( size >= offsetof(struct sd_user_mesg, mesg) )
@@ -241,7 +247,39 @@ int main (int argc, char **argv)
 						break;
 
 					case 10:
-						printf("DBELL w/ info %04x\n", dbell->info);
+						switch ( dbell->info )
+						{
+							case 0xFFF0: // PING req - inc info, return
+								dbell->info++;
+								mesg->src_addr = opt_loc_addr;
+								mesg->dst_addr = opt_rem_addr;
+								if ( (ret = write(dev, buff, size)) < size )
+								{
+									perror("write() to driver");
+									main_loop = 0;
+								}
+								printf("PING req\n");
+								break;
+
+							case 0xFFF1: // PING req
+								send_ns  = send_ts.tv_sec;
+								send_ns *= 1000000000;
+								send_ns += send_ts.tv_nsec;
+
+								recv_ns  = recv_ts.tv_sec;
+								recv_ns *= 1000000000;
+								recv_ns += recv_ts.tv_nsec;
+
+								diff_ns = recv_ns - send_ns;
+								printf("PING rsp: %llu.%09llu\n", 
+								       diff_ns / 1000000000,
+								       diff_ns % 1000000000);
+								break;
+
+							default:
+								printf("DBELL w/ info %04x\n", dbell->info);
+								break;
+						}
 						break;
 
 					case 11:
@@ -274,10 +312,11 @@ int main (int argc, char **argv)
 				perror("read() from terminal");
 				break;
 			}
-			printf("SEND: key '%c': ", key);
 
 			size = 0;
 			memset(buff, 0, sizeof(buff));
+			mesg->src_addr = opt_loc_addr;
+			mesg->dst_addr = opt_rem_addr;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -289,7 +328,7 @@ int main (int argc, char **argv)
 					printf("SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
 					hexdump_buff(swrite->data, size);
 					size += offsetof(struct sd_user_mesg_swrite, data);
-					size += offsetof(struct sd_user_mesg, mesg);
+					size += offsetof(struct sd_user_mesg,        mesg);
 					break;
 
 				case '2':
@@ -300,30 +339,50 @@ int main (int argc, char **argv)
 					size += offsetof(struct sd_user_mesg, mesg);
 					break;
 
+				case '3':
+					mesg->type = 11;
+					mbox->mbox   = opt_mbox_send;
+					mbox->letter = opt_mbox_letter;
+					mbox->data[0] = 0x55AA55AA;
+					mbox->data[1] = 0x5A5A5A5A;
+					size = sizeof(uint32_t) * 2;
+					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					       opt_mbox_send, opt_mbox_letter, size);
+					hexdump_buff(mbox->data, size);
+					size += offsetof(struct sd_user_mesg_mbox, data);
+					size += offsetof(struct sd_user_mesg,      mesg);
+					break;
+
+				case '4':
+					mesg->type = 10;
+					dbell->info = 0xFFF0;
+					size  = sizeof(struct sd_user_mesg_dbell) + 
+					        offsetof(struct sd_user_mesg, mesg);
+					printf("DBELL w/ info %04x\n", dbell->info);
+					break;
+
 				case 'q':
 				case '\033':
 					printf("Shutting down\n");
 					main_loop = 0;
 					break;
 
+				case '\r':
+				case '\n':
+					printf("\n\n");
+					break;
+
 				default:
 					menu();
 
 			}
-
-			if ( size )
-			{
-				mesg->size     = size;
-				mesg->src_addr = opt_loc_addr;
-				mesg->dst_addr = opt_rem_addr;
-				printf("\nSEND raw buffer, %d bytes:\n", size);
-				hexdump_buff(buff, size);
-			}
+			mesg->size = size;
 		}
 
 		// data from buffer to driver
 		if ( size && FD_ISSET(dev, &wfds) )
 		{
+			clock_gettime(CLOCK_MONOTONIC, &send_ts);
 			if ( (ret = write(dev, buff, size)) < size )
 			{
 				perror("write() to driver");

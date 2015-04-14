@@ -280,6 +280,7 @@ static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
 
+	sd_user_exit();
 	sd_test_exit();
 
 // no way to unregister an mport yet...

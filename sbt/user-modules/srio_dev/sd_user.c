@@ -110,9 +110,62 @@ void hexdump_buff (const void *buf, int len)
 /******* RX mbox handling *******/
 
 
-int sd_user_recv_mbox (struct sd_desc *desc, int mbox)
+void sd_user_recv_mbox (struct sd_desc *desc, int mbox)
 {
-	return 0;
+	struct sd_user_priv *priv;
+	struct list_head    *walk;
+	unsigned long        flags;
+	uint32_t            *hdr  = desc->virt;
+	size_t               size = offsetof(struct sd_user_q_mesg, mesg) + 
+	                            offsetof(struct sd_user_mesg, mesg) + 
+	                            offsetof(struct sd_user_mesg_mbox, data) + 
+	                            desc->used - 12;
+
+	pr_debug("MESSAGE: dispatch %zu bytes to %d listeners (%zu payload)\n",
+	         size, sd_dev->swrite_users, desc->used - 12);
+
+	pr_debug("  header size %u, expect %u, seg %d/%d\n", 
+	         ((hdr[2] >> 4) & 0xFF) + 1, desc->used - 12,
+			 (hdr[2] >> 24) & 0xF, (hdr[2] >> 28) & 0xF);
+
+	/* Dispatch to users */
+	spin_lock_irqsave(&lock, flags);
+	list_for_each(walk, &list)
+	{
+		priv = container_of(walk, struct sd_user_priv, list);
+		if ( priv->mbox_sub & (1 << mbox) )
+		{
+			struct sd_user_q_mesg *qm = kmalloc(size, GFP_ATOMIC);
+			if ( !qm )
+			{
+				pr_err("swrite dropped: kmalloc() failed\n");
+				continue;
+			}
+			pr_debug("    dispatch\n");
+
+			INIT_LIST_HEAD(&qm->list);
+
+			qm->mesg.type     = 11;
+			qm->mesg.size     = size - offsetof(struct sd_user_q_mesg, mesg);
+			qm->mesg.dst_addr = hdr[0] >> 16;
+			qm->mesg.src_addr = hdr[0] & 0xFFFF;
+			qm->mesg.hello[0] = hdr[1];
+			qm->mesg.hello[1] = hdr[2];
+
+			qm->mesg.mesg.mbox.mbox   = mbox;
+			qm->mesg.mesg.mbox.letter = hdr[1] & 0x03;
+			memcpy(qm->mesg.mesg.mbox.data, desc->virt + 12, desc->used - 12);
+
+			list_add_tail(&qm->list, &priv->queue);
+
+			hexdump_buff(qm, size);
+			wake_up_interruptible(&priv->wait);
+		}
+	}
+	spin_unlock_irqrestore(&lock, flags);
+
+	// return 0: desc consumed and can be reused, return !0: desc held for reassembly
+//	return 0;
 }
 
 void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
@@ -147,7 +200,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 
 			INIT_LIST_HEAD(&qm->list);
 
-			qm->mesg.type     = 10;
+			qm->mesg.type     = 6;
 			qm->mesg.size     = size - offsetof(struct sd_user_q_mesg, mesg);
 			qm->mesg.dst_addr = hdr[0] >> 16;
 			qm->mesg.src_addr = hdr[0] & 0xFFFF;
@@ -176,13 +229,15 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	                            offsetof(struct sd_user_mesg, mesg) + 
 	                            sizeof(struct sd_user_mesg_dbell);
 
-	pr_debug("DBELL: dispatch %zu bytes to %d listeners\n", size, sd_dev->dbell_users);
+	pr_debug("DBELL: info %04x, dispatch %zu bytes to %d listeners\n",
+	         info, size, sd_dev->dbell_users);
 
 	/* Dispatch to users */
 	spin_lock_irqsave(&lock, flags);
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
+		pr_debug("  %p: %04x..%04x\n", priv, priv->dbell_min, priv->dbell_max);
 		if ( info >= priv->dbell_min && info <= priv->dbell_max )
 		{
 			struct sd_user_q_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -203,9 +258,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 
 			qm->mesg.mesg.dbell.info = info;
 
-			spin_lock_irqsave(&priv->lock, flags);
 			list_add_tail(&qm->list, &priv->queue);
-			spin_lock_irqsave(&priv->lock, flags);
 
 			hexdump_buff(qm, size);
 			wake_up_interruptible(&priv->wait);
@@ -262,10 +315,7 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		case 11: 
 			mbox = (hdr[1] >> 3) & 0x3F;
 			if ( mbox < RIO_MAX_MBOX && sd_dev->mbox_users[mbox] )
-			{
-				if ( sd_user_recv_mbox(desc, mbox) )
-					return;
-			}
+				sd_user_recv_mbox(desc, mbox);
 			else 
 				pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
 			break;
@@ -513,6 +563,19 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		case 11: // MESSAGE
+			size -= offsetof(struct sd_user_mesg,      mesg) +
+			        offsetof(struct sd_user_mesg_mbox, data);
+			if ( size > 256 ) // fragmentation not yet supported
+			{
+				sd_desc_free(desc);
+				kfree(desc);
+				free_page((unsigned long)mesg);
+				return -EFBIG;
+			}
+			hdr[1] = (mesg->mesg.mbox.letter & 3) | (mesg->mesg.mbox.mbox & 0x3F) << 4;
+			hdr[2] = (size - 1) << 4 | 0x00B00000;
+			memcpy(desc->virt + 12, mesg->mesg.mbox.data, size);
+			desc->used = size + 12;
 			break;
 
 		default:
@@ -557,10 +620,9 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 
 		// Set local device-ID (return address on TX, filtered on RX)
 		case SD_USER_IOCS_LOC_DEV_ID:
-			get_user(val, (unsigned long *)arg);
 			spin_lock_irqsave(&priv->lock, flags);
 			priv->tuser &= ~0xFFFF;
-			priv->tuser |= val & 0xFFFF;
+			priv->tuser |= arg & 0xFFFF;
 			spin_unlock_irqrestore(&priv->lock, flags);
 			return 0;
 
@@ -576,9 +638,8 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 		// appropriate bit: ie to subscribe to mailbox 2 set bit (1 << 2), to unsubscribe
 		// clear the same bit
 		case SD_USER_IOCS_MBOX_SUB:
-			get_user(val, (unsigned long *)arg);
 			spin_lock_irqsave(&priv->lock, flags);
-			priv->mbox_sub = val;
+			priv->mbox_sub = arg;
 			spin_unlock_irqrestore(&priv->lock, flags);
 			sd_user_mbox_count();
 			pr_debug("%p: set mbox_sub %lx\n", priv, priv->mbox_sub);
