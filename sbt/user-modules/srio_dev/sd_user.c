@@ -38,7 +38,7 @@
 /******* Static vars *******/
 
 static struct miscdevice  mdev;
-static struct srio_dev   *sd_dev;
+static struct srio_dev   *sd_user_dev;
 
 /* List of sd_user_priv structs currently open */
 static spinlock_t  lock;
@@ -91,17 +91,33 @@ static void hexdump_line (const unsigned char *ptr, const unsigned char *org, in
 	pr_debug("%s\n", buff);
 }
 
+
 void hexdump_buff (const void *buf, int len)
 {
 	const unsigned char *org = buf;
 	const unsigned char *ptr = buf;
+	unsigned char        dup[16];
+	int                  sup = 0;
 
 	while ( len >= 16 )
 	{
-		hexdump_line(ptr, org, 16);
+		if ( memcmp(dup, ptr, 16) )
+		{
+			if ( sup )
+			{
+				printk("* (%d duplicates)\n", sup);
+				sup = 0;
+			}
+			hexdump_line(ptr, org, 16);
+			memcpy(dup, ptr, 16);
+		}
+		else
+			sup++;
 		ptr += 16;
 		len -= 16;
 	}
+	if ( sup )
+		printk("* (%d duplicates)\n", sup);
 	if ( len )
 		hexdump_line(ptr, org, len);
 }
@@ -122,7 +138,7 @@ void sd_user_recv_mbox (struct sd_desc *desc, int mbox)
 	                            desc->used - 12;
 
 	pr_debug("MESSAGE: dispatch %zu bytes to %d listeners (%zu payload)\n",
-	         size, sd_dev->swrite_users, desc->used - 12);
+	         size, sd_user_dev->swrite_users, desc->used - 12);
 
 	pr_debug("  header size %u, expect %u, seg %d/%d\n", 
 	         ((hdr[2] >> 4) & 0xFF) + 1, desc->used - 12,
@@ -180,7 +196,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 	                            desc->used - 12;
 
 	pr_debug("SWRITE: dispatch %zu bytes to %d listeners (%zu payload)\n",
-	         size, sd_dev->swrite_users, desc->used - 12);
+	         size, sd_user_dev->swrite_users, desc->used - 12);
 
 	/* Dispatch to users */
 	spin_lock_irqsave(&lock, flags);
@@ -230,7 +246,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	                            sizeof(struct sd_user_mesg_dbell);
 
 	pr_debug("DBELL: info %04x, dispatch %zu bytes to %d listeners\n",
-	         info, size, sd_dev->dbell_users);
+	         info, size, sd_user_dev->dbell_users);
 
 	/* Dispatch to users */
 	spin_lock_irqsave(&lock, flags);
@@ -289,7 +305,7 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 	{
 		// SWRITE: parse/dispatch if users registered, requeue
 		case 6:
-			if ( sd_dev->swrite_users )
+			if ( sd_user_dev->swrite_users )
 			{
 				uint64_t  addr = hdr[2] & 3;
 				addr <<= 32;
@@ -302,7 +318,7 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 
 		// SWRITE and DBELL: dispatch and requeue
 		case 10:
-			if ( sd_dev->dbell_users )
+			if ( sd_user_dev->dbell_users )
 			{
 				uint16_t  info = hdr[1] >> 16;
 				sd_user_recv_dbell(desc, info);
@@ -314,7 +330,7 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		// MESSAGE: descriptor held during reassembly, requeue when done
 		case 11: 
 			mbox = (hdr[1] >> 3) & 0x3F;
-			if ( mbox < RIO_MAX_MBOX && sd_dev->mbox_users[mbox] )
+			if ( mbox < RIO_MAX_MBOX && sd_user_dev->mbox_users[mbox] )
 				sd_user_recv_mbox(desc, mbox);
 			else 
 				pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
@@ -369,7 +385,7 @@ static void sd_user_mbox_count (void)
 				count[mbox]++;
 	}
 	for ( mbox = 0; mbox < RIO_MAX_MBOX; mbox++ )
-		sd_dev->mbox_users[mbox] = count[mbox];
+		sd_user_dev->mbox_users[mbox] = count[mbox];
 	spin_unlock_irqrestore(&lock, flags);
 }
 
@@ -387,7 +403,7 @@ static void sd_user_dbell_count (void)
 		if ( priv->dbell_min <= priv->dbell_max )
 			count++;
 	}
-	sd_dev->dbell_users = count;
+	sd_user_dev->dbell_users = count;
 	spin_unlock_irqrestore(&lock, flags);
 }
 
@@ -405,7 +421,7 @@ static void sd_user_swrite_count (void)
 		if ( priv->swrite_min <= priv->swrite_max )
 			count++;
 	}
-	sd_dev->swrite_users = count;
+	sd_user_dev->swrite_users = count;
 	spin_unlock_irqrestore(&lock, flags);
 }
 
@@ -592,7 +608,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	pr_debug("%s desc %p used %zu\n", __func__, desc, desc->used);
 
 	// enqueue in initiator fifo, desc will be cleaned up in sd_user_tx_done()
-	sd_fifo_tx_enqueue(sd_dev->init_fifo, desc);
+	sd_fifo_tx_enqueue(sd_user_dev->init_fifo, desc);
 
 	return s;
 }
@@ -706,6 +722,68 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			pr_debug("%p: set swrite_min %llx, max %llx\n",
 			         priv, priv->swrite_min, priv->swrite_max);
 			return 0;
+
+
+		// SYS_REG controls
+		case SD_USER_IOCS_SRIO_RESET:
+			pr_debug("SD_USER_IOCS_SRIO_RESET:\n");
+			sd_regs_srio_reset(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCG_STATUS:
+			val = REG_READ(&sd_user_dev->sys_regs->ctrl);
+			pr_debug("SD_USER_IOCG_STATUS: %08lx\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCG_GT_LOOPBACK:
+			val = sd_regs_get_gt_loopback(sd_user_dev);
+			pr_debug("SD_USER_IOCG_GT_LOOPBACK: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_GT_LOOPBACK:
+			pr_debug("SD_USER_IOCS_GT_LOOPBACK: %lu\n", arg);
+			sd_regs_set_gt_loopback(sd_user_dev, arg);
+			return 0;
+
+		case SD_USER_IOCG_GT_DIFFCTRL:
+			val = sd_regs_get_gt_diffctrl(sd_user_dev);
+			pr_debug("SD_USER_IOCG_GT_DIFFCTRL: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_GT_DIFFCTRL:
+			pr_debug("SD_USER_IOCS_GT_DIFFCTRL: %lu\n", arg);
+			sd_regs_set_gt_diffctrl(sd_user_dev, arg);
+			return 0;
+
+		case SD_USER_IOCG_GT_TXPRECURS:
+			val = sd_regs_get_gt_txprecursor(sd_user_dev);
+			pr_debug("SD_USER_IOCG_GT_TXPRECURS: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_GT_TXPRECURS:
+			pr_debug("SD_USER_IOCS_GT_TXPRECURS: %lu\n", arg);
+			sd_regs_set_gt_txprecursor(sd_user_dev, arg);
+			return 0;
+
+		case SD_USER_IOCG_GT_TXPOSTCURS:
+			val = sd_regs_get_gt_txpostcursor(sd_user_dev);
+			pr_debug("SD_USER_IOCG_GT_TXPOSTCURS: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_GT_TXPOSTCURS:
+			pr_debug("SD_USER_IOCS_GT_TXPOSTCURS: %lu\n", arg);
+			sd_regs_set_gt_txpostcursor(sd_user_dev, arg);
+			return 0;
+
+		case SD_USER_IOCG_GT_RXLPMEN:
+			val = sd_regs_get_gt_rxlpmen(sd_user_dev);
+			pr_debug("SD_USER_IOCG_GT_RXLPMEN: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_GT_RXLPMEN:
+			pr_debug("SD_USER_IOCS_GT_RXLPMEN: %lu", arg);
+			sd_regs_set_gt_rxlpmen(sd_user_dev, arg);
+			return 0;
 	}
 
 	return -EINVAL;
@@ -771,7 +849,7 @@ int sd_user_init (struct srio_dev *sd)
 {
 	int ret;
 
-	sd_dev = sd;
+	sd_user_dev = sd;
 
 	if ( (ret = misc_register(&mdev)) < 0 )
 	{
@@ -794,10 +872,10 @@ int sd_user_init (struct srio_dev *sd)
 
 void sd_user_exit (void)
 {
-	sd_fifo_init_dir(&sd_dev->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd_dev->init_fifo->rx, NULL, HZ);
-	sd_fifo_init_dir(&sd_dev->targ_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd_dev->targ_fifo->rx, NULL, HZ);
+	sd_fifo_init_dir(&sd_user_dev->init_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd_user_dev->init_fifo->rx, NULL, HZ);
+	sd_fifo_init_dir(&sd_user_dev->targ_fifo->tx, NULL, HZ);
+	sd_fifo_init_dir(&sd_user_dev->targ_fifo->rx, NULL, HZ);
 	misc_deregister(&mdev);
 }
 

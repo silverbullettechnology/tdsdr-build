@@ -57,6 +57,8 @@ long      opt_mbox_letter  = 0;
 uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
 
+uint32_t  prev_status;
+
 
 /** control for main loop for orderly shutdown */
 static int main_loop = 1;
@@ -123,11 +125,41 @@ void menu (void)
 {
 	printf("Commands understood:\n"
 	       "Q - exit\n"
+	       "R - Reset SRIO core\n"
 		   "1 - Send a short SWRITE\n"
 		   "2 - Send a DBELL\n"
 		   "3 - Send a short MESSAGE\n"
 		   "4 - Ping peer with a DBELL\n\n");
 }
+
+
+#define STAT_SRIO_LINK_INITIALIZED  0x00000001
+#define STAT_SRIO_PORT_INITIALIZED  0x00000002
+#define STAT_SRIO_CLOCK_OUT_LOCK    0x00000004
+#define STAT_SRIO_MODE_1X           0x00000008
+#define STAT_PORT_ERROR             0x00000010
+#define STAT_GTRX_NOTINTABLE_OR     0x00000020
+#define STAT_GTRX_DISPERR_OR        0x00000040
+#define STAT_DEVICE_ID              0xFF000000
+
+static const char *desc_status (uint32_t  reg)
+{
+	static char buff[256];
+
+	snprintf(buff, sizeof(buff), "bits: { %s%s%s%s%s%s%s} device_id: %02x", 
+	         reg & STAT_SRIO_LINK_INITIALIZED ? "LINK "       : "",
+	         reg & STAT_SRIO_PORT_INITIALIZED ? "PORT "       : "",
+	         reg & STAT_SRIO_CLOCK_OUT_LOCK   ? "CLOCK "      : "",
+	         reg & STAT_SRIO_MODE_1X          ? "1X "         : "",
+	         reg & STAT_PORT_ERROR            ? "ERROR "      : "",
+	         reg & STAT_GTRX_NOTINTABLE_OR    ? "NOTINTABLE " : "",
+	         reg & STAT_GTRX_DISPERR_OR       ? "DISPERR "    : "",
+	         (reg & STAT_DEVICE_ID) >> 24);
+
+	return buff;
+}
+
+
 
 
 int main (int argc, char **argv)
@@ -181,13 +213,13 @@ int main (int argc, char **argv)
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
 	fd_set          rfds;
-	fd_set          wfds;
 	int             mfda;
 	int             sel;
 	int             ret;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
+	uint32_t         curr_status, diff_status;
 
 	mesg   = (struct sd_user_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
@@ -198,16 +230,14 @@ int main (int argc, char **argv)
 	while ( main_loop )
 	{
 		FD_ZERO(&rfds);
-		FD_ZERO(&wfds);
 		FD_SET(0,   &rfds);
 		FD_SET(dev, &rfds);
-		FD_SET(dev, &wfds);
 		mfda = dev;
 
-		tv_cur.tv_sec  = 5;
-		tv_cur.tv_usec = 0;
+		tv_cur.tv_sec  = 1;
+		tv_cur.tv_usec = 990000;
 		errno = 0;
-		if ( (sel = select(mfda + 1, &rfds, &wfds, NULL, &tv_cur)) < 0 )
+		if ( (sel = select(mfda + 1, &rfds, NULL, NULL, &tv_cur)) < 0 )
 		{
 			if ( errno != EINTR )
 				fprintf(stderr, "select: %s: stop\n", strerror(errno));
@@ -215,8 +245,22 @@ int main (int argc, char **argv)
 		}
 		else if ( !sel )
 		{
-			printf("Idling\n");
+//			printf("Idling\n");
 			continue;
+		}
+
+		if ( ioctl(dev, SD_USER_IOCG_STATUS, &curr_status) )
+			perror("SD_USER_IOCG_STATUS");
+		else if ( (diff_status = (curr_status ^ prev_status)) )
+		{
+			printf("\nSTAT: %08x -> %08x\n", prev_status, curr_status);
+			if ( (diff_status & curr_status) )
+				printf(" SET: %08x -> %s\n", diff_status & curr_status,
+				       desc_status(diff_status & curr_status));
+			if ( (diff_status & prev_status) )
+				printf(" CLR: %08x -> %s\n", diff_status & prev_status,
+				       desc_status(diff_status & prev_status));
+			prev_status = curr_status;
 		}
 
 		// data from driver to terminal
@@ -380,7 +424,7 @@ int main (int argc, char **argv)
 		}
 
 		// data from buffer to driver
-		if ( size && FD_ISSET(dev, &wfds) )
+		if ( size )
 		{
 			clock_gettime(CLOCK_MONOTONIC, &send_ts);
 			if ( (ret = write(dev, buff, size)) < size )

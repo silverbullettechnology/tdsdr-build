@@ -71,12 +71,12 @@ struct sd_user_mesg
 #define MAGIC_SD_USER 1
 
 // Get/set local device-ID (return address on TX, filtered on RX)
-#define SD_USER_IOCG_LOC_DEV_ID     _IOR(MAGIC_SD_USER, 0, unsigned long)
+#define SD_USER_IOCG_LOC_DEV_ID     _IOR(MAGIC_SD_USER, 0, unsigned long *)
 #define SD_USER_IOCS_LOC_DEV_ID     _IOW(MAGIC_SD_USER, 1, unsigned long)
 
 // Get/set bitmask of mailbox subscriptions.  To subscribe to a mailbox set the appropriate
 // bit: ie to subscribe to mailbox 2 set bit (1 << 2), to unsubscribe clear the same bit
-#define SD_USER_IOCG_MBOX_SUB       _IOR(MAGIC_SD_USER, 2, unsigned long)
+#define SD_USER_IOCG_MBOX_SUB       _IOR(MAGIC_SD_USER, 2, unsigned long *)
 #define SD_USER_IOCS_MBOX_SUB       _IOW(MAGIC_SD_USER, 3, unsigned long)
 
 // Get/set range of doorbell values to be notified for
@@ -86,6 +86,23 @@ struct sd_user_mesg
 // Get/set range of swrite addresses to be notified for
 #define SD_USER_IOCG_SWRITE_SUB     _IOR(MAGIC_SD_USER, 6, uint64_t *)
 #define SD_USER_IOCS_SWRITE_SUB     _IOW(MAGIC_SD_USER, 7, uint64_t *)
+
+// SYS_REG controls
+#define SD_USER_IOCS_SRIO_RESET     _IOW(MAGIC_SD_USER, 8, unsigned long)
+
+#define SD_USER_IOCG_STATUS         _IOR(MAGIC_SD_USER, 9, unsigned long *)
+
+// Get/set test/tuning values
+#define SD_USER_IOCG_GT_LOOPBACK    _IOR(MAGIC_SD_USER, 10, unsigned long *)
+#define SD_USER_IOCS_GT_LOOPBACK    _IOW(MAGIC_SD_USER, 11, unsigned long)
+#define SD_USER_IOCG_GT_DIFFCTRL    _IOR(MAGIC_SD_USER, 12, unsigned long *)
+#define SD_USER_IOCS_GT_DIFFCTRL    _IOW(MAGIC_SD_USER, 13, unsigned long)
+#define SD_USER_IOCG_GT_TXPRECURS   _IOR(MAGIC_SD_USER, 14, unsigned long *)
+#define SD_USER_IOCS_GT_TXPRECURS   _IOW(MAGIC_SD_USER, 15, unsigned long)
+#define SD_USER_IOCG_GT_TXPOSTCURS  _IOR(MAGIC_SD_USER, 16, unsigned long *)
+#define SD_USER_IOCS_GT_TXPOSTCURS  _IOW(MAGIC_SD_USER, 17, unsigned long)
+#define SD_USER_IOCG_GT_RXLPMEN     _IOR(MAGIC_SD_USER, 18, unsigned long *)
+#define SD_USER_IOCS_GT_RXLPMEN     _IOW(MAGIC_SD_USER, 19, unsigned long)
 
 
 #ifdef __KERNEL__
