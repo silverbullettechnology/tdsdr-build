@@ -33,6 +33,8 @@
 #define BUFF_SIZE 8192
 #endif
 
+#define SHADOW_FIFO 1
+
 
 struct srio_dev
 {
@@ -69,6 +71,11 @@ struct srio_dev
 
 	/* Mapped pointer for the SYS_REG registers */
 	struct sd_sys_reg __iomem  *sys_regs;
+
+#ifdef SHADOW_FIFO
+	struct sd_fifo    *shadow_fifo; // debugging
+	struct sd_desc    *shadow_ring;
+#endif
 };
 
 
