@@ -108,6 +108,14 @@ static int sd_of_probe (struct platform_device *pdev)
 	}
 
 
+#ifdef SHADOW_FIFO
+	if ( !(sd->shadow_ring = kzalloc(4 * sizeof(struct sd_desc), GFP_KERNEL)) )
+	{
+		dev_err(&pdev->dev, "memory alloc fail, stop\n");
+		goto sd_free;
+	}
+#endif
+
 	sd->maint = devm_ioremap_resource(sd->dev, maint);
 	if ( IS_ERR(sd->maint) )
 	{
@@ -175,6 +183,29 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		sd->targ_ring[idx].info = idx;
 		sd_fifo_rx_enqueue(sd->targ_fifo, &sd->targ_ring[idx]);
 	}
+
+
+#ifdef SHADOW_FIFO
+	if ( !(sd->shadow_fifo = sd_fifo_probe(pdev, "shadow")) )
+	{
+		dev_err(&pdev->dev, "shadow fifo probe fail, stop\n");
+		ret = -ENXIO;
+		BUG();
+	}
+//	sd->shadow_fifo->sd = sd;
+
+	ret = sd_desc_setup_ring(sd->shadow_ring, 4, BUFF_SIZE,
+	                         GFP_KERNEL, sd->dev, sd->shadow_fifo->rx.chan ? 1 : 0);
+	if ( ret ) 
+		BUG();
+
+	for ( idx = 0; idx < 4; idx++ )
+	{
+		sd->shadow_ring[idx].info = idx;
+		sd_fifo_rx_enqueue(sd->shadow_fifo, &sd->shadow_ring[idx]);
+	}
+#endif
+
 
 	if ( sd_test_init(sd) )
 	{
@@ -298,6 +329,9 @@ static int sd_of_remove (struct platform_device *pdev)
 
 	sd_fifo_free(sd->init_fifo);
 	sd_fifo_free(sd->targ_fifo);
+#ifdef SHADOW_FIFO
+	sd_fifo_free(sd->shadow_fifo);
+#endif
 
 	kfree(sd);
 
