@@ -171,12 +171,15 @@ status="disabled";
 				0x43C20000 0x00010000  /* Target FIFO Regs */
 				0x43C30000 0x00010000  /* Target FIFO Data */
 				0x83C00000 0x00010000  /* Misc SYS_REG */
+				0x43C40000 0x00010000  /* Target FIFO Regs */
+				0x43C50000 0x00010000  /* Target FIFO Data */
 			>;
-			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data", "sys-regs";
+			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
+			            "sys-regs", "shadow-regs", "shadow-data";
 
-			interrupts       = < 0 29 4 0 30 4 >;
+			interrupts       = < 0 29 4  0 30 4  0 31 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupt-names  = "init-irq", "targ-irq";
+			interrupt-names  = "init-irq", "targ-irq", "shadow-irq";
 
 			/* Check this */
 			clock-names = "fclk0", "fclk1", "fclk2";
@@ -260,7 +263,7 @@ status="disabled";
 			mdio {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				phy0: phy@7 {
+				phy0: phy@3 {
 					compatible = "marvell,88e1116r";
 					device_type = "ethernet-phy";
 					reg = <3>;
