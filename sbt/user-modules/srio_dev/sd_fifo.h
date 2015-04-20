@@ -108,6 +108,7 @@ struct sd_fifo
 {
 	struct device               *dev;
 	int                          irq;
+	char                         name[32];
 
 	/* Note: sd_fifo_regs always maps to an AXI-Lite interface for register access, but 
 	 * sd_fifo_data may point to an AXI-Full interface for burst data. */

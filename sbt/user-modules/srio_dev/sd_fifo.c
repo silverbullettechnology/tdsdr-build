@@ -79,22 +79,22 @@ static void sd_dump_ixr (const char *func, const char *name, uint32_t reg)
 #ifdef DEBUG
 void sd_dump_regs (struct sd_fifo *sf)
 {
-	sd_dump_ixr(__func__, "ISR", REG_READ(&sf->regs->isr));
-	sd_dump_ixr(__func__, "IER", REG_READ(&sf->regs->ier));
-	pr_debug("%s: tdfr   : %08x\n", __func__, REG_READ(&sf->regs->tdfr   ));
-	pr_debug("%s: tdfd   : %08x\n", __func__, REG_READ(&sf->regs->tdfd   ));
-	pr_debug("%s: tlr    : %08x\n", __func__, REG_READ(&sf->regs->tlr    ));
-	pr_debug("%s: rdfo   : %08x\n", __func__, REG_READ(&sf->regs->rdfo   ));
-	pr_debug("%s: rdfd   : %08x\n", __func__, REG_READ(&sf->regs->rdfd   ));
-	pr_debug("%s: rlr    : %08x\n", __func__, REG_READ(&sf->regs->rlr    ));
-	pr_debug("%s: srr    : %08x\n", __func__, REG_READ(&sf->regs->srr    ));
-	pr_debug("%s: tdr    : %08x\n", __func__, REG_READ(&sf->regs->tdr    ));
-	pr_debug("%s: rdr    : %08x\n", __func__, REG_READ(&sf->regs->rdr    ));
+	sd_dump_ixr(sf->name, "ISR", REG_READ(&sf->regs->isr));
+	sd_dump_ixr(sf->name, "IER", REG_READ(&sf->regs->ier));
+	pr_debug("%s: tdfr   : %08x\n", sf->name, REG_READ(&sf->regs->tdfr   ));
+	pr_debug("%s: tdfd   : %08x\n", sf->name, REG_READ(&sf->regs->tdfd   ));
+	pr_debug("%s: tlr    : %08x\n", sf->name, REG_READ(&sf->regs->tlr    ));
+	pr_debug("%s: rdfo   : %08x\n", sf->name, REG_READ(&sf->regs->rdfo   ));
+	pr_debug("%s: rdfd   : %08x\n", sf->name, REG_READ(&sf->regs->rdfd   ));
+	pr_debug("%s: rlr    : %08x\n", sf->name, REG_READ(&sf->regs->rlr    ));
+	pr_debug("%s: srr    : %08x\n", sf->name, REG_READ(&sf->regs->srr    ));
+	pr_debug("%s: tdr    : %08x\n", sf->name, REG_READ(&sf->regs->tdr    ));
+	pr_debug("%s: rdr    : %08x\n", sf->name, REG_READ(&sf->regs->rdr    ));
 #if 0
-	pr_debug("%s: tx_id  : %08x\n", __func__, REG_READ(&sf->regs->tx_id  ));
-	pr_debug("%s: tx_user: %08x\n", __func__, REG_READ(&sf->regs->tx_user));
-	pr_debug("%s: rx_id  : %08x\n", __func__, REG_READ(&sf->regs->rx_id  ));
-	pr_debug("%s: rx_user: %08x\n", __func__, REG_READ(&sf->regs->rx_user));
+	pr_debug("%s: tx_id  : %08x\n", sf->name, REG_READ(&sf->regs->tx_id  ));
+	pr_debug("%s: tx_user: %08x\n", sf->name, REG_READ(&sf->regs->tx_user));
+	pr_debug("%s: rx_id  : %08x\n", sf->name, REG_READ(&sf->regs->rx_id  ));
+	pr_debug("%s: rx_user: %08x\n", sf->name, REG_READ(&sf->regs->rx_user));
 #endif
 }
 #else
@@ -114,13 +114,13 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask)
 {
 	if ( mask & SD_FR_TX )
 	{
-		pr_info("%s: start TX reset\n", __func__);
+		pr_info("%s: start TX reset\n", sf->name);
 		REG_RMW(&sf->regs->ier, TFPE|TFPF|TSE|TC|TPOE, TRC);
 		sf->tx.stats.resets++;
 	}
 	if ( mask & SD_FR_RX )
 	{
-		pr_info("%s: start RX reset\n", __func__);
+		pr_info("%s: start RX reset\n", sf->name);
 		REG_RMW(&sf->regs->ier, RFPE|RFPF|RRC|RC|TC|RPUE|RPORE|RPURE, RRC);
 		sf->rx.stats.resets++;
 
@@ -158,7 +158,7 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 	REG_WRITE(&sf->regs->tlr, desc->used);
 	REG_RMW(&sf->regs->ier, TFPE, TC|TSE|TPOE);
 
-	pr_debug("%s: desc %p: wrote TLR %08x\n", __func__, desc, desc->used);
+	pr_debug("%s: desc %p: wrote TLR %08x\n", sf->name, desc, desc->used);
 }
 
 
@@ -171,7 +171,7 @@ static void sd_fifo_tx_dma_complete (void *param)
 	spin_lock_irqsave(&sf->tx.lock, flags);
 	sd_fifo_tx_finish(sf);
 	del_timer(&sf->tx.timer);
-	pr_debug("%s: status %d\n", __func__,
+	pr_debug("%s: status %d\n", sf->name,
 	         dma_async_is_tx_complete(sf->tx.chan, sf->tx.cookie, NULL, NULL));
 	spin_unlock_irqrestore(&sf->tx.lock, flags);
 }
@@ -182,7 +182,7 @@ static void sd_fifo_tx_dma_timeout (unsigned long param)
 {
 	struct sd_fifo *sf = (struct sd_fifo *)param;
 
-	pr_err("%s: reset TX path\n", __func__);
+	pr_err("%s: reset TX path\n", sf->name);
 	sf->tx.stats.timeouts++;
 	sd_fifo_reset(sf, SD_FR_TX);
 }
@@ -202,7 +202,7 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	BUG_ON(list_empty(&sf->tx.queue));
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
-	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", __func__,
+	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", sf->name,
 	         desc->used, desc->phys, sf->tx.phys);
 	xfer = sf->tx.chan->device->device_prep_dma_memcpy(sf->tx.chan, sf->tx.phys, 
 	                                                   desc->phys, desc->used,
@@ -214,7 +214,7 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	pr_debug("%s: device_prep_dma_memcpy(): %p\n", __func__, xfer);
+	pr_debug("%s: device_prep_dma_memcpy(): %p\n", sf->name, xfer);
 
 	/* setup completion callback */
 	xfer->callback       = sd_fifo_tx_dma_complete;
@@ -234,7 +234,7 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	mod_timer(&sf->tx.timer, jiffies + sf->tx.timeout);
 
 	/* start transaction and return */
-	pr_debug("%s: start TX and DMA\n", __func__);
+	pr_debug("%s: start TX and DMA\n", sf->name);
 	dma_async_issue_pending(sf->tx.chan);
 	sf->tx.stats.chunks++;
 }
@@ -261,19 +261,19 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
 	if ( !tdfv )
 	{
-		pr_warn("%s: TDFV 0, arm TFPE and wait\n", __func__);
+		pr_warn("%s: TDFV 0, arm TFPE and wait\n", sf->name);
 		REG_RMW(&sf->regs->ier, 0, TFPE|TSE|TPOE);
 		return;
 	}
 
 	walk = (desc->virt + desc->offs);
 	left = (desc->used - desc->offs);
-	pr_debug("%s: used %zu - offs %zu = left %zu, cap TDFV %u\n", __func__, 
+	pr_debug("%s: used %zu - offs %zu = left %zu, cap TDFV %u\n", sf->name, 
 	         desc->used, desc->offs, left, tdfv);
 
 	if ( left > tdfv )
 		left = tdfv;
-	pr_debug("%s: write %zu bytes:\n", __func__, left);
+	pr_debug("%s: write %zu bytes:\n", sf->name, left);
 
 	REG_RMW(&sf->regs->ier, TFPE|TC|TSE|TPOE, 0);
 	while ( left )
@@ -284,7 +284,7 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 		desc->offs += sizeof(uint32_t);
 	}
 	sf->tx.stats.chunks++;
-	pr_debug("%s: TDFV now %08x\n", __func__, REG_READ(&sf->regs->tdfv));
+	pr_debug("%s: TDFV now %08x\n", sf->name, REG_READ(&sf->regs->tdfv));
 
 	/* arm error IRQs plus TC or TFPE, depending whether this is the last chunk */
 	if ( desc->used == desc->offs )
@@ -307,9 +307,12 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 	BUG_ON(list_empty(&sf->tx.queue));
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
+	pr_debug("%s: %zu used:\n", sf->name, desc->used);
+	hexdump_buff(desc->virt, desc->used);
+
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	REG_WRITE(&sf->regs->tdr, desc->dest);
-	pr_debug("%s: desc %p: wrote TDR %08x\n", __func__, desc, desc->dest);
+	pr_debug("%s: desc %p: wrote TDR %08x\n", sf->name, desc, desc->dest);
 #endif
 
 	/* select DMA or PIO for the bulk transfer: need DMA channel and desc mapped */
@@ -347,23 +350,23 @@ void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 
 	desc->offs = 0;
 
-	pr_debug("%s: lock...\n", __func__);
+	pr_debug("%s: lock...\n", sf->name);
 	spin_lock_irqsave(&sf->tx.lock, flags);
 	empty = list_empty(&sf->tx.queue);
-	pr_debug("%s: desc %p append to %s list\n", __func__,
+	pr_debug("%s: desc %p append to %s list\n", sf->name,
 	         desc, empty ? "empty" : "non-empty");
 	list_add_tail(&desc->list, &sf->tx.queue);
-	pr_debug("%s: enqueued...\n", __func__);
+	pr_debug("%s: enqueued...\n", sf->name);
 
 	if ( empty )
 	{
-		pr_debug("%s: start...\n", __func__);
+		pr_debug("%s: start...\n", sf->name);
 		sd_fifo_tx_start(sf);
-		pr_debug("%s: started...\n", __func__);
+		pr_debug("%s: started...\n", sf->name);
 	}
 
 	spin_unlock_irqrestore(&sf->tx.lock, flags);
-	pr_debug("%s: unlock...\n", __func__);
+	pr_debug("%s: unlock...\n", sf->name);
 }
 
 
@@ -392,7 +395,6 @@ static void sd_fifo_rx_flush (struct sd_fifo *sf, uint32_t size)
 static void sd_fifo_rx_dma_timeout (unsigned long param)
 {
 	struct sd_fifo *sf = (struct sd_fifo *)param;
-	struct sd_desc *desc;
 	unsigned long   flags;
 
 	sf->rx.stats.timeouts++;
@@ -400,14 +402,13 @@ static void sd_fifo_rx_dma_timeout (unsigned long param)
 	spin_lock_irqsave(&sf->rx.lock, flags);
 	if (list_empty(&sf->tx.queue))
 	{
-		pr_err("%s: empty queue\n", __func__);
+		pr_err("%s: empty queue\n", sf->name);
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
 		return;
 	}
 	BUG_ON(list_empty(&sf->rx.queue));
-	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
 
-	pr_err("%s: reset RX path\n", __func__);
+	pr_err("%s: reset RX path\n", sf->name);
 	dmaengine_terminate_all(sf->rx.chan);
 	sd_fifo_reset(sf, SD_FR_RX);
 	spin_unlock_irqrestore(&sf->rx.lock, flags);
@@ -430,7 +431,7 @@ static void sd_fifo_rx_dma_complete (void *param)
 	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
 
 	del_timer(&sf->rx.timer);
-	pr_debug("%s: status %d\n", __func__,
+	pr_debug("%s: status %d\n", sf->name,
 	         dma_async_is_tx_complete(sf->rx.chan, sf->rx.cookie, NULL, NULL));
 
 	/* If size is set this is the ACK for the last chunk: dispatch and stop.
@@ -442,11 +443,20 @@ static void sd_fifo_rx_dma_complete (void *param)
 	{
 		list_del_init(&desc->list);
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
-		sf->rx.func(sf, desc);
+
+		if ( sf->rx.func )
+			sf->rx.func(sf, desc);
+		else
+		{
+			pr_debug("%s: RX complete:\n", sf->name);
+			hexdump_buff(desc->virt, desc->used);
+			desc->used = 0;
+			desc->offs = 0;
+			list_add_tail(&desc->list, &sf->rx.queue);
+		}
+
 		REG_RMW(&sf->regs->ier, 0, RFPF|RC);
 		sf->rx.stats.completes++;
-
-
 		return;
 	}
 
@@ -463,7 +473,7 @@ static void sd_fifo_rx_dma_complete (void *param)
 	{
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 		desc->dest = REG_READ(&sf->regs->rdr);
-		pr_debug("%s: desc %p: read RDR %08x\n", __func__, desc, desc->dest);
+		pr_debug("%s: desc %p: read RDR %08x\n", sf->name, desc, desc->dest);
 #endif
 		pr_debug("  remainder: %08x - %08x = %08x\n", rlr, desc->offs, rlr - desc->offs);
 		desc->used = rlr;
@@ -495,7 +505,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	/* setup dest within DMA buffer and advance offset for next chunk */
 	phys = desc->phys + desc->offs;
 	desc->offs += size;
-	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", __func__,
+	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", sf->name,
 	         size, sf->rx.phys, phys);
 	xfer = sf->rx.chan->device->device_prep_dma_memcpy(sf->rx.chan, phys, sf->rx.phys,
 	                                                   size, DMA_CTRL_ACK);
@@ -506,7 +516,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 		sd_fifo_reset(sf, SD_FR_RX);
 		return;
 	}
-	pr_debug("%s: device_prep_dma_memcpy(): %p\n", __func__, xfer);
+	pr_debug("%s: device_prep_dma_memcpy(): %p\n", sf->name, xfer);
 
 	/* setup completion callback */
 	xfer->callback       = sd_fifo_rx_dma_complete;
@@ -527,7 +537,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	mod_timer(&sf->rx.timer, jiffies + sf->rx.timeout);
 
 	/* start transaction and return */
-	pr_debug("%s: start RX and DMA\n", __func__);
+	pr_debug("%s: start RX and DMA\n", sf->name);
 	dma_async_issue_pending(sf->rx.chan);
 	sf->rx.stats.chunks++;
 }
@@ -552,7 +562,7 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 	walk = (desc->virt + desc->offs);
 	BUG_ON(desc->offs + size > desc->size);
 
-	pr_debug("%s: size %08x, offs %08x\n", __func__, size, desc->offs);
+	pr_debug("%s: size %08x, offs %08x\n", sf->name, size, desc->offs);
 	desc->offs += size;
 	while ( size )
 	{
@@ -583,7 +593,7 @@ void sd_fifo_rx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
 	empty = list_empty(&sf->rx.queue);
-	pr_debug("%s: desc %p append to %s list\n", __func__,
+	pr_debug("%s: desc %p append to %s list\n", sf->name,
 	         desc, empty ? "empty" : "non-empty");
 
 	list_add_tail(&desc->list, &sf->rx.queue);
@@ -601,7 +611,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	struct sd_fifo *sf  = (struct sd_fifo *)arg;
 	unsigned long   flags;
 	uint32_t        isr = REG_READ(&sf->regs->isr);
-	uint32_t        ier = REG_READ(&sf->regs->ier) | TRC | RRC;
+	uint32_t        ier = REG_READ(&sf->regs->ier);
 	uint32_t        rlr;
 	uint32_t        rdfo;
 	int             rep = 0;
@@ -609,10 +619,10 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	REG_WRITE(&sf->regs->isr, isr);
 	if ( isr & ~ier )
 	{
-		sd_dump_ixr(__func__, "Quashed spurious", isr & ~ier);
+		sd_dump_ixr(sf->name, "Quashed spurious", isr & ~ier);
 		isr &= ier;
 	}
-	sd_dump_ixr(__func__, "ISR", isr);
+	sd_dump_ixr(sf->name, "ISR", isr);
 
 	/* TX Reset Complete: clear TFPE and re-enable TX path */
 	if ( isr & TRC )
@@ -814,7 +824,7 @@ next:
 
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 					desc->dest = REG_READ(&sf->regs->rdr);
-					pr_debug("%s: desc %p: read RDR %08x\n", __func__, desc, desc->dest);
+					pr_debug("%s: desc %p: read RDR %08x\n", sf->name, desc, desc->dest);
 #endif
 
 					/* For DMA, disable subsequent IRQs, use DMA completion instead; error
@@ -840,7 +850,13 @@ next:
 							spin_lock_irqsave(&sf->rx.lock, flags);
 						}
 						else
+						{
+							pr_debug("%s: RX complete:\n", sf->name);
+							hexdump_buff(desc->virt, desc->used);
+							desc->used = 0;
+							desc->offs = 0;
 							list_add_tail(&desc->list, &sf->rx.queue);
+						}
 
 						sf->rx.stats.completes++;
 
@@ -877,9 +893,9 @@ next:
 	}
 
 	if ( (isr = REG_READ(&sf->regs->isr)) )
-		sd_dump_ixr(__func__, "leaving, ISR", isr);
+		sd_dump_ixr(sf->name, "leaving, ISR", isr);
 	else
-		pr_debug("%s: leaving\n", __func__);
+		pr_debug("%s: leaving\n", sf->name);
 	return IRQ_HANDLED;
 }
 
@@ -967,6 +983,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 		return NULL;
 	}
 	sf->dev = &pdev->dev;
+	snprintf(sf->name, sizeof(sf->name), "%s.%s", dev_name(sf->dev), pref); 
 
 
 	snprintf(name, sizeof(name), "%s-regs", pref);
@@ -1024,7 +1041,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 			goto irq;
 		}
 		sf->tx.phys = sf->phys + offsetof(struct sd_fifo_regs, tdfd);
-		pr_debug("%s: TDFD: %08x phys\n", __func__, sf->tx.phys);
+		pr_debug("%s: TDFD: %08x phys\n", sf->name, sf->tx.phys);
 //	}
 
 //	if ( cfg->dma & (1 << DMA_DEV_TO_MEM) )
@@ -1036,7 +1053,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 			goto dma;
 		}
 		sf->rx.phys = sf->phys + offsetof(struct sd_fifo_regs, rdfd);
-		pr_debug("%s: RDFD: %08x phys\n", __func__, sf->rx.phys);
+		pr_debug("%s: RDFD: %08x phys\n", sf->name, sf->rx.phys);
 //	}
 
 	spin_lock_init(&sf->rx.lock);
@@ -1058,7 +1075,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 	/* Full reset of the FIFO zeroes the IER */
 	REG_WRITE(&sf->regs->ier, TRC|RRC);
 
-	printk("%s fifo success\n", pref);
+	printk("%s fifo success\n", sf->name);
 	return sf;
 
 
