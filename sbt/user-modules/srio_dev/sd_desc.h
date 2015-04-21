@@ -21,34 +21,35 @@
 #include <linux/dmaengine.h>
 
 
+/* Sizes in 32-bit words */
+#define SD_HEAD_SIZE   3
+#define SD_DATA_SIZE  64
+#define SD_PAINT_SIZE  1
+#define SD_FIFO_SIZE   (SD_HEAD_SIZE + SD_DATA_SIZE)
+#define SD_DESC_SIZE   (SD_FIFO_SIZE + SD_PAINT_SIZE)
+
+struct srio_dev;
+
 struct sd_desc
 {
-	void            *virt;  /* Virtual address for data buffer */
 	dma_addr_t       phys;  /* Physical address for data buffer */
-	size_t           size;  /* Size of data buffer for range checks */
 	size_t           used;  /* Size of data in buffer */
 	size_t           offs;  /* Cursor for chunked transfer */
-	unsigned long    info;  /* Identifier for upper layer, not used by the FIFO code */
 	struct list_head list;  /* List pointers for queuing */
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	uint32_t         dest;  /* TDR/RDR register value */
 #endif
+	uint32_t         virt[SD_DESC_SIZE];  /* Actual data buffer */
 };
 
 
-int sd_desc_alloc (struct sd_desc *desc, size_t size, gfp_t flags);
+struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags);
 
-void sd_desc_free (struct sd_desc *desc);
+void sd_desc_free (struct srio_dev *sd, struct sd_desc *desc);
 
-int sd_desc_map (struct sd_desc *desc, struct device *dev,
-                 enum dma_transfer_direction dir);
+int sd_desc_init (struct srio_dev *sd);
 
-void sd_desc_unmap (struct sd_desc *desc, struct device *dev,
-                    enum dma_transfer_direction dir);
+void sd_desc_exit (struct srio_dev *sd);
 
-int sd_desc_setup_ring (struct sd_desc *ring, int len, size_t size, gfp_t flags,
-                        struct device *dev, int rx_dma);
-
-void sd_desc_clean_ring (struct sd_desc *ring, int len, struct device *dev);
 
 #endif 

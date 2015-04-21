@@ -170,7 +170,7 @@ void sd_user_recv_mbox (struct sd_desc *desc, int mbox)
 
 			qm->mesg.mesg.mbox.mbox   = mbox;
 			qm->mesg.mesg.mbox.letter = hdr[1] & 0x03;
-			memcpy(qm->mesg.mesg.mbox.data, desc->virt + 12, desc->used - 12);
+			memcpy(qm->mesg.mesg.mbox.data, desc->virt + SD_HEAD_SIZE, desc->used - 12);
 
 			list_add_tail(&qm->list, &priv->queue);
 
@@ -224,7 +224,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 			qm->mesg.hello[1] = hdr[2];
 
 			qm->mesg.mesg.swrite.addr = addr;
-			memcpy(qm->mesg.mesg.swrite.data, desc->virt + 12, desc->used - 12);
+			memcpy(qm->mesg.mesg.swrite.data, desc->virt + SD_HEAD_SIZE, desc->used - 12);
 
 			list_add_tail(&qm->list, &priv->queue);
 
@@ -262,6 +262,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 				pr_err("DBELL dropped: kmalloc() failed\n");
 				continue;
 			}
+			pr_debug("    dispatch\n");
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -359,8 +360,7 @@ void sd_user_recv_init (struct sd_fifo *fifo, struct sd_desc *desc)
 void sd_user_tx_done (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 	pr_debug("%s: TX desc %p done\n", __func__, desc);
-	sd_desc_free(desc);
-	kfree(desc);
+	sd_desc_free(sd_user_dev, desc);
 }
 
 
@@ -532,7 +532,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	int                  size = s;
 
 	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
-	if ( s > PAGE_SIZE || s < offsetof(struct sd_user_mesg, mesg) )
+	if ( s > SD_FIFO_SIZE || s < offsetof(struct sd_user_mesg, mesg) )
 		return -EINVAL;
 
 	if ( !(mesg = (struct sd_user_mesg *)__get_free_page(GFP_KERNEL)) )
@@ -544,15 +544,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		return -EFAULT;
 	}
 
-	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
+	if ( !(desc = sd_desc_alloc(sd_user_dev, GFP_KERNEL)) )
 	{
-		free_page((unsigned long)mesg);
-		return -ENOMEM;
-	}
-
-	if ( sd_desc_alloc(desc, BUFF_SIZE, GFP_KERNEL) )
-	{
-		kfree(desc);
 		free_page((unsigned long)mesg);
 		return -ENOMEM;
 	}
@@ -568,8 +561,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			hdr[2] |= 0x00600000;
 			size -= offsetof(struct sd_user_mesg,        mesg) +
 			        offsetof(struct sd_user_mesg_swrite, data);
-			memcpy(desc->virt + 12, mesg->mesg.swrite.data, size);
-			desc->used = size + 12;
+			memcpy(desc->virt + SD_HEAD_SIZE, mesg->mesg.swrite.data, size);
+			desc->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
 			break;
 
 		case 10: // DBELL
@@ -583,20 +576,18 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			        offsetof(struct sd_user_mesg_mbox, data);
 			if ( size > 256 ) // fragmentation not yet supported
 			{
-				sd_desc_free(desc);
-				kfree(desc);
+				sd_desc_free(sd_user_dev, desc);
 				free_page((unsigned long)mesg);
 				return -EFBIG;
 			}
 			hdr[1] = (mesg->mesg.mbox.letter & 3) | (mesg->mesg.mbox.mbox & 0x3F) << 4;
 			hdr[2] = (size - 1) << 4 | 0x00B00000;
-			memcpy(desc->virt + 12, mesg->mesg.mbox.data, size);
-			desc->used = size + 12;
+			memcpy(desc->virt + SD_HEAD_SIZE, mesg->mesg.mbox.data, size);
+			desc->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
 			break;
 
 		default:
-			sd_desc_free(desc);
-			kfree(desc);
+			sd_desc_free(sd_user_dev, desc);
 			free_page((unsigned long)mesg);
 			return -EINVAL;
 	}

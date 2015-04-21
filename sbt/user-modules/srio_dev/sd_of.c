@@ -47,6 +47,7 @@
 static int sd_of_probe (struct platform_device *pdev)
 {
 	struct srio_dev       *sd;
+	struct sd_desc        *desc;
 	struct resource       *maint;
 	struct resource       *sys_regs;
 	int                    ret = 0;
@@ -74,8 +75,6 @@ static int sd_of_probe (struct platform_device *pdev)
 
 
 	/* Default values */
-	sd->init_size       = 8;
-	sd->targ_size       = 8;
 	sd->gt_loopback     = 0;
 	sd->gt_diffctrl     = 8;
 	sd->gt_txprecursor  = 0;
@@ -83,38 +82,12 @@ static int sd_of_probe (struct platform_device *pdev)
 	sd->gt_rxlpmen      = 0;
 
 	/* Configure from DT */
-	of_property_read_u32(pdev->dev.of_node, "sbt,init-size",       &sd->init_size);
-	of_property_read_u32(pdev->dev.of_node, "sbt,targ-size",       &sd->targ_size);
 	of_property_read_u32(pdev->dev.of_node, "sbt,gt-loopback",     &sd->gt_loopback);
 	of_property_read_u32(pdev->dev.of_node, "sbt,gt-diffctrl",     &sd->gt_diffctrl);
 	of_property_read_u32(pdev->dev.of_node, "sbt,gt-txprecursor",  &sd->gt_txprecursor);
 	of_property_read_u32(pdev->dev.of_node, "sbt,gt-txpostcursor", &sd->gt_txpostcursor);
 	of_property_read_u32(pdev->dev.of_node, "sbt,gt-rxlpmen",      &sd->gt_rxlpmen);
 
-	if ( sd->init_size < 4 ) sd->init_size = 4;
-	if ( sd->targ_size < 4 ) sd->targ_size = 4;
-
-
-	if ( !(sd->init_ring = kzalloc(sd->init_size * sizeof(struct sd_desc), GFP_KERNEL)) )
-	{
-		dev_err(&pdev->dev, "memory alloc fail, stop\n");
-		goto sd_free;
-	}
-
-	if ( !(sd->targ_ring = kzalloc(sd->targ_size * sizeof(struct sd_desc), GFP_KERNEL)) )
-	{
-		dev_err(&pdev->dev, "memory alloc fail, stop\n");
-		goto sd_free;
-	}
-
-
-#ifdef SHADOW_FIFO
-	if ( !(sd->shadow_ring = kzalloc(4 * sizeof(struct sd_desc), GFP_KERNEL)) )
-	{
-		dev_err(&pdev->dev, "memory alloc fail, stop\n");
-		goto sd_free;
-	}
-#endif
 
 	sd->maint = devm_ioremap_resource(sd->dev, maint);
 	if ( IS_ERR(sd->maint) )
@@ -141,13 +114,26 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		goto maint;
 	}
 
+	if ( sd_desc_init(sd) )
+	{
+		pr_err("Settting up sd_desc failed, stop\n");
+		ret = -EINVAL;
+		goto sys_regs;
+	}
 
 	if ( !(sd->init_fifo = sd_fifo_probe(pdev, "init")) )
 	{
 		dev_err(&pdev->dev, "initiator fifo probe fail, stop\n");
 		ret = -ENXIO;
-		goto sys_regs;
+		goto desc_init;
 	}
+	sd->init_fifo->sd = sd;
+
+	for ( idx = 0; idx < 8; idx++ )
+		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
+			sd_fifo_rx_enqueue(sd->init_fifo, desc);
+		else
+			goto init_fifo;
 
 	if ( !(sd->targ_fifo = sd_fifo_probe(pdev, "targ")) )
 	{
@@ -155,34 +141,13 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		ret = -ENXIO;
 		goto init_fifo;
 	}
+	sd->targ_fifo->sd = sd;
 
-	ret = sd_desc_setup_ring(sd->init_ring, sd->init_size, BUFF_SIZE,
-	                         GFP_KERNEL, sd->dev, sd->init_fifo->rx.chan ? 1 : 0);
-	if ( ret ) 
-	{
-		pr_err("sd_desc_setup_ring() for initator failed: %d\n", ret);
-		goto targ_fifo;
-	}
-
-	ret = sd_desc_setup_ring(sd->targ_ring, sd->targ_size, BUFF_SIZE,
-	                         GFP_KERNEL, sd->dev, sd->targ_fifo->rx.chan ? 1 : 0);
-	if ( ret ) 
-	{
-		pr_err("sd_desc_setup_ring() for target failed: %d\n", ret);
-		goto init_ring;
-	}
-
-	for ( idx = 0; idx < sd->init_size; idx++ )
-	{
-		sd->init_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(sd->init_fifo, &sd->init_ring[idx]);
-	}
-
-	for ( idx = 0; idx < sd->targ_size; idx++ )
-	{
-		sd->targ_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(sd->targ_fifo, &sd->targ_ring[idx]);
-	}
+	for ( idx = 0; idx < 8; idx++ )
+		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
+			sd_fifo_rx_enqueue(sd->targ_fifo, desc);
+		else
+			goto targ_fifo;
 
 
 #ifdef SHADOW_FIFO
@@ -192,18 +157,13 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		ret = -ENXIO;
 		BUG();
 	}
-//	sd->shadow_fifo->sd = sd;
-
-	ret = sd_desc_setup_ring(sd->shadow_ring, 4, BUFF_SIZE,
-	                         GFP_KERNEL, sd->dev, sd->shadow_fifo->rx.chan ? 1 : 0);
-	if ( ret ) 
-		BUG();
+	sd->shadow_fifo->sd = sd;
 
 	for ( idx = 0; idx < 4; idx++ )
-	{
-		sd->shadow_ring[idx].info = idx;
-		sd_fifo_rx_enqueue(sd->shadow_fifo, &sd->shadow_ring[idx]);
-	}
+		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
+			sd_fifo_rx_enqueue(sd->shadow_fifo, desc);
+		else
+			BUG();
 #endif
 
 
@@ -211,7 +171,7 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 	{
 		pr_err("Settting up sd_test failed, stop\n");
 		ret = -EINVAL;
-		goto targ_ring;
+		goto desc_init;
 	}
 
 #if 0
@@ -279,17 +239,14 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 test_exit:
 	sd_test_exit();
 
-targ_ring:
-	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);
-
-init_ring:
-	sd_desc_clean_ring(sd->init_ring, sd->init_size, sd->dev);
-
 targ_fifo:
 	sd_fifo_free(sd->targ_fifo);
 
 init_fifo:
 	sd_fifo_free(sd->init_fifo);
+
+desc_init:
+	sd_desc_exit(sd);
 
 sys_regs:
 	devm_iounmap(sd->dev, sd->sys_regs);
@@ -298,8 +255,6 @@ maint:
 	devm_iounmap(sd->dev, sd->maint);
 
 sd_free:
-	kfree(sd->targ_ring);
-	kfree(sd->init_ring);
 	kfree(sd);
 
 	return ret;
@@ -324,14 +279,13 @@ static int sd_of_remove (struct platform_device *pdev)
 	sd_fifo_init_dir(&sd->init_fifo->rx, NULL, HZ);
 	sd_fifo_init_dir(&sd->targ_fifo->rx, NULL, HZ);
 
-	sd_desc_clean_ring(sd->init_ring, sd->init_size, sd->dev);
-	sd_desc_clean_ring(sd->targ_ring, sd->targ_size, sd->dev);
-
 	sd_fifo_free(sd->init_fifo);
 	sd_fifo_free(sd->targ_fifo);
 #ifdef SHADOW_FIFO
 	sd_fifo_free(sd->shadow_fifo);
 #endif
+
+	sd_desc_exit(sd); // must come after sd_fifo_free()
 
 	kfree(sd);
 

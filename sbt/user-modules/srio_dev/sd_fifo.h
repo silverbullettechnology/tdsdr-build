@@ -107,6 +107,7 @@ struct sd_fifo_dir
 struct sd_fifo
 {
 	struct device               *dev;
+	struct srio_dev             *sd;
 	int                          irq;
 	char                         name[32];
 

@@ -20,93 +20,66 @@
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 
+#include "srio_dev.h"
 #include "sd_desc.h"
 
 
-int sd_desc_alloc (struct sd_desc *desc, size_t size, gfp_t flags)
+struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags)
 {
-	if ( !(desc->virt = kzalloc(size, flags)) )
-	{
-		pr_err("%s: kzalloc %zu bytes failed\n", __func__, size);
-		return -1;
-	}
+	struct sd_desc *desc = kmem_cache_alloc(sd->desc_pool, GFP_KERNEL);
+	if ( !desc )
+		return NULL;
 
 	desc->phys = 0;
-	desc->size = size;
 	desc->used = 0;
 	desc->offs = 0;
-
 	INIT_LIST_HEAD(&desc->list);
-	return 0;
+
+	memset(&desc->virt[SD_FIFO_SIZE], 0xFF, SD_PAINT_SIZE * sizeof(uint32_t));
+
+	return desc;
 }
 
-int sd_desc_map (struct sd_desc *desc, struct device *dev, enum dma_transfer_direction dir)
-{
-	if ( !(desc->phys = dma_map_single(dev, desc->virt, desc->size, dir)) )
-	{
-		pr_err("%s: dma_map_single failed\n", __func__);
-		return -1;
-	}
-	else
-		pr_debug("%s: DMA mapped %p -> %08x\n", __func__, desc->virt, desc->phys);
 
-	return 0;
-}
-
-void sd_desc_unmap (struct sd_desc *desc, struct device *dev,
-                    enum dma_transfer_direction dir)
+void sd_desc_free (struct srio_dev *sd, struct sd_desc *desc)
 {
-	dma_unmap_single(dev, desc->phys, desc->size, dir);
-}
+	int i;
 
-void sd_desc_free (struct sd_desc *desc)
-{
-	kfree(desc->virt);
-	
-	desc->virt = NULL;
+	for ( i = SD_FIFO_SIZE; i < SD_DESC_SIZE; i++ )
+		if ( desc->virt[i] != 0xFFFFFFFF )
+		{
+			pr_err("%p: paint corruption at free, desc:\n", desc);
+			hexdump_buff(desc, sizeof(*desc));
+			break;
+		}
+
 	desc->phys = 0;
-	desc->size = 0;
 	desc->used = 0;
 	desc->offs = 0;
-
 	if ( !list_empty(&desc->list) )
 		list_del_init(&desc->list);
+
+	kmem_cache_free(sd->desc_pool, desc);
 }
 
 
-void sd_desc_clean_ring (struct sd_desc *ring, int len, struct device *dev)
+int sd_desc_init (struct srio_dev *sd)
 {
-	int idx;
-
-	for ( idx = 0; idx < len; idx++ )
+	sd->desc_pool = kmem_cache_create("sd_desc_pool", sizeof(struct sd_desc),
+	                                  sizeof(uint32_t), SLAB_CACHE_DMA, NULL);
+	if ( !sd->desc_pool )
 	{
-		if ( ring[idx].phys )
-			sd_desc_unmap(&ring[idx], dev, DMA_DEV_TO_MEM);
-		sd_desc_free(&ring[idx]);
+		pr_err("kmem_cache_create failed\n");
+		return -ENOMEM;
 	}
-}
-
-int sd_desc_setup_ring (struct sd_desc *ring, int len, size_t size, gfp_t flags,
-                        struct device *dev, int rx_dma)
-{
-	int  idx, ret;
-
-	for ( idx = 0; idx < len; idx++ )
-		if ( (ret = sd_desc_alloc(&ring[idx], size, flags)) )
-		{
-			pr_err("RX slot %d sd_desc_alloc() failed, stop\n", idx);
-			sd_desc_clean_ring(ring, idx - 1, dev);
-			return ret;
-		}
-		else if ( rx_dma && (ret = sd_desc_map(&ring[idx], dev, DMA_DEV_TO_MEM)) )
-		{
-			pr_err("RX slot %d sd_desc_map() failed, stop\n", idx);
-			sd_desc_clean_ring(ring, idx - 1, dev);
-			return ret;
-		}
 
 	return 0;
 }
 
+
+void sd_desc_exit (struct srio_dev *sd)
+{
+	kmem_cache_destroy(sd->desc_pool);
+}
 
 

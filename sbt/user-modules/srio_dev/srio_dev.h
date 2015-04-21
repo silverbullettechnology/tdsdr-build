@@ -43,12 +43,8 @@ struct srio_dev
 	struct rio_ops     ops;
 
 	struct sd_fifo    *init_fifo;
-	struct sd_desc    *init_ring;
-	u32                init_size;
-
 	struct sd_fifo    *targ_fifo;
-	struct sd_desc    *targ_ring;
-	u32                targ_size;
+	struct kmem_cache *desc_pool;
 
 	uint32_t           devid;
 

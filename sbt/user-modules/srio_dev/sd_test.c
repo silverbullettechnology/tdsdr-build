@@ -163,7 +163,7 @@ struct file_operations  sd_test_pattern_fops =
 
 static struct proc_dir_entry *sd_test_trigger_proc;
 static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size_t s,
-                                    loff_t *o)
+                                      loff_t *o)
 {
 	struct sd_desc *desc;
 
@@ -175,11 +175,14 @@ static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size
 		printk("sd_test_pattern %u invalid\n", sd_test_pattern);
 		return -EINVAL;
 	}
+	if ( sd_test_pattern_list[sd_test_pattern].size > SD_FIFO_SIZE )
+	{
+		printk("sd_test_pattern %u size %zu over limit %u\n", sd_test_pattern,
+		       sd_test_pattern_list[sd_test_pattern].size, SD_FIFO_SIZE);
+		return -EINVAL;
+	}
 
-	if ( !(desc = kzalloc(sizeof(*desc), GFP_KERNEL)) )
-		return -ENOMEM;
-
-	if ( sd_desc_alloc(desc, sd_test_pattern_list[sd_test_pattern].size, GFP_KERNEL) )
+	if ( !(desc = sd_desc_alloc(sd_test_dev, GFP_KERNEL)) )
 	{
 		kfree(desc);
 		return -ENOMEM;
