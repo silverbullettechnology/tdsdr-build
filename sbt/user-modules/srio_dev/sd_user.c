@@ -85,7 +85,7 @@ static void hexdump_line (const unsigned char *ptr, const unsigned char *org, in
 	}
 
 	for ( i = 0; i < len; i++ )
-		*p++ = isprint(ptr[i]) ? ptr[i] : '.';
+		*p++ = (ptr[i] > 31 && ptr[i] < 127) ? ptr[i] : '.';
 	*p = '\0';
 
 	pr_debug("%s\n", buff);

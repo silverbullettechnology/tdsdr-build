@@ -151,7 +151,12 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	BUG_ON(list_empty(&sf->tx.queue));
+	if ( list_empty(&sf->tx.queue) )
+	{
+		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
+		sd_fifo_reset(sf, SD_FR_TX);
+		return;
+	}
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
 	sf->tx.stats.completes++;
@@ -199,7 +204,12 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	struct dma_async_tx_descriptor *xfer;
 	struct sd_desc                 *desc;
 
-	BUG_ON(list_empty(&sf->tx.queue));
+	if ( list_empty(&sf->tx.queue) )
+	{
+		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
+		sd_fifo_reset(sf, SD_FR_TX);
+		return;
+	}
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
 	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", sf->name,
@@ -255,7 +265,12 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	uint32_t        tdfv;
 
 	/* no reason to ever be here with an empty TX queue */
-	BUG_ON(list_empty(&sf->tx.queue));
+	if ( list_empty(&sf->tx.queue) )
+	{
+		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
+		sd_fifo_reset(sf, SD_FR_TX);
+		return;
+	}
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
@@ -304,7 +319,12 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	BUG_ON(list_empty(&sf->tx.queue));
+	if ( list_empty(&sf->tx.queue) )
+	{
+		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
+		sd_fifo_reset(sf, SD_FR_TX);
+		return;
+	}
 	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
 
 	pr_debug("%s: %zu used:\n", sf->name, desc->used);
