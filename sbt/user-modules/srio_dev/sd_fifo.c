@@ -134,13 +134,11 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask)
 		REG_RMW(&sf->regs->ier, RFPE|RFPF|RRC|RC|TC|RPUE|RPORE|RPURE, RRC);
 		sf->rx.stats.resets++;
 
-		// FIXME: this should be sd_desc_free(sf->rx.curr); eventually
-		if ( !list_empty(&sf->rx.queue) )
+		if ( sf->rx_current )
 		{
-			struct sd_desc *desc = container_of(sf->rx.queue.next, struct sd_desc, list);
-			sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
-			desc->offs = 0;
-			desc->used = 0;
+			sd_fifo_unmap(sf, sf->rx_current, DMA_DEV_TO_MEM);
+			sd_desc_free(sf->sd, sf->rx_current);
+			sf->rx_current = NULL;
 		}
 	}
 
@@ -165,13 +163,13 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	if ( list_empty(&sf->tx.queue) )
+	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 
 	sf->tx.stats.completes++;
 	REG_WRITE(&sf->regs->tlr, desc->used);
@@ -188,13 +186,13 @@ static void sd_fifo_tx_dma_complete (void *param)
 	struct sd_desc *desc;
 	unsigned long   flags;
 
-	if ( list_empty(&sf->tx.queue) )
+	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 	sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
 
 	spin_lock_irqsave(&sf->tx.lock, flags);
@@ -228,13 +226,13 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	struct dma_async_tx_descriptor *xfer;
 	struct sd_desc                 *desc;
 
-	if ( list_empty(&sf->tx.queue) )
+	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 
 	pr_debug("%s: set up DMA, %08x bytes from %08x to %08x...\n", sf->name,
 	         desc->used, desc->phys, sf->tx.phys);
@@ -289,13 +287,13 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	uint32_t        tdfv;
 
 	/* no reason to ever be here with an empty TX queue */
-	if ( list_empty(&sf->tx.queue) )
+	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
 	if ( !tdfv )
@@ -343,13 +341,13 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	if ( list_empty(&sf->tx.queue) )
+	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: TX queue empty?  Reset... TX\n", __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 
 	pr_debug("%s: %zu used:\n", sf->name, desc->used);
 	hexdump_buff(desc->virt, desc->used);
@@ -400,10 +398,10 @@ void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 
 	pr_debug("%s: lock...\n", sf->name);
 	spin_lock_irqsave(&sf->tx.lock, flags);
-	empty = list_empty(&sf->tx.queue);
+	empty = list_empty(&sf->tx_queue);
 	pr_debug("%s: desc %p append to %s list\n", sf->name,
 	         desc, empty ? "empty" : "non-empty");
-	list_add_tail(&desc->list, &sf->tx.queue);
+	list_add_tail(&desc->list, &sf->tx_queue);
 	pr_debug("%s: enqueued...\n", sf->name);
 
 	if ( empty )
@@ -448,7 +446,7 @@ static void sd_fifo_rx_dma_timeout (unsigned long param)
 	sf->rx.stats.timeouts++;
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
-	BUG_ON(list_empty(&sf->rx.queue));
+	BUG_ON(!sf->rx_current);
 
 	pr_err("%s: RX DMA timeout: reset RX path\n", sf->name);
 	dmaengine_terminate_all(sf->rx.chan);
@@ -469,8 +467,8 @@ static void sd_fifo_rx_dma_complete (void *param)
 	uint32_t        rlr;
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
-	BUG_ON(list_empty(&sf->rx.queue));
-	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
+	BUG_ON(!sf->rx_current);
+	desc = sf->rx_current;
 
 	del_timer(&sf->rx.timer);
 	pr_debug("%s: status %d\n", sf->name,
@@ -483,7 +481,7 @@ static void sd_fifo_rx_dma_complete (void *param)
 	 */
 	if ( desc->used )
 	{
-		list_del_init(&desc->list);
+		sf->rx_current = NULL;
 		sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
 
@@ -491,11 +489,9 @@ static void sd_fifo_rx_dma_complete (void *param)
 			sf->rx.func(sf, desc);
 		else
 		{
-			pr_debug("%s: RX complete:\n", sf->name);
+			pr_debug("%s: DMA RX complete:\n", sf->name);
 			hexdump_buff(desc->virt, desc->used);
-			desc->used = 0;
-			desc->offs = 0;
-			list_add_tail(&desc->list, &sf->rx.queue);
+			sd_desc_free(sf->sd, desc);
 		}
 
 		REG_RMW(&sf->regs->ier, 0, RFPF|RC);
@@ -539,10 +535,10 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	struct sd_desc                 *desc;
 	dma_addr_t                      phys;
 
-	BUG_ON(list_empty(&sf->rx.queue));
+	BUG_ON(!sf->rx_current);
 	BUG_ON(!size);
 
-	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
+	desc = sf->rx_current;
 	BUG_ON(desc->offs + size > SD_FIFO_SIZE);
 
 	/* setup dest within DMA buffer and advance offset for next chunk */
@@ -598,10 +594,10 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 	struct sd_desc *desc;
 	uint32_t       *walk;
 
-	BUG_ON(list_empty(&sf->rx.queue));
+	BUG_ON(!sf->rx_current);
 	BUG_ON(size & 0x03);
 
-	desc = container_of(sf->rx.queue.next, struct sd_desc, list);
+	desc = sf->rx_current;
 	walk = (desc->virt + desc->offs);
 	BUG_ON(desc->offs + size > SD_FIFO_SIZE);
 
@@ -613,39 +609,6 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 		size   -= sizeof(uint32_t);
 	}
 	sf->rx.stats.chunks++;
-}
-
-
-/** Enqueue an RX descriptor at the tail of the RX queue, so it's available for RX
- *
- *  \note  Takes &sf->rx.lock, caller should not hold the lock
- *
- *  \param  sf    Pointer to sd_fifo struct
- *  \param  desc  Pointer to sd_desc struct
- */
-void sd_fifo_rx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
-{
-	unsigned long  flags;
-	int            empty;
-
-	desc->used = 0;
-	desc->offs = 0;
- 
-	// FIXME: this needs to happen at each later sd_desc_alloc() in RX path
-	if ( sf->rx.chan && !desc->phys )
-	{
-		desc->phys = dma_map_single(sf->dev, desc->virt, desc->used, DMA_DEV_TO_MEM);
-		BUG_ON(!desc->phys);
-	}
-	pr_debug("%s: RX DMA mapped %p -> %08x\n", sf->name, desc->virt, desc->phys);
-
-	spin_lock_irqsave(&sf->rx.lock, flags);
-	empty = list_empty(&sf->rx.queue);
-	pr_debug("%s: desc %p append to %s list\n", sf->name,
-	         desc, empty ? "empty" : "non-empty");
-
-	list_add_tail(&desc->list, &sf->rx.queue);
-	spin_unlock_irqrestore(&sf->rx.lock, flags);
 }
 
 
@@ -681,7 +644,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 		REG_RMW(&sf->regs->ier, TRC, TFPE|TSE|TC|TPOE);
 
 		spin_lock_irqsave(&sf->tx.lock, flags);
-		if ( !list_empty(&sf->tx.queue) )
+		if ( !list_empty(&sf->tx_queue) )
 		{
 			pr_info("TRC: resuming pending TX\n");
 			sd_fifo_tx_start(sf);
@@ -698,14 +661,14 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	if ( isr & TC )
 	{
 		spin_lock_irqsave(&sf->tx.lock, flags);
-		if ( list_empty(&sf->tx.queue) )
+		if ( list_empty(&sf->tx_queue) )
 			pr_debug("TC: IRQ when not transmitting?\n");
 		else
 		{
 			int empty;
-			desc = container_of(sf->tx.queue.next, struct sd_desc, list);
+			desc = container_of(sf->tx_queue.next, struct sd_desc, list);
 			list_del_init(&desc->list);
-			empty = list_empty(&sf->tx.queue);
+			empty = list_empty(&sf->tx_queue);
 
 			pr_debug("TC: IRQ at end of TX desc %p, cleanup\n", desc);
 
@@ -723,7 +686,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 			}
 
 			/* start next TX if needed */
-			if ( !empty && !list_empty(&sf->tx.queue) )
+			if ( !empty && !list_empty(&sf->tx_queue) )
 			{
 				pr_debug("TC: start next queued\n");
 				sd_fifo_tx_start(sf);
@@ -743,7 +706,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	if ( isr & TFPE )
 	{
 		spin_lock_irqsave(&sf->tx.lock, flags);
-		if ( list_empty(&sf->tx.queue) )
+		if ( list_empty(&sf->tx_queue) )
 			pr_debug("TFPE: IRQ when not transmitting?\n");
 		else if ( sf->tx.chan )
 			pr_debug("TFPE: ignored when using DMA\n");
@@ -810,17 +773,33 @@ next:
 		 	         isr & RC   ? "RC "   : "",
 		 	         isr & RFPF ? "RFPF " : "",
 			         rep, rlr);
-#if 0
+
 			/* No current descriptor: alloc one from slab */
-			if ( !sf->rx.curr )
+			if ( !sf->rx_current )
 			{
-				int dma = sf->rx.chan ? DMA_DEV_TO_MEM : DMA_TRANS_NONE;
-				sf->rx.curr = sd_desc_alloc(sf->sd, GFP_ATOMIC, dma);
+				sf->rx_current = sd_desc_alloc(sf->sd, GFP_ATOMIC);
+				pr_debug("%s: rx_current now %p\n", sf->name,
+				         sf->rx_current);
+
+				if ( sf->rx_current )
+				{
+					desc = sf->rx_current;
+					if ( sf->rx.chan && !desc->phys )
+					{
+						desc->phys = dma_map_single(sf->dev, desc->virt,
+						                            sizeof(uint32_t) * SD_FIFO_SIZE,
+						                            DMA_DEV_TO_MEM);
+						BUG_ON(!desc->phys);
+						pr_debug("%s: RX DMA mapped %p -> %08x\n", sf->name,
+						         desc->virt, desc->phys);
+					}
+					else
+						pr_debug("%s: Skip RX DMA map\n", sf->name);
+				}
 			}
-#endif
 
 			/* queue empty: flush */
-			if ( list_empty(&sf->rx.queue) )
+			if ( !sf->rx_current )
 			{
 				uint32_t size = 0;
 				pr_err("RX ring full: flush\n");
@@ -846,7 +825,7 @@ next:
 			/* queue head valid: start (RFPF) or complete (RC) read */
 			else
 			{
-				desc = container_of(sf->rx.queue.next, struct sd_desc, list);
+				desc = sf->rx_current;
 				if ( !desc->offs )
 				{
 					pr_debug("RX desc %p: start\n", desc);
@@ -886,16 +865,18 @@ next:
 					 * IRQs still enabled.  For PIO, read the last block and dispatch. */
 					if ( sf->rx.chan )
 					{
+						pr_debug("%s: start RX DMA\n", sf->name);
 						REG_RMW(&sf->regs->ier, RFPE|RFPF|RC, 0);
 						sd_fifo_rx_dma(sf, rlr);
 					}
 					else
 					{
+						pr_debug("%s: start RX PIO\n", sf->name);
 						sd_fifo_rx_pio(sf, rlr);
 						REG_RMW(&sf->regs->ier, 0, RFPF|RC);
 
 						/* detach and dispatch */
-						list_del_init(&desc->list);
+						sf->rx_current = NULL;
 
 						/* unlock - caller may use _rx_enqueue to replenish the queue */
 						if ( sf->rx.func )
@@ -906,11 +887,9 @@ next:
 						}
 						else
 						{
-							pr_debug("%s: RX complete:\n", sf->name);
+							pr_debug("%s: PIO RX complete:\n", sf->name);
 							hexdump_buff(desc->virt, desc->used);
-							desc->used = 0;
-							desc->offs = 0;
-							list_add_tail(&desc->list, &sf->rx.queue);
+							sd_desc_free(sf->sd, desc);
 						}
 
 						sf->rx.stats.completes++;
@@ -926,7 +905,7 @@ next:
 						}
 					} /* if ( sf->rx.chan ) */
 				} /* if ( rlr & 0x80000000 ) */
-			} /* if ( list_empty(&sf->rx.queue) ) */
+			} /* if ( !sf->rx_current ) */
 		} /* if ( rlr & 0x7fffffff ) */
 
 		spin_unlock_irqrestore(&sf->rx.lock, flags);
@@ -1102,10 +1081,8 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 		sf->tx.phys = sf->phys + offsetof(struct sd_fifo_regs, tdfd);
 		pr_debug("%s: TDFD: %08x phys\n", sf->name, sf->tx.phys);
 	}
-	else
-		pr_debug("%s: Skip TX DMA setup per %s.\n", sf->name, name);
 
-	if ( dma & (0 << DMA_DEV_TO_MEM) )
+	if ( dma & (1 << DMA_DEV_TO_MEM) )
 	{
 		pr_debug("Try to setup DMA for RX dir...\n");
 		if ( sd_fifo_init_dma(&sf->rx, DMA_DEV_TO_MEM) )
@@ -1116,8 +1093,6 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 		sf->rx.phys = sf->phys + offsetof(struct sd_fifo_regs, rdfd);
 		pr_debug("%s: RDFD: %08x phys\n", sf->name, sf->rx.phys);
 	}
-	else
-		pr_debug("%s: Skip RX DMA setup per %s.\n", sf->name, name);
 
 	spin_lock_init(&sf->rx.lock);
 	spin_lock_init(&sf->tx.lock);
@@ -1125,8 +1100,8 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 	setup_timer(&sf->rx.timer, sd_fifo_rx_dma_timeout, (unsigned long)sf);
 	setup_timer(&sf->tx.timer, sd_fifo_tx_dma_timeout, (unsigned long)sf);
 
-	INIT_LIST_HEAD(&sf->rx.queue);
-	INIT_LIST_HEAD(&sf->tx.queue);
+	sf->rx_current = NULL;
+	INIT_LIST_HEAD(&sf->tx_queue);
 
 	/* Clear pending IRQs */
 	REG_WRITE(&sf->regs->isr, 0xFFFFFFFF);
@@ -1190,7 +1165,7 @@ void sd_fifo_free (struct sd_fifo *sf)
 
 	/* Free TX and RX queues */
 	pr_debug("%s: cleanup queues:\n", __func__);
-	list_for_each_safe(walk, temp, &sf->tx.queue)
+	list_for_each_safe(walk, temp, &sf->tx_queue)
     {
 		desc = container_of(walk, struct sd_desc, list);
 		list_del_init(&desc->list);
@@ -1198,14 +1173,8 @@ void sd_fifo_free (struct sd_fifo *sf)
 		sd_desc_free(sf->sd, desc);
 		pr_debug("  TX desc %p freed\n", desc);
 	}
-	list_for_each_safe(walk, temp, &sf->rx.queue)
-    {
-		desc = container_of(walk, struct sd_desc, list);
-		list_del_init(&desc->list);
-		sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
-		sd_desc_free(sf->sd, desc);
-		pr_debug("  RX desc %p freed\n", desc);
-	}
+	if ( sf->rx_current )
+		sd_desc_free(sf->sd, sf->rx_current);
 
 	kfree(sf);
 }

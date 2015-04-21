@@ -184,6 +184,11 @@ status="disabled";
 			/* Check this */
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
+
+			/* DMA enable mask: TX:2, RX:4 */
+			sbt,init-dma = <6>;
+			sbt,targ-dma = <6>;
+			sbt,shadow-dma = <0>;
 		};
 
 		leds_4bits: gpio@41200000 {

@@ -47,11 +47,9 @@
 static int sd_of_probe (struct platform_device *pdev)
 {
 	struct srio_dev       *sd;
-	struct sd_desc        *desc;
 	struct resource       *maint;
 	struct resource       *sys_regs;
 	int                    ret = 0;
-	int                    idx;
 
 
 	if ( !(maint = platform_get_resource_byname(pdev, IORESOURCE_MEM, "maint")) )
@@ -129,12 +127,6 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 	}
 	sd->init_fifo->sd = sd;
 
-	for ( idx = 0; idx < 8; idx++ )
-		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
-			sd_fifo_rx_enqueue(sd->init_fifo, desc);
-		else
-			goto init_fifo;
-
 	if ( !(sd->targ_fifo = sd_fifo_probe(pdev, "targ")) )
 	{
 		dev_err(&pdev->dev, "target fifo probe fail, stop\n");
@@ -142,12 +134,6 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		goto init_fifo;
 	}
 	sd->targ_fifo->sd = sd;
-
-	for ( idx = 0; idx < 8; idx++ )
-		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
-			sd_fifo_rx_enqueue(sd->targ_fifo, desc);
-		else
-			goto targ_fifo;
 
 
 #ifdef SHADOW_FIFO
@@ -158,12 +144,6 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		BUG();
 	}
 	sd->shadow_fifo->sd = sd;
-
-	for ( idx = 0; idx < 4; idx++ )
-		if ( (desc = sd_desc_alloc(sd, GFP_KERNEL)) )
-			sd_fifo_rx_enqueue(sd->shadow_fifo, desc);
-		else
-			BUG();
 #endif
 
 
@@ -171,7 +151,7 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 	{
 		pr_err("Settting up sd_test failed, stop\n");
 		ret = -EINVAL;
-		goto desc_init;
+		goto targ_fifo;
 	}
 
 #if 0

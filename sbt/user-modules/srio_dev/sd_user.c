@@ -180,8 +180,9 @@ void sd_user_recv_mbox (struct sd_desc *desc, int mbox)
 	}
 	spin_unlock_irqrestore(&lock, flags);
 
-	// return 0: desc consumed and can be reused, return !0: desc held for reassembly
-//	return 0;
+	// TODO: free this if it's a small message (single-descriptor), otherwise hold for
+	// reassembly
+	sd_desc_free(sd_user_dev, desc);
 }
 
 void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
@@ -233,6 +234,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 		}
 	}
 	spin_unlock_irqrestore(&lock, flags);
+	sd_desc_free(sd_user_dev, desc);
 }
 
 void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
@@ -282,6 +284,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 		}
 	}
 	spin_unlock_irqrestore(&lock, flags);
+	sd_desc_free(sd_user_dev, desc);
 }
 
 
@@ -298,7 +301,8 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 	if ( desc->used < 12 )
 	{
 		pr_err("Short message ignored\n");
-		goto done;
+		sd_desc_free(fifo->sd, desc);
+		return;
 	}
 
 	type = (hdr[2] >> 20) & 0x0F;
@@ -312,9 +316,9 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 				addr <<= 32;
 				addr  |= hdr[1];
 				sd_user_recv_swrite(desc, addr);
+				return;
 			}
-			else
-				pr_debug("SWRITE dropped: no users listening\n");
+			pr_debug("SWRITE dropped: no users listening\n");
 			break;
 
 		// SWRITE and DBELL: dispatch and requeue
@@ -323,18 +327,20 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 			{
 				uint16_t  info = hdr[1] >> 16;
 				sd_user_recv_dbell(desc, info);
+				return;
 			}
-			else
-				pr_debug("DBELL dropped: no users listening\n");
+			pr_debug("DBELL dropped: no users listening\n");
 			break;
 
 		// MESSAGE: descriptor held during reassembly, requeue when done
 		case 11: 
 			mbox = (hdr[1] >> 3) & 0x3F;
 			if ( mbox < RIO_MAX_MBOX && sd_user_dev->mbox_users[mbox] )
+			{
 				sd_user_recv_mbox(desc, mbox);
-			else 
-				pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
+				return;
+			}
+			pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
 			break;
 
 		default:
@@ -342,8 +348,7 @@ void sd_user_recv_mesg (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 			break;
 	}
 
-done:
-	sd_fifo_rx_enqueue(fifo, desc);
+	sd_desc_free(fifo->sd, desc);
 }
 
 

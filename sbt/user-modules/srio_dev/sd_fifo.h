@@ -100,7 +100,6 @@ struct sd_fifo_dir
 	dma_cookie_t          cookie;
 	struct timer_list     timer;
 	unsigned long         timeout;
-	struct list_head      queue;
 	struct sd_fifo_stats  stats;
 };
 
@@ -119,6 +118,9 @@ struct sd_fifo
 
 	struct sd_fifo_dir           rx;
 	struct sd_fifo_dir           tx;
+
+	struct sd_desc              *rx_current;
+	struct list_head             tx_queue;
 };
 
 
@@ -168,16 +170,6 @@ void sd_fifo_init_dir (struct sd_fifo_dir *fd, sd_callback func, unsigned long t
  *  \param  desc  Pointer to sd_desc struct
  */
 void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc);
-
-
-/** Enqueue an RX descriptor at the tail of the RX queue, so it's available for RX
- *
- *  \note  Takes &sf->rx.lock, caller should not hold the lock
- *
- *  \param  sf    Pointer to sd_fifo struct
- *  \param  desc  Pointer to sd_desc struct
- */
-void sd_fifo_rx_enqueue (struct sd_fifo *sf, struct sd_desc *desc);
 
 
 #endif /* _INCLUDE_SD_FIFO_H_ */

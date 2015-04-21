@@ -28,7 +28,7 @@ void sd_recv_init (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 	printk("%s: RX desc %p used %08x:\n", __func__, desc, desc->used);
 	hexdump_buff(desc->virt, desc->used);
-	sd_fifo_rx_enqueue(fifo, desc);
+	sd_desc_free(fifo->sd, desc);
 }
 
 
@@ -36,7 +36,7 @@ void sd_recv_targ (struct sd_fifo *fifo, struct sd_desc *desc)
 {
 	printk("%s: RX desc %p used %08x:\n", __func__, desc, desc->used);
 	hexdump_buff(desc->virt, desc->used);
-	sd_fifo_rx_enqueue(fifo, desc);
+	sd_desc_free(fifo->sd, desc);
 }
 
 
