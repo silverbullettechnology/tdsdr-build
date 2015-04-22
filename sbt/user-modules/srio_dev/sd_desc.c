@@ -45,6 +45,9 @@ void sd_desc_free (struct srio_dev *sd, struct sd_desc *desc)
 {
 	int i;
 
+	if ( !desc )
+		return;
+
 	for ( i = SD_FIFO_SIZE; i < SD_DESC_SIZE; i++ )
 		if ( desc->virt[i] != 0xFFFFFFFF )
 		{

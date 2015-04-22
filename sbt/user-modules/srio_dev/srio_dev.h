@@ -23,6 +23,7 @@
 #include <linux/rio.h>
 #include <linux/io.h>
 
+#include "sd_mbox.h"
 #include "sd_fifo.h"
 #include "sd_desc.h"
 
@@ -36,6 +37,17 @@
 #define SHADOW_FIFO 1
 
 
+struct sd_mbox_reasm
+{
+	uint16_t        bits;
+	uint16_t        num;
+	uint16_t        len;
+	uint16_t        last;
+	struct sd_mesg *mesg;
+	// TODO: timer
+};
+
+
 struct srio_dev
 {
 	struct device     *dev;
@@ -47,6 +59,8 @@ struct srio_dev
 	struct kmem_cache *desc_pool;
 
 	uint32_t           devid;
+
+	struct sd_mbox_reasm  mbox_reasm[RIO_MAX_MBOX][4];
 
 	/* RX MESSAGE (type 11): number of listeners and reassembly cache */
 	int                mbox_users[RIO_MAX_MBOX];

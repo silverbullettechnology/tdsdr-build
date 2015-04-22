@@ -20,19 +20,16 @@
 #include <linux/kernel.h>
 #include <linux/rio.h>
 
+
 #include "srio_dev.h"
-#include "sd_desc.h"
+
 #include "sd_mesg.h"
 #include "sd_fifo.h"
+#include "sd_desc.h"
 
 
-struct sd_mbox_reasm
-{
-	struct sd_desc *frag[16];
-};
 
-
-struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc);
+struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int mbox);
 
 
 int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *mesg);

@@ -24,27 +24,11 @@
 #include <linux/platform_device.h>
 
 
-#include "srio_dev.h"
-#include "sd_desc.h"
-
-
 /** Bits for sd_fifo_reset mask parameter */
 #define SD_FR_TX  1
 #define SD_FR_RX  2
 #define SD_FR_SRR 4
 #define SD_FR_ALL 7
-
-
-/* FIFO config, filled in by xparameters for memory addresses and IRQ numbers, passed to
- * sd_fifo_init().  Temporary, to be replaced by a device-tree child node in the end */
-struct sd_fifo_config
-{
-	resource_size_t  regs;
-	resource_size_t  data;
-	int              irq;
-	int              dma;
-};
-extern struct sd_fifo_config sd_dsxx_fifo_cfg;
 
 
 /* AXI4-Stream FIFO registers */
@@ -71,7 +55,9 @@ struct sd_fifo_regs
 };
 
 
+struct srio_dev;
 struct sd_fifo;
+struct sd_desc;
 
 
 /* Callback: each desc will be detached from its queue on TX or RX complete and passed to

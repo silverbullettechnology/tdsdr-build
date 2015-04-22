@@ -288,9 +288,8 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 static const char *fifo_name[2] = { "targ", "init" };
 void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 {
-	uint32_t *hdr = desc->virt;
-	int       mbox;
-	int       type;
+	int  mbox;
+	int  type;
 
 	pr_debug("RX %zu bytes on %s fifo\n", desc->used, fifo_name[init]);
 	hexdump_buff(desc->virt, desc->used);
@@ -302,16 +301,16 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		return;
 	}
 
-	type = (hdr[2] >> 20) & 0x0F;
+	type = (desc->virt[2] >> 20) & 0x0F;
 	switch ( type )
 	{
 		// SWRITE: parse/dispatch if users registered
 		case 6:
 			if ( sd_user_dev->swrite_users )
 			{
-				uint64_t  addr = hdr[2] & 3;
+				uint64_t  addr = desc->virt[2] & 3;
 				addr <<= 32;
-				addr  |= hdr[1];
+				addr  |= desc->virt[1];
 				sd_user_recv_swrite(desc, addr);
 				return;
 			}
@@ -322,7 +321,7 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		case 10:
 			if ( sd_user_dev->dbell_users )
 			{
-				uint16_t  info = hdr[1] >> 16;
+				uint16_t  info = desc->virt[1] >> 16;
 				sd_user_recv_dbell(desc, info);
 				return;
 			}
@@ -332,11 +331,11 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		// MESSAGE: reassembly done by sd_mbox_reasm(), returns NULL while reassembling
 		// the message, or an sd_mesg for dispatch to users when complete.
 		case 11: 
-			mbox = (hdr[1] >> 3) & 0x3F;
+			mbox = (desc->virt[1] >> 3) & 0x3F;
 			if ( mbox < RIO_MAX_MBOX && sd_user_dev->mbox_users[mbox] )
 			{
 				struct sd_mesg *mesg;
-				if ( (mesg = sd_mbox_reasm(fifo, desc)) )
+				if ( (mesg = sd_mbox_reasm(fifo, desc, mbox)) )
 					sd_user_recv_mbox(mesg, mbox);
 				return;
 			}
@@ -533,7 +532,6 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 {
 	struct sd_mesg *mesg;
 	struct sd_desc *desc[16];
-	u32            *hdr;
 	int             size = s;
 	int             num = 1;
 	int             ret = s;
@@ -559,14 +557,13 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	}
 
 	// TUSER word, then HELLO header (see PG007 Fig 3-1)
-	hdr = (u32 *)desc[0]->virt;
-	hdr[0] = (mesg->src_addr << 16) | mesg->dst_addr;
+	desc[0]->virt[0] = (mesg->src_addr << 16) | mesg->dst_addr;
 	switch ( mesg->type )
 	{
 		case 6: // SWRITE
-			hdr[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
-			hdr[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
-			hdr[2] |= 0x00600000;
+			desc[0]->virt[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
+			desc[0]->virt[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
+			desc[0]->virt[2] |= 0x00600000;
 			size -= offsetof(struct sd_mesg,        mesg) +
 			        offsetof(struct sd_mesg_swrite, data);
 			if ( size > (sizeof(uint32_t) * SD_DATA_SIZE) )
@@ -579,8 +576,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		case 10: // DBELL
-			hdr[1] = mesg->mesg.dbell.info << 16;
-			hdr[2] = 0x00A00000; // TODO: TID
+			desc[0]->virt[1] = mesg->mesg.dbell.info << 16;
+			desc[0]->virt[2] = 0x00A00000; // TODO: TID
 			desc[0]->used = 12;
 			break;
 

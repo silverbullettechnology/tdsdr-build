@@ -59,10 +59,11 @@ struct sd_mesg *sd_mesg_alloc (int type, size_t size, gfp_t flags)
 			return NULL;
 	}
 
-	if ( !(mesg = kzalloc(size, flags)) )
+	if ( !(mesg = kmalloc(size, flags)) )
 		return NULL;
 
-	mesg->type = size;
+	memset(mesg, 0xFE, size);
+	mesg->type = type;
 	mesg->size = size;
 
 	return mesg;
