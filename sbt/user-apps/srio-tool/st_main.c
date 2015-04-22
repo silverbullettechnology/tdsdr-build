@@ -98,13 +98,28 @@ static void hexdump_buff (const void *buf, int len)
 {
 	const unsigned char *org = buf;
 	const unsigned char *ptr = buf;
+	unsigned char        dup[16];
+	int                  sup = 0;
 
 	while ( len >= 16 )
 	{
-		hexdump_line(ptr, org, 16);
+		if ( memcmp(dup, ptr, 16) )
+		{
+			if ( sup )
+			{
+				printf("* (%d duplicates)\n", sup);
+				sup = 0;
+			}
+			hexdump_line(ptr, org, 16);
+			memcpy(dup, ptr, 16);
+		}
+		else
+			sup++;
 		ptr += 16;
 		len -= 16;
 	}
+	if ( sup )
+		printf("* (%d duplicates)\n", sup);
 	if ( len )
 		hexdump_line(ptr, org, len);
 }
@@ -124,7 +139,7 @@ void usage (void)
 
 void menu (void)
 {
-	printf("Commands understood:\n"
+	printf("\nCommands understood:\n"
 	       "Q - exit\n"
 	       "R - Reset SRIO core\n"
 		   "1 - Send a short SWRITE\n"
@@ -237,19 +252,14 @@ int main (int argc, char **argv)
 		FD_SET(dev, &rfds);
 		mfda = dev;
 
-		tv_cur.tv_sec  = 1;
-		tv_cur.tv_usec = 990000;
+		tv_cur.tv_sec  = 0;
+		tv_cur.tv_usec = 125000;
 		errno = 0;
 		if ( (sel = select(mfda + 1, &rfds, NULL, NULL, &tv_cur)) < 0 )
 		{
 			if ( errno != EINTR )
 				fprintf(stderr, "select: %s: stop\n", strerror(errno));
 			break;
-		}
-		else if ( !sel )
-		{
-//			printf("Idling\n");
-			continue;
 		}
 
 		if ( ioctl(dev, SD_USER_IOCG_STATUS, &curr_status) )
@@ -265,6 +275,9 @@ int main (int argc, char **argv)
 				       desc_status(diff_status & prev_status));
 			prev_status = curr_status;
 		}
+
+		if ( !sel )
+			continue;
 
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
@@ -372,7 +385,7 @@ int main (int argc, char **argv)
 					swrite->data[0] = 0x12345678;
 					swrite->data[1] = 0x87654321;
 					size = sizeof(uint32_t) * 2;
-					printf("SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
+					printf("\nSEND: SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
 					hexdump_buff(swrite->data, size);
 					size += offsetof(struct sd_mesg_swrite, data);
 					size += offsetof(struct sd_mesg,        mesg);
@@ -382,7 +395,7 @@ int main (int argc, char **argv)
 					mesg->type = 10;
 					dbell->info = opt_dbell_send++;
 					size  = sizeof(struct sd_mesg_dbell);
-					printf("DBELL w/ info %04x\n", dbell->info);
+					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
 					size += offsetof(struct sd_mesg, mesg);
 					break;
 
@@ -393,7 +406,7 @@ int main (int argc, char **argv)
 					mbox->data[0] = 0x55AA55AA;
 					mbox->data[1] = 0x5A5A5A5A;
 					size = sizeof(uint32_t) * 2;
-					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
 					size += offsetof(struct sd_mesg_mbox, data);
@@ -405,7 +418,7 @@ int main (int argc, char **argv)
 					dbell->info = 0xFFF0;
 					size  = sizeof(struct sd_mesg_dbell) + 
 					        offsetof(struct sd_mesg, mesg);
-					printf("DBELL w/ info %04x\n", dbell->info);
+					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
 					break;
 
 				case '5':
@@ -415,7 +428,7 @@ int main (int argc, char **argv)
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA, 128);
 					size = 384;
-					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
 					size += offsetof(struct sd_mesg_mbox, data);
@@ -430,11 +443,17 @@ int main (int argc, char **argv)
 					memset(&mbox->data[ 64], 0xAA, 256);
 					memset(&mbox->data[128], 0x55, 128);
 					size = 640;
-					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
 					size += offsetof(struct sd_mesg_mbox, data);
 					size += offsetof(struct sd_mesg,      mesg);
+					break;
+
+				case 'r':
+					printf("\nRESET SRIO core...\n");
+					if ( ioctl(dev, SD_USER_IOCS_SRIO_RESET, 0) )
+						perror("SD_USER_IOCS_SRIO_RESET");
 					break;
 
 				case 'q':

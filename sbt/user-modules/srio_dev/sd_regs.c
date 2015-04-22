@@ -47,6 +47,11 @@ void sd_regs_srio_reset (struct srio_dev *sd)
 	msleep(10);
 }
 
+unsigned sd_regs_srio_status (struct srio_dev *sd)
+{
+	return REG_READ(&sd->sys_regs->stat);
+}
+
 
 size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 {
@@ -62,7 +67,7 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 	p += scnprintf(p, e - p, "  gt_txpostcursor: %u\n", (v & CTRL_GT_TXPOSTCURSOR) >> 14);
 	p += scnprintf(p, e - p, "  gt_rxlpmen     : %u\n", (v & CTRL_GT_RXLPMEN     ) >> 19);
 
-	v = REG_READ(&sd->sys_regs->stat);
+	v = sd_regs_srio_status(sd);
 	p += scnprintf(p, e - p, "\nstatus:\n");
 	p += scnprintf(p, e - p, "  srio_link_initialized: %u\n", (v & STAT_SRIO_LINK_INITIALIZED)      );
 	p += scnprintf(p, e - p, "  srio_port_initialized: %u\n", (v & STAT_SRIO_PORT_INITIALIZED) >>  1);

@@ -91,6 +91,7 @@ struct sd_sys_reg
 
 
 void sd_regs_srio_reset (struct srio_dev *sd);
+unsigned sd_regs_srio_status (struct srio_dev *sd);
 
 void sd_regs_set_gt_loopback     (struct srio_dev *sd, unsigned mode);
 void sd_regs_set_gt_diffctrl     (struct srio_dev *sd, unsigned val);

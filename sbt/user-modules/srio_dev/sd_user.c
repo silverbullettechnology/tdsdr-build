@@ -37,6 +37,10 @@
 #include "sd_user.h"
 
 
+//#define pr_trace pr_debug
+#define pr_trace(...) do{ }while(0)
+
+
 /******* Static vars *******/
 
 static struct miscdevice  mdev;
@@ -630,7 +634,7 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	if ( _IOC_TYPE(cmd) != MAGIC_SD_USER )
 		return -EINVAL;
 
-	printk("%s(f, cmd %x, arg %lx)\n", __func__, cmd, arg);
+	pr_trace("%s(f, cmd %x, arg %lx)\n", __func__, cmd, arg);
 
 	switch ( cmd )
 	{
@@ -736,8 +740,8 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			return 0;
 
 		case SD_USER_IOCG_STATUS:
-			val = REG_READ(&sd_user_dev->sys_regs->ctrl);
-			pr_debug("SD_USER_IOCG_STATUS: %08lx\n", val);
+			val = sd_regs_srio_status(sd_user_dev);
+			pr_trace("SD_USER_IOCG_STATUS: %08lx\n", val);
 			return put_user(val, (unsigned long *)arg);
 
 		case SD_USER_IOCG_GT_LOOPBACK:
