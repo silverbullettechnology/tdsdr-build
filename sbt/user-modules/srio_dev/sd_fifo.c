@@ -370,38 +370,49 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 }
 
 
-/** Enqueue a TX descriptor at the tail of the TX queue, and start TX if the queue was
- *  empty
+/** Enqueue a burst of TX descriptors to the tail of the TX queue, and start TX if the
+ *  queue was empty
  *
  *  \note  Takes &sf->tx.lock, caller should not hold the lock
  *
  *  \param  sf    Pointer to sd_fifo struct
- *  \param  desc  Pointer to sd_desc struct
+ *  \param  desc  Array of sd_desc struct pointers
+ *  \param  num   Length of descriptor pointer array
  */
-void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
+void sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 {
 	unsigned long  flags;
 	int            empty;
+	int            idx;
 
 	/* alignment check - maybe pad later instead? */
-	BUG_ON(desc->used & 0x03);
-	BUG_ON(!desc->virt);
-	BUG_ON(!desc->used);
-	if ( sf->tx.chan && !desc->phys )
+	for ( idx = 0; idx < num; idx++ )
 	{
-		desc->phys = dma_map_single(sf->dev, desc->virt, desc->used, DMA_MEM_TO_DEV);
-		BUG_ON(!desc->phys);
-	}
-	pr_debug("%s: TX DMA mapped %p -> %08x\n", sf->name, desc->virt, desc->phys);
+		BUG_ON(desc[idx]->used & 0x03);
+		BUG_ON(!desc[idx]->virt);
+		BUG_ON(!desc[idx]->used);
+		if ( sf->tx.chan && !desc[idx]->phys )
+		{
+			desc[idx]->phys = dma_map_single(sf->dev, desc[idx]->virt, desc[idx]->used,
+			                                 DMA_MEM_TO_DEV);
+			BUG_ON(!desc[idx]->phys);
+		}
+		pr_debug("%s: desc %p TX DMA mapped %p -> %08x\n", sf->name,
+		         desc[idx], desc[idx]->virt, desc[idx]->phys);
 
-	desc->offs = 0;
+		desc[idx]->offs = 0;
+	}
 
 	pr_debug("%s: lock...\n", sf->name);
 	spin_lock_irqsave(&sf->tx.lock, flags);
 	empty = list_empty(&sf->tx_queue);
-	pr_debug("%s: desc %p append to %s list\n", sf->name,
-	         desc, empty ? "empty" : "non-empty");
-	list_add_tail(&desc->list, &sf->tx_queue);
+	pr_debug("%s: append %d descs to %s list\n", sf->name,
+	         num, empty ? "empty" : "non-empty");
+	for ( idx = 0; idx < num; idx++ )
+	{
+		pr_debug("%s: desc %p...\n", sf->name, desc[idx]);
+		list_add_tail(&desc[idx]->list, &sf->tx_queue);
+	}
 	pr_debug("%s: enqueued...\n", sf->name);
 
 	if ( empty )
@@ -539,7 +550,7 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size)
 	BUG_ON(!size);
 
 	desc = sf->rx_current;
-	BUG_ON(desc->offs + size > SD_FIFO_SIZE);
+	BUG_ON(desc->offs + size > sizeof(uint32_t) * SD_FIFO_SIZE);
 
 	/* setup dest within DMA buffer and advance offset for next chunk */
 	phys = desc->phys + desc->offs;
@@ -599,7 +610,7 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 
 	desc = sf->rx_current;
 	walk = (desc->virt + desc->offs);
-	BUG_ON(desc->offs + size > SD_FIFO_SIZE);
+	BUG_ON(desc->offs + size > sizeof(uint32_t) * SD_FIFO_SIZE);
 
 	pr_debug("%s: size %08x, offs %08x\n", sf->name, size, desc->offs);
 	desc->offs += size;
@@ -640,7 +651,6 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	{
 		pr_info("TRC: resume normal service\n");
 		isr &= ~TFPE;
-//		isr &= ~(TFPE | TC);
 		REG_RMW(&sf->regs->ier, TRC, TFPE|TSE|TC|TPOE);
 
 		spin_lock_irqsave(&sf->tx.lock, flags);

@@ -26,46 +26,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#include "sd_mesg.h"
+
 
 #define  SD_USER_DEV_NODE  "srio"
-
-
-struct sd_user_mesg_mbox
-{
-	int       mbox;
-	int       letter;
-	uint32_t  data[0];
-};
-
-struct sd_user_mesg_swrite
-{
-	uint64_t  addr;
-	uint32_t  data[0];
-};
-
-struct sd_user_mesg_dbell
-{
-	uint16_t  info;
-};
-
-struct sd_user_mesg
-{
-	int       type;
-	size_t    size;
-	uint16_t  dst_addr;
-	uint16_t  src_addr;
-	uint32_t  hello[2];
-
-	union
-	{
-		struct sd_user_mesg_mbox    mbox;
-		struct sd_user_mesg_dbell   dbell;
-		struct sd_user_mesg_swrite  swrite;
-		char                        data[0];
-	}
-	mesg;
-
-};
 
 
 #define MAGIC_SD_USER 1

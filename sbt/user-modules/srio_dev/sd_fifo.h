@@ -161,6 +161,18 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask);
 void sd_fifo_init_dir (struct sd_fifo_dir *fd, sd_callback func, unsigned long timeout);
 
 
+/** Enqueue a burst of TX descriptors to the tail of the TX queue, and start TX if the
+ *  queue was empty
+ *
+ *  \note  Takes &sf->tx.lock, caller should not hold the lock
+ *
+ *  \param  sf    Pointer to sd_fifo struct
+ *  \param  desc  Array of sd_desc struct pointers
+ *  \param  num   Length of descriptor pointer array
+ */
+void sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num);
+
+
 /** Enqueue a TX descriptor at the tail of the TX queue, and start TX if the queue was
  *  empty
  *
@@ -169,7 +181,10 @@ void sd_fifo_init_dir (struct sd_fifo_dir *fd, sd_callback func, unsigned long t
  *  \param  sf    Pointer to sd_fifo struct
  *  \param  desc  Pointer to sd_desc struct
  */
-void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc);
+static inline void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
+{
+	sd_fifo_tx_burst(sf, &desc, 1);
+}
 
 
 #endif /* _INCLUDE_SD_FIFO_H_ */
