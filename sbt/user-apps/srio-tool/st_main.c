@@ -30,6 +30,7 @@
 #include <getopt.h>
 
 #include "sd_user.h"
+#include "sd_mesg.h"
 
 #include "srio-tool.h"
 
@@ -37,12 +38,12 @@
 
 char *argv0;
 
-struct sd_user_mesg        *mesg;
-struct sd_user_mesg_mbox   *mbox;
-struct sd_user_mesg_swrite *swrite;
-struct sd_user_mesg_dbell  *dbell;
+struct sd_mesg        *mesg;
+struct sd_mesg_mbox   *mbox;
+struct sd_mesg_swrite *swrite;
+struct sd_mesg_dbell  *dbell;
 
-uint32_t  buff[1024];
+uint32_t  buff[8192];
 int       size;
 
 uint16_t  opt_loc_addr = 2;
@@ -129,7 +130,9 @@ void menu (void)
 		   "1 - Send a short SWRITE\n"
 		   "2 - Send a DBELL\n"
 		   "3 - Send a short MESSAGE\n"
-		   "4 - Ping peer with a DBELL\n\n");
+		   "4 - Ping peer with a DBELL\n"
+		   "5 - Send a 2-frag MESSAGE (384 bytes)\n"
+		   "6 - Send a 3-frag MESSAGE (640 bytes)\n\n");
 }
 
 
@@ -221,7 +224,7 @@ int main (int argc, char **argv)
 	uint64_t         send_ns, recv_ns, diff_ns;
 	uint32_t         curr_status, diff_status;
 
-	mesg   = (struct sd_user_mesg *)buff;
+	mesg   = (struct sd_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
 	swrite = &mesg->mesg.swrite;
 	dbell  = &mesg->mesg.dbell;
@@ -275,7 +278,7 @@ int main (int argc, char **argv)
 			}
 			printf("\nRECV %d bytes: ", size);
 
-			if ( size >= offsetof(struct sd_user_mesg, mesg) )
+			if ( size >= offsetof(struct sd_mesg, mesg) )
 			{
 				printf("type %d, %02x->%02x hello %08x.%08x: ",
 				       mesg->type, mesg->src_addr, mesg->dst_addr,
@@ -284,8 +287,8 @@ int main (int argc, char **argv)
 				switch ( mesg->type )
 				{
 					case 6:
-						size -= offsetof(struct sd_user_mesg,        mesg);
-						size -= offsetof(struct sd_user_mesg_swrite, data);
+						size -= offsetof(struct sd_mesg,        mesg);
+						size -= offsetof(struct sd_mesg_swrite, data);
 						printf("SWRITE to %09llx, payload %d:\n", swrite->addr, size);
 						hexdump_buff(swrite->data, size);
 						break;
@@ -327,8 +330,8 @@ int main (int argc, char **argv)
 						break;
 
 					case 11:
-						size -= offsetof(struct sd_user_mesg,      mesg);
-						size -= offsetof(struct sd_user_mesg_mbox, data);
+						size -= offsetof(struct sd_mesg,      mesg);
+						size -= offsetof(struct sd_mesg_mbox, data);
 						printf("MESSAGE, mbox %d, letter %d, payload %d:\n",
 						       mbox->mbox, mbox->letter, size);
 						hexdump_buff(mbox->data, size);
@@ -371,16 +374,16 @@ int main (int argc, char **argv)
 					size = sizeof(uint32_t) * 2;
 					printf("SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
 					hexdump_buff(swrite->data, size);
-					size += offsetof(struct sd_user_mesg_swrite, data);
-					size += offsetof(struct sd_user_mesg,        mesg);
+					size += offsetof(struct sd_mesg_swrite, data);
+					size += offsetof(struct sd_mesg,        mesg);
 					break;
 
 				case '2':
 					mesg->type = 10;
 					dbell->info = opt_dbell_send++;
-					size  = sizeof(struct sd_user_mesg_dbell);
+					size  = sizeof(struct sd_mesg_dbell);
 					printf("DBELL w/ info %04x\n", dbell->info);
-					size += offsetof(struct sd_user_mesg, mesg);
+					size += offsetof(struct sd_mesg, mesg);
 					break;
 
 				case '3':
@@ -393,16 +396,45 @@ int main (int argc, char **argv)
 					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_user_mesg_mbox, data);
-					size += offsetof(struct sd_user_mesg,      mesg);
+					size += offsetof(struct sd_mesg_mbox, data);
+					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '4':
 					mesg->type = 10;
 					dbell->info = 0xFFF0;
-					size  = sizeof(struct sd_user_mesg_dbell) + 
-					        offsetof(struct sd_user_mesg, mesg);
+					size  = sizeof(struct sd_mesg_dbell) + 
+					        offsetof(struct sd_mesg, mesg);
 					printf("DBELL w/ info %04x\n", dbell->info);
+					break;
+
+				case '5':
+					mesg->type = 11;
+					mbox->mbox   = opt_mbox_send;
+					mbox->letter = opt_mbox_letter;
+					memset(&mbox->data[  0], 0x55, 256);
+					memset(&mbox->data[ 64], 0xAA, 128);
+					size = 384;
+					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					       opt_mbox_send, opt_mbox_letter, size);
+					hexdump_buff(mbox->data, size);
+					size += offsetof(struct sd_mesg_mbox, data);
+					size += offsetof(struct sd_mesg,      mesg);
+					break;
+
+				case '6':
+					mesg->type = 11;
+					mbox->mbox   = opt_mbox_send;
+					mbox->letter = opt_mbox_letter;
+					memset(&mbox->data[  0], 0x55, 256);
+					memset(&mbox->data[ 64], 0xAA, 256);
+					memset(&mbox->data[128], 0x55, 128);
+					size = 640;
+					printf("MESSAGE to mbox %d, letter %d, payload %d:\n",
+					       opt_mbox_send, opt_mbox_letter, size);
+					hexdump_buff(mbox->data, size);
+					size += offsetof(struct sd_mesg_mbox, data);
+					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case 'q':
