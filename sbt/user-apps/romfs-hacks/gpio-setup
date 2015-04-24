@@ -1,0 +1,4 @@
+#PS	HD	HV	Net
+99	out	lo	DC1_SWITCH_CTRL
+107	out	hi	SRIO_PCIE_SEL
+

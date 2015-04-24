@@ -165,19 +165,19 @@ status="disabled";
 			compatible = "sbt,srio-dev";
 
 			reg = <
-				0x50000000 0x01000000  /* Maintanence port */
-				0x43C00000 0x00010000  /* Initiator FIFO Regs */
-				0x43C10000 0x00010000  /* Initiator FIFO Data */
-				0x43C20000 0x00010000  /* Target FIFO Regs */
-				0x43C30000 0x00010000  /* Target FIFO Data */
-				0x83C00000 0x00010000  /* Misc SYS_REG */
-				0x43C40000 0x00010000  /* Target FIFO Regs */
-				0x43C50000 0x00010000  /* Target FIFO Data */
+				0x83C40000 0x00010000  /* Maintanence port */
+				0x83C00000 0x00010000  /* Initiator FIFO Regs */
+				0x83C10000 0x00010000  /* Initiator FIFO Data */
+				0x83C20000 0x00010000  /* Target FIFO Regs */
+				0x83C30000 0x00010000  /* Target FIFO Data */
+				0x43C00000 0x00010000  /* Misc SYS_REG */
+				0x83C50000 0x00010000  /* Shadow FIFO Regs */
+				0x83C60000 0x00010000  /* Shadow FIFO Data */
 			>;
 			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
 			            "sys-regs", "shadow-regs", "shadow-data";
 
-			interrupts       = < 0 29 4  0 30 4  0 31 4 >;
+			interrupts       = < 0 34 4  0 35 4  0 36 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupt-names  = "init-irq", "targ-irq", "shadow-irq";
 
@@ -529,15 +529,14 @@ status="disabled";
 		} ;
 
 		spi1 {
-status="disabled";
 			bus-num = <1>;
 			compatible = "spi-gpio";
 			#address-cells = <0x1>;
 			ranges;
 
-			gpio-sck  = < &ps7_gpio_0 91 0 >;
-			gpio-mosi = < &ps7_gpio_0 90 0 >;
-			gpio-miso = < &ps7_gpio_0 89 0 >;
+			gpio-sck  = < &ps7_gpio_0 102 0 >;
+			gpio-mosi = < &ps7_gpio_0 101 0 >;
+			gpio-miso = < &ps7_gpio_0 100 0 >;
 			cs-gpios  = <
 				&ps7_gpio_0 74 0
 				&ps7_gpio_0 75 0
@@ -545,7 +544,7 @@ status="disabled";
 				&ps7_gpio_0 77 0
 				&ps7_gpio_0 78 0
 			>;
-			num-chipselects = <2>;
+			num-chipselects = <5>;
 
 			spidev@0 {
 				compatible = "spidev";
@@ -575,7 +574,6 @@ status="disabled";
 		};
 
 		spi2: spi@e0006000 {
-status="disabled";
 			bus-num = <2>;
 
 			compatible = "spi-gpio";
@@ -1046,6 +1044,17 @@ status="disabled";
 				}; // ad2
 
 			}; // spi_shim_2_0
+
+			spidev@2 {
+				compatible = "spidev";
+				spi-max-frequency = <2600000>;
+				reg = <2>;
+			};
+			spidev@3 {
+				compatible = "spidev";
+				spi-max-frequency = <2600000>;
+				reg = <3>;
+			};
 
 		}; // spi2
 	} ;

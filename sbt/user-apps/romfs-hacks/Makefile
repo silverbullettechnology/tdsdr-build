@@ -41,7 +41,9 @@ ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
 			$(ROMFSDIR)/lib/firmware/freertos; \
 	fi
 endif
-	install -m755 srio-loop-test.sh $(ROMFSDIR)/bin
+	install -m755 gpio-setup.sh  $(ROMFSDIR)/etc/init.d/gpio-setup
+	ln -sv ../init.d/gpio-setup  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
+	install -m644 gpio-setup     $(ROMFSDIR)/etc
 
 image: 
 	echo image
