@@ -72,6 +72,7 @@ struct sd_user_mesg
 
 
 
+#ifdef DEBUG
 static void hexdump_line (const unsigned char *ptr, const unsigned char *org, int len)
 {
 	char  buff[80];
@@ -96,10 +97,11 @@ static void hexdump_line (const unsigned char *ptr, const unsigned char *org, in
 
 	pr_debug("%s\n", buff);
 }
-
+#endif
 
 void hexdump_buff (const void *buf, int len)
 {
+#ifdef DEBUG
 	const unsigned char *org = buf;
 	const unsigned char *ptr = buf;
 	unsigned char        dup[16];
@@ -111,7 +113,7 @@ void hexdump_buff (const void *buf, int len)
 		{
 			if ( sup )
 			{
-				printk("* (%d duplicates)\n", sup);
+				pr_debug("* (%d duplicates)\n", sup);
 				sup = 0;
 			}
 			hexdump_line(ptr, org, 16);
@@ -123,9 +125,10 @@ void hexdump_buff (const void *buf, int len)
 		len -= 16;
 	}
 	if ( sup )
-		printk("* (%d duplicates)\n", sup);
+		pr_debug("* (%d duplicates)\n", sup);
 	if ( len )
 		hexdump_line(ptr, org, len);
+#endif
 }
 
 
@@ -365,10 +368,9 @@ void sd_user_recv_init (struct sd_fifo *fifo, struct sd_desc *desc)
 }
 
 
-void sd_user_tx_done (struct sd_fifo *fifo, struct sd_desc *desc)
+void sd_user_tx_done (struct sd_fifo *fifo, unsigned cookie, int result)
 {
-	pr_debug("%s: TX desc %p done\n", __func__, desc);
-	sd_desc_free(sd_user_dev, desc);
+	pr_debug("%s: TX desc %u %s\n", __func__, cookie, result ? "failed" : "success");
 }
 
 
@@ -565,8 +567,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	switch ( mesg->type )
 	{
 		case 6: // SWRITE
-			desc[0]->virt[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
-			desc[0]->virt[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
+			desc[0]->virt[1]  = 0; //mesg->mesg.swrite.addr & 0xFFFFFFFF;
+			desc[0]->virt[2]  = 0; //(mesg->mesg.swrite.addr >>= 32) & 0x03;
 			desc[0]->virt[2] |= 0x00600000;
 			size -= offsetof(struct sd_mesg,        mesg) +
 			        offsetof(struct sd_mesg_swrite, data);
@@ -607,10 +609,14 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			ret = -EINVAL;
 			goto fail;
 	}
+pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 	kfree(mesg);
+pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 
 	// enqueue in initiator fifo, desc will be cleaned up in sd_user_tx_done()
+pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 	sd_fifo_tx_burst(sd_user_dev->init_fifo, desc, num);
+pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 
 	return s;
 
@@ -869,10 +875,10 @@ int sd_user_init (struct srio_dev *sd)
 	spin_lock_init(&lock);
 	INIT_LIST_HEAD(&list);
 
-	sd_fifo_init_dir(&sd->init_fifo->rx, sd_user_recv_init, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_user_recv_targ, HZ);
-	sd_fifo_init_dir(&sd->init_fifo->tx, sd_user_tx_done, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->tx, sd_user_tx_done, HZ);
+	sd_fifo_init_rx(sd->init_fifo, sd_user_recv_init, HZ);
+	sd_fifo_init_rx(sd->targ_fifo, sd_user_recv_targ, HZ);
+	sd_fifo_init_tx(sd->init_fifo, sd_user_tx_done,   HZ);
+	sd_fifo_init_tx(sd->targ_fifo, sd_user_tx_done,   HZ);
 
 	// success
 	return 0;
@@ -881,10 +887,10 @@ int sd_user_init (struct srio_dev *sd)
 
 void sd_user_exit (void)
 {
-	sd_fifo_init_dir(&sd_user_dev->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd_user_dev->init_fifo->rx, NULL, HZ);
-	sd_fifo_init_dir(&sd_user_dev->targ_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd_user_dev->targ_fifo->rx, NULL, HZ);
+	sd_fifo_init_rx(sd_user_dev->init_fifo, NULL, HZ);
+	sd_fifo_init_rx(sd_user_dev->init_fifo, NULL, HZ);
+	sd_fifo_init_tx(sd_user_dev->targ_fifo, NULL, HZ);
+	sd_fifo_init_tx(sd_user_dev->targ_fifo, NULL, HZ);
 	misc_deregister(&mdev);
 }
 

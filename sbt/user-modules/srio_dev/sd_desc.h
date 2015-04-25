@@ -36,6 +36,8 @@ struct sd_desc
 	size_t           used;  /* Size of data in buffer */
 	size_t           offs;  /* Cursor for chunked transfer */
 	struct list_head list;  /* List pointers for queuing */
+	uint32_t         resp;  /* Expected response value (top 24 bits) & TTL (low 8) */
+	unsigned         info;  /* Used for TX cookie */
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	uint32_t         dest;  /* TDR/RDR register value */
 #endif

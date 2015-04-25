@@ -51,10 +51,6 @@ struct sd_mesg *sd_mesg_alloc (int type, size_t size, gfp_t flags)
 			        offsetof(struct sd_mesg_mbox, data);
 			break;
 
-//		case 13: // RESPONSE
-//			size = offsetof(struct sd_mesg, mesg) + sizeof(struct sd_mesg_response);
-//			break;
-
 		default:
 			return NULL;
 	}
@@ -73,6 +69,5 @@ void sd_mesg_free (struct sd_mesg *mesg)
 {
 	kfree(mesg);
 }
-
 
 

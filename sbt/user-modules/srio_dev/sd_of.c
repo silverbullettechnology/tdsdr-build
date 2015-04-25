@@ -188,10 +188,10 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 
 	snprintf(sd->mport.name, RIO_MAX_MPORT_NAME, "%s", dev_name(sd->dev));
 
-	sd_fifo_init_dir(&sd->init_fifo->rx, sd_recv_init, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->rx, sd_recv_targ, HZ);
-	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
+	sd_fifo_init_rx(sd->init_fifo, sd_recv_init, HZ);
+	sd_fifo_init_rx(sd->targ_fifo, sd_recv_targ, HZ);
+	sd_fifo_init_tx(sd->init_fifo, NULL, HZ);
+	sd_fifo_init_tx(sd->targ_fifo, NULL, HZ);
 
 	if ( (ret = rio_register_mport(&sd->mport)) )
 		goto test_exit;
@@ -254,10 +254,10 @@ static int sd_of_remove (struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 
-	sd_fifo_init_dir(&sd->init_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->tx, NULL, HZ);
-	sd_fifo_init_dir(&sd->init_fifo->rx, NULL, HZ);
-	sd_fifo_init_dir(&sd->targ_fifo->rx, NULL, HZ);
+	sd_fifo_init_rx(sd->init_fifo, NULL, HZ);
+	sd_fifo_init_rx(sd->targ_fifo, NULL, HZ);
+	sd_fifo_init_tx(sd->init_fifo, NULL, HZ);
+	sd_fifo_init_tx(sd->targ_fifo, NULL, HZ);
 
 	sd_fifo_free(sd->init_fifo);
 	sd_fifo_free(sd->targ_fifo);

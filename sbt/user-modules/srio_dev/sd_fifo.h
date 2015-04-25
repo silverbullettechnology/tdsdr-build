@@ -60,11 +60,12 @@ struct sd_fifo;
 struct sd_desc;
 
 
-/* Callback: each desc will be detached from its queue on TX or RX complete and passed to
- * the registered callback.  RX callback is responsible for dispatching the message and 
- * enqueueing a replacement (which may be the same desc).  TX callback is responsible for
- * freeing the desc. */
-typedef void (* sd_callback) (struct sd_fifo *fifo, struct sd_desc *desc);
+/* RX callback is responsible for dispatching the message and freeing the descriptor. */
+typedef void (* sd_rx_callback) (struct sd_fifo *fifo, struct sd_desc *desc);
+
+/* TX callback notifies the caller of successful transmit or timeout; descriptor(s) are
+ * freed inside the FIFO code.  Currently results are 0:success, 1:timeout */
+typedef void (* sd_tx_callback) (struct sd_fifo *fifo, unsigned cookie, int result);
 
 
 struct sd_fifo_stats
@@ -80,7 +81,6 @@ struct sd_fifo_stats
 struct sd_fifo_dir
 {
 	spinlock_t            lock;
-	sd_callback           func;
 	struct dma_chan      *chan;
 	dma_addr_t            phys;
 	dma_cookie_t          cookie;
@@ -106,7 +106,12 @@ struct sd_fifo
 	struct sd_fifo_dir           tx;
 
 	struct sd_desc              *rx_current;
+	sd_rx_callback               rx_func;
+
 	struct list_head             tx_queue;
+	struct list_head             tx_retry;
+	unsigned                     tx_cookie;
+	sd_tx_callback               tx_func;
 };
 
 
@@ -144,7 +149,8 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask);
  *  \param  func     Pointer to callback function
  *  \param  timeout  Timeout for DMA operations in jiffies
  */
-void sd_fifo_init_dir (struct sd_fifo_dir *fd, sd_callback func, unsigned long timeout);
+void sd_fifo_init_tx (struct sd_fifo *sd, sd_tx_callback func, unsigned long timeout);
+void sd_fifo_init_rx (struct sd_fifo *sd, sd_rx_callback func, unsigned long timeout);
 
 
 /** Enqueue a burst of TX descriptors to the tail of the TX queue, and start TX if the
@@ -152,11 +158,19 @@ void sd_fifo_init_dir (struct sd_fifo_dir *fd, sd_callback func, unsigned long t
  *
  *  \note  Takes &sf->tx.lock, caller should not hold the lock
  *
+ *  \note  For bursts with num > 1, the cookie value returned will be assigned to the
+ *         first descriptor and passed to the tx.func if registered.  The cookie value
+ *         will increment for each subsequent descriptor.  Thus a burst of 3 descriptors
+ *         may return a cookie value of 17, and tx.func will be called three times with
+ *         cookie values 17, 18, and 19 as the TX burst completes.
+ *
  *  \param  sf    Pointer to sd_fifo struct
  *  \param  desc  Array of sd_desc struct pointers
  *  \param  num   Length of descriptor pointer array
+ *
+ *  \return  An opaque cookie for the TX transaction, which will be passed to tx.func
  */
-void sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num);
+unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num);
 
 
 /** Enqueue a TX descriptor at the tail of the TX queue, and start TX if the queue was
@@ -166,10 +180,12 @@ void sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num);
  *
  *  \param  sf    Pointer to sd_fifo struct
  *  \param  desc  Pointer to sd_desc struct
+ *
+ *  \return  An opaque cookie for the TX transaction, which will be passed to tx.func
  */
-static inline void sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
+static inline unsigned sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *desc)
 {
-	sd_fifo_tx_burst(sf, &desc, 1);
+	return sd_fifo_tx_burst(sf, &desc, 1);
 }
 
 

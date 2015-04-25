@@ -33,6 +33,7 @@ struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags)
 	desc->phys = 0;
 	desc->used = 0;
 	desc->offs = 0;
+	desc->resp = 0;
 	INIT_LIST_HEAD(&desc->list);
 
 	memset(&desc->virt[SD_FIFO_SIZE], 0xFF, SD_PAINT_SIZE * sizeof(uint32_t));
