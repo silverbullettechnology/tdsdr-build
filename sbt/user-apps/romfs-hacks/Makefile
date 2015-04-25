@@ -42,6 +42,7 @@ ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
 	fi
 endif
 	install -m755 gpio-setup.sh  $(ROMFSDIR)/etc/init.d/gpio-setup
+	rm -f  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
 	ln -sv ../init.d/gpio-setup  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
 	install -m644 gpio-setup     $(ROMFSDIR)/etc
 
