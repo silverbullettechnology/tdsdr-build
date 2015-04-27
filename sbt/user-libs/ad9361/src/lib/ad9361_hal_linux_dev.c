@@ -401,8 +401,8 @@ static struct
 }
 defaults[2] = 
 {
-	{ "/dev/spidev3.1", { 37 + 54,  36 + 54,  4 + 54 } },
-	{ "/dev/spidev4.1", { 44 + 54,  43 + 54,  5 + 54 } },
+	{ "/dev/spidev3.1", { 46 + 54,  45 + 54,  4 + 54 } },
+	{ "/dev/spidev4.1", { 53 + 54,  52 + 54,  5 + 54 } },
 };
 
 void ad9361_hal_linux_defaults_set_spidev (unsigned dev, const char *path)

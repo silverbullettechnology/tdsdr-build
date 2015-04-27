@@ -97,12 +97,11 @@
 
 		/* New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git */
 		dmac_0_rx: dma@7c400000 {
-status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 29 4>;
+			interrupts = <0 59 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -113,12 +112,11 @@ status="disabled";
 			};
 		};
 		dma_0_tx: dma@7c420000 {
-status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 30 4>;
+			interrupts = <0 58 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -129,12 +127,11 @@ status="disabled";
 			};
 		};
 		dmac_1_rx: dma@7c440000 {
-status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 31 4>;
+			interrupts = <0 57 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -145,12 +142,11 @@ status="disabled";
 			};
 		};
 		dma_1_tx: dma@7c460000 {
-status="disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = <0 32 4>;
+			interrupts = <0 56 4>;
 			clock-names = "fclk0", "fclk1", "fclk2";
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
@@ -165,19 +161,19 @@ status="disabled";
 			compatible = "sbt,srio-dev";
 
 			reg = <
-				0x83C40000 0x00010000  /* Maintanence port */
-				0x83C00000 0x00010000  /* Initiator FIFO Regs */
-				0x83C10000 0x00010000  /* Initiator FIFO Data */
-				0x83C20000 0x00010000  /* Target FIFO Regs */
-				0x83C30000 0x00010000  /* Target FIFO Data */
-				0x43C00000 0x00010000  /* Misc SYS_REG */
-				0x83C50000 0x00010000  /* Shadow FIFO Regs */
-				0x83C60000 0x00010000  /* Shadow FIFO Data */
+				0x90000000 0x01000000  /* Maintanence port */
+				0x80000000 0x00001000  /* Initiator FIFO Regs */
+				0x80100000 0x00001000  /* Initiator FIFO Data */
+				0x80200000 0x00001000  /* Target FIFO Regs */
+				0x80300000 0x00001000  /* Target FIFO Data */
+				0x42000000 0x00001000  /* Misc SYS_REG */
+				0x80400000 0x00100000  /* Shadow FIFO Regs */
+				0x80500000 0x00100000  /* Shadow FIFO Data */
 			>;
 			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
 			            "sys-regs", "shadow-regs", "shadow-data";
 
-			interrupts       = < 0 34 4  0 35 4  0 36 4 >;
+			interrupts       = < 0 52 4  0 53 4  0 36 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupt-names  = "init-irq", "targ-irq", "shadow-irq";
 
@@ -534,15 +530,15 @@ status="disabled";
 			#address-cells = <0x1>;
 			ranges;
 
-			gpio-sck  = < &ps7_gpio_0 102 0 >;
-			gpio-mosi = < &ps7_gpio_0 101 0 >;
-			gpio-miso = < &ps7_gpio_0 100 0 >;
+			gpio-miso = < &ps7_gpio_0 89 0 >;
+			gpio-mosi = < &ps7_gpio_0 90 0 >;
+			gpio-sck  = < &ps7_gpio_0 91 0 >;
 			cs-gpios  = <
-				&ps7_gpio_0 74 0
-				&ps7_gpio_0 75 0
-				&ps7_gpio_0 76 0
-				&ps7_gpio_0 77 0
-				&ps7_gpio_0 78 0
+				&ps7_gpio_0 74 0  /* SPI0_ATMEL_SS    */
+				&ps7_gpio_0 75 0  /* SPI0_LV595_SS    */
+				&ps7_gpio_0 76 0  /* SPI0_LMK04906_SS */
+				&ps7_gpio_0 92 0  /* SPI0_ASFE_SPI_CS */
+				&ps7_gpio_0 93 0  /* SPI0_TRSS_CS     */
 			>;
 			num-chipselects = <5>;
 
@@ -580,16 +576,16 @@ status="disabled";
 			#address-cells = <0x1>;
 			ranges;
 
-			gpio-sck  = < &ps7_gpio_0 105 0 >;
-			gpio-mosi = < &ps7_gpio_0 104 0 >;
-			gpio-miso = < &ps7_gpio_0 103 0 >;
+			gpio-miso = < &ps7_gpio_0 71 0 >;
+			gpio-mosi = < &ps7_gpio_0 72 0 >;
+			gpio-sck  = < &ps7_gpio_0 73 0 >;
 			num-chipselects = <4>;
 
 			cs-gpios = < 
+				&ps7_gpio_0 77 0
+				&ps7_gpio_0 78 0
 				&ps7_gpio_0 79 0
 				&ps7_gpio_0 80 0
-				&ps7_gpio_0 81 0
-				&ps7_gpio_0 82 0
 			>;
 
 			spi_shim_1_0: spi-shim@0 {
