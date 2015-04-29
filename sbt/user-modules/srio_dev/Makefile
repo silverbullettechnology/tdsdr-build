@@ -70,7 +70,6 @@ clean:
 	
 
 modules:
-	set
 	@if [ ! -f $(KSRC)/Module.symvers ]; then \
 		echo "ERROR: Please compile the Linux kernel first by \"make\""; \
 	else \
@@ -79,7 +78,7 @@ modules:
 
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))
 	$(MAKE) -C $(KSRC) M=$(LOCALPWD) INSTALL_MOD_PATH=${ROMFSDIR} modules_install
-	install -m744 srio-test.sh $(ROMFSDIR)/bin
+	install -m755 srio-setup.sh $(ROMFSDIR)/bin/srio-setup
 
 .PHONY: romfs image
 
