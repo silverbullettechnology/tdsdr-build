@@ -57,6 +57,7 @@ struct srio_dev
 	struct kmem_cache *desc_pool;
 
 	uint16_t           devid;
+	uint32_t           pef;
 
 	struct sd_mbox_reasm  mbox_reasm[RIO_MAX_MBOX][4];
 

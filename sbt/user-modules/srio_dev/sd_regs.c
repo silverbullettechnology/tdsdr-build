@@ -138,3 +138,37 @@ unsigned sd_regs_get_gt_rxlpmen (struct srio_dev *sd)
 {
 	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_RXLPMEN) >> 19;
 }
+
+
+uint16_t sd_regs_get_devid (struct srio_dev *sd)
+{
+	uint32_t csr = REG_READ(sd->maint + RIO_DID_CSR);
+
+	if ( sd->pef & (1 << 4) )
+	{
+		sd->devid = csr & 0x0000FFFF;
+		return sd->devid;
+	}
+
+	csr >>= 16;
+	sd->devid = csr & 0x000000FF;
+	return sd->devid;
+}
+
+void sd_regs_set_devid (struct srio_dev *sd, uint16_t id)
+{
+	uint32_t csr = id;
+
+	sd->devid = id;
+	if ( sd->pef & (1 << 4) )
+		csr &= 0x0000FFFF;
+	else
+	{
+		sd->devid &= 0x000000FF;
+		csr       &= 0x000000FF;
+		csr      <<= 16;
+	}
+	REG_WRITE(sd->maint + RIO_DID_CSR, csr);
+}
+
+

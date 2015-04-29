@@ -107,5 +107,7 @@ unsigned sd_regs_get_gt_rxlpmen      (struct srio_dev *sd);
 
 size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 
+uint16_t sd_regs_get_devid (struct srio_dev *sd);
+void     sd_regs_set_devid (struct srio_dev *sd, uint16_t id);
 
 #endif /* _INCLUDE_SD_REGS_H_ */

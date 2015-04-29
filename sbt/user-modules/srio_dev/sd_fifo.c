@@ -437,6 +437,11 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 		BUG_ON(desc[idx]->used & 0x03);
 		BUG_ON(!desc[idx]->virt);
 		BUG_ON(!desc[idx]->used);
+
+		/* Set correct return address before DMA map */
+		desc[idx]->virt[0] &= 0x0000FFFF;
+		desc[idx]->virt[0] |= devid;
+
 		if ( sf->tx.chan && !desc[idx]->phys )
 		{
 			desc[idx]->phys = dma_map_single(sf->dev, desc[idx]->virt, desc[idx]->used,
@@ -451,10 +456,6 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 		// pre-calculate expected response packet descriptor based on this packet's HELLO
 		// header, including TTL in bottom 8 bits.
 		desc[idx]->resp = sd_fifo_response(desc[idx]->virt + 1);
-
-		/* Set correct return address */
-		desc[idx]->virt[0] &= 0x0000FFFF;
-		desc[idx]->virt[0] |= devid;
 	}
 
 	pr_trace("%s: %s: lock...\n", sf->name, __func__);

@@ -94,17 +94,14 @@ static int sd_of_probe (struct platform_device *pdev)
 		dev_err(sd->dev, "maintenance ioremap fail, stop\n");
 		goto sd_free;
 	}
-#if 0
-printk("maint: 0x%x -> %p\n", maint->start, sd->maint);
-printk("  dev_id  : 0x%08x\n", REG_READ(sd->maint + 0x00));
-printk("  dev_info: 0x%08x\n", REG_READ(sd->maint + 0x04));
-printk("  asm_id  : 0x%08x\n", REG_READ(sd->maint + 0x08));
-printk("  asm_info: 0x%08x\n", REG_READ(sd->maint + 0x0C));
-printk("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
-printk("  swp_info: 0x%08x\n", REG_READ(sd->maint + 0x14));
-printk("  src_ops : 0x%08x\n", REG_READ(sd->maint + 0x18));
-printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
-#endif
+	sd->pef = REG_READ(sd->maint + 0x10);
+
+pr_debug("maint: 0x%x -> %p\n", maint->start, sd->maint);
+pr_debug("  dev_id  : 0x%08x\n", REG_READ(sd->maint + 0x00));
+pr_debug("  dev_info: 0x%08x\n", REG_READ(sd->maint + 0x04));
+pr_debug("  asm_id  : 0x%08x\n", REG_READ(sd->maint + 0x08));
+pr_debug("  asm_info: 0x%08x\n", REG_READ(sd->maint + 0x0C));
+pr_debug("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
 
 	sd->sys_regs = devm_ioremap_resource(sd->dev, sys_regs);
 	if ( IS_ERR(sd->sys_regs) )
@@ -153,6 +150,13 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 		goto targ_fifo;
 	}
 
+	if ( sd_user_init(sd) )
+	{
+		pr_err("Settting up sd_user failed, stop\n");
+		ret = -EINVAL;
+		goto test_exit;
+	}
+
 #if 0
 	/* Local and remote register access */
 	sd->ops.lcread  = sd_ops_lcread;
@@ -194,13 +198,6 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 
 	if ( (ret = rio_register_mport(&sd->mport)) )
 		goto test_exit;
-#else
-	if ( sd_user_init(sd) )
-	{
-		pr_err("Settting up sd_user failed, stop\n");
-		ret = -EINVAL;
-		goto test_exit;
-	}
 #endif
 
 	// configure transceivers and reset core

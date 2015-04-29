@@ -627,13 +627,13 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	{
 		// Get local device-ID (return address on TX, filtered on RX)
 		case SD_USER_IOCG_LOC_DEV_ID:
-			val = sd_user_dev->devid;
+			val = sd_regs_get_devid(sd_user_dev);
 			return put_user(val, (unsigned long *)arg);
 
 		// Set local device-ID (return address on TX, filtered on RX)
 		case SD_USER_IOCS_LOC_DEV_ID:
 			spin_lock_irqsave(&priv->lock, flags);
-			sd_user_dev->devid = arg;
+			sd_regs_set_devid(sd_user_dev, arg);
 			spin_unlock_irqrestore(&priv->lock, flags);
 			return 0;
 
