@@ -70,6 +70,7 @@ static int sd_of_probe (struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	sd->dev = &pdev->dev;
+	sd->devid = 0x0002;
 
 
 	/* Default values */
@@ -136,15 +137,13 @@ printk("  dst_ops : 0x%08x\n", REG_READ(sd->maint + 0x1c));
 	sd->targ_fifo->sd = sd;
 
 
-#ifdef SHADOW_FIFO
-	if ( !(sd->shadow_fifo = sd_fifo_probe(pdev, "shadow")) )
+	if ( (sd->shadow_fifo = sd_fifo_probe(pdev, "shadow")) )
 	{
-		dev_err(&pdev->dev, "shadow fifo probe fail, stop\n");
-		ret = -ENXIO;
-		BUG();
+		pr_debug("Shadow FIFO active\n");
+		sd->shadow_fifo->sd = sd;
 	}
-	sd->shadow_fifo->sd = sd;
-#endif
+	else
+		pr_debug("No shadow FIFO defined\n");
 
 
 	if ( sd_test_init(sd) )
@@ -261,9 +260,8 @@ static int sd_of_remove (struct platform_device *pdev)
 
 	sd_fifo_free(sd->init_fifo);
 	sd_fifo_free(sd->targ_fifo);
-#ifdef SHADOW_FIFO
-	sd_fifo_free(sd->shadow_fifo);
-#endif
+	if ( sd->shadow_fifo )
+		sd_fifo_free(sd->shadow_fifo);
 
 	sd_desc_exit(sd); // must come after sd_fifo_free()
 

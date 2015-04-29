@@ -56,7 +56,6 @@ struct sd_user_priv
 	spinlock_t         lock;
 	struct list_head   queue;
 	struct list_head   list;
-	uint32_t           tuser;
 	unsigned long      mbox_sub;
 	uint16_t           dbell_min;
 	uint16_t           dbell_max;
@@ -164,19 +163,6 @@ void sd_user_recv_mbox (struct sd_mesg *mesg, int mbox)
 			INIT_LIST_HEAD(&qm->list);
 
 			memcpy(&qm->mesg, mesg, size);
-
-#if 0
-			qm->mesg.type     = 11;
-			qm->mesg.size     = size - offsetof(struct sd_user_mesg, mesg);
-			qm->mesg.dst_addr = hdr[0] >> 16;
-			qm->mesg.src_addr = hdr[0] & 0xFFFF;
-			qm->mesg.hello[0] = hdr[1];
-			qm->mesg.hello[1] = hdr[2];
-
-			qm->mesg.mesg.mbox.mbox   = mbox;
-			qm->mesg.mesg.mbox.letter = hdr[1] & 0x03;
-			memcpy(qm->mesg.mesg.mbox.data, desc->virt + SD_HEAD_SIZE, desc->used - 12);
-#endif
 
 			list_add_tail(&qm->list, &priv->queue);
 
@@ -448,7 +434,6 @@ static int sd_user_open (struct inode *i, struct file *f)
 	init_waitqueue_head(&priv->wait);
 	INIT_LIST_HEAD(&priv->queue);
 	INIT_LIST_HEAD(&priv->list);
-	priv->tuser      = 0x00020002;
 	priv->mbox_sub   = 0;
 	priv->dbell_min  = 0xFFFF;
 	priv->dbell_max  = 0x0000;
@@ -563,7 +548,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	}
 
 	// TUSER word, then HELLO header (see PG007 Fig 3-1)
-	desc[0]->virt[0] = (mesg->src_addr << 16) | mesg->dst_addr;
+	desc[0]->virt[0] = mesg->dst_addr;
 	switch ( mesg->type )
 	{
 		case 6: // SWRITE
@@ -609,14 +594,10 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			ret = -EINVAL;
 			goto fail;
 	}
-pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 	kfree(mesg);
-pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 
 	// enqueue in initiator fifo, desc will be cleaned up in sd_user_tx_done()
-pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 	sd_fifo_tx_burst(sd_user_dev->init_fifo, desc, num);
-pr_debug("%s:%d: trace goes here\n", __func__, __LINE__);
 
 	return s;
 
@@ -646,14 +627,13 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	{
 		// Get local device-ID (return address on TX, filtered on RX)
 		case SD_USER_IOCG_LOC_DEV_ID:
-			val = priv->tuser & 0xFFFF;
+			val = sd_user_dev->devid;
 			return put_user(val, (unsigned long *)arg);
 
 		// Set local device-ID (return address on TX, filtered on RX)
 		case SD_USER_IOCS_LOC_DEV_ID:
 			spin_lock_irqsave(&priv->lock, flags);
-			priv->tuser &= ~0xFFFF;
-			priv->tuser |= arg & 0xFFFF;
+			sd_user_dev->devid = arg;
 			spin_unlock_irqrestore(&priv->lock, flags);
 			return 0;
 

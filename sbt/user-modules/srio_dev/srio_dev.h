@@ -34,17 +34,15 @@
 #define BUFF_SIZE 8192
 #endif
 
-#define SHADOW_FIFO 1
-
 
 struct sd_mbox_reasm
 {
-	uint16_t        bits;
-	uint16_t        num;
-	uint16_t        len;
-	uint16_t        last;
-	struct sd_mesg *mesg;
-	// TODO: timer
+	uint16_t           bits;
+	uint16_t           num;
+	uint16_t           len;
+	uint16_t           last;
+	struct sd_mesg    *mesg;
+	struct timer_list  timer;
 };
 
 
@@ -58,7 +56,7 @@ struct srio_dev
 	struct sd_fifo    *targ_fifo;
 	struct kmem_cache *desc_pool;
 
-	uint32_t           devid;
+	uint16_t           devid;
 
 	struct sd_mbox_reasm  mbox_reasm[RIO_MAX_MBOX][4];
 
@@ -82,10 +80,12 @@ struct srio_dev
 	/* Mapped pointer for the SYS_REG registers */
 	struct sd_sys_reg __iomem  *sys_regs;
 
-#ifdef SHADOW_FIFO
-	struct sd_fifo    *shadow_fifo; // debugging
-	struct sd_desc    *shadow_ring;
-#endif
+	/* Shadow FIFO may be included in design to allow sniffing parts of the message path
+	 * (ie init_fifo -> SRIO core).  If it's not specified in the devtree then no driver
+	 * will be started for it, but if the FIFO is included in the PL the software must be
+	 * initialized so the FIFO is drained, or it may fill up and stall the stream it's
+	 * attached to. */
+	struct sd_fifo    *shadow_fifo;
 };
 
 

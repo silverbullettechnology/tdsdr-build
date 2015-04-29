@@ -28,7 +28,14 @@
 
 
 
+static void sd_mbox_reasm_timeout (unsigned long arg)
+{
+	struct sd_mbox_reasm *ra = (struct sd_mbox_reasm *)arg;
 
+	pr_err("%s: reassembly timeout\n", __func__);
+	sd_mesg_free(ra->mesg);
+	memset(ra, 0, sizeof(*ra));
+}
 
 struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int mbox)
 {
@@ -59,6 +66,7 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 		ra->bits = (1 << num) - 1;
 		ra->num  = num;
 		ra->len  = len;
+		setup_timer(&ra->timer, sd_mbox_reasm_timeout, (unsigned long)ra);
 
 		ra->mesg->dst_addr =  desc->virt[0] & 0xFFFF;
 		ra->mesg->src_addr = (desc->virt[0] >> 16) & 0xFFFF;
@@ -89,6 +97,7 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 	if ( ra->bits )
 	{
 		pr_debug("%s: seg %u -> bits %04x, wait\n", fifo->name, seg, ra->bits);
+		mod_timer(&ra->timer, jiffies + 10); // 100ms for now
 		return NULL;
 	}
 
@@ -101,6 +110,7 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 	            (num - 1) * ra->len + len;
 	pr_debug("Final size %u:\n", ret->size);
 	hexdump_buff(ret, ret->size);
+	del_timer(&ra->timer);
 	memset(ra, 0, sizeof(*ra));
 
 	return ret;

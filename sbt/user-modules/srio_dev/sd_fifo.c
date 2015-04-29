@@ -424,8 +424,12 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 {
 	unsigned long  flags;
 	unsigned       ret;
+	uint32_t       devid;
 	int            empty;
 	int            idx;
+
+	devid = sf->sd->devid;
+	devid <<= 16;
 
 	/* alignment check - maybe pad later instead? */
 	for ( idx = 0; idx < num; idx++ )
@@ -447,6 +451,10 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 		// pre-calculate expected response packet descriptor based on this packet's HELLO
 		// header, including TTL in bottom 8 bits.
 		desc[idx]->resp = sd_fifo_response(desc[idx]->virt + 1);
+
+		/* Set correct return address */
+		desc[idx]->virt[0] &= 0x0000FFFF;
+		desc[idx]->virt[0] |= devid;
 	}
 
 	pr_trace("%s: %s: lock...\n", sf->name, __func__);
@@ -513,6 +521,16 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	REG_RMW(&sf->regs->ier, 0, RFPF|RC);
 	sf->rx_current = NULL;
 
+	if ( (desc->virt[0] & 0xFFFF) != sf->sd->devid )
+	{
+		pr_err("%s: %s: packet to %04x dropped, we're %04x\n", sf->name, __func__,
+		       desc->virt[0] & 0xFFFF, sf->sd->devid);
+		hexdump_buff(desc->virt, desc->used);
+		sd_desc_free(sf->sd, desc);
+		//TODO: stats
+		return;
+	}
+
 	/* Unmap to flush cache, handle response packets */
 	sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
 	if ( (desc->virt[2] & 0x00F00000) == 0x00D00000 )
@@ -526,11 +544,11 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 		list_for_each_safe(walk, temp, &sf->tx_retry)
     	{
 			desc = container_of(walk, struct sd_desc, list);
-			list_del_init(&desc->list);
 			pr_debug("%s: %s:   desc %p resp %08x\n", sf->name, __func__, desc, desc->resp);
 			if ( (desc->resp & 0xFFFFFF00) == resp )
 			{
 				pr_debug("%s: %s:   match TTL %u, free\n\n", sf->name, __func__, desc->resp & 0xFF);
+				list_del_init(&desc->list);
 				if ( sf->tx_func )
 					sf->tx_func(sf, desc->info, 0);
 				sd_desc_free(sf->sd, desc);
@@ -1281,14 +1299,13 @@ void sd_fifo_free (struct sd_fifo *sf)
 	devm_iounmap(sf->dev, sf->regs);
 
 	/* Free TX and RX queues */
-	pr_debug("%s: cleanup queues:\n", __func__);
 	list_for_each_safe(walk, temp, &sf->tx_queue)
     {
 		desc = container_of(walk, struct sd_desc, list);
 		list_del_init(&desc->list);
 		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
 		sd_desc_free(sf->sd, desc);
-		printk("  TX queue: desc %p freed\n", desc);
+		pr_info("%s: %s: TX queue: desc %p freed\n", sf->name, __func__, desc);
 	}
 	list_for_each_safe(walk, temp, &sf->tx_retry)
     {
@@ -1296,7 +1313,7 @@ void sd_fifo_free (struct sd_fifo *sf)
 		list_del_init(&desc->list);
 		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
 		sd_desc_free(sf->sd, desc);
-		printk("  TX retry: desc %p freed\n", desc);
+		pr_info("%s: %s: TX retry: desc %p freed\n", sf->name, __func__, desc);
 	}
 	if ( sf->rx_current )
 		sd_desc_free(sf->sd, sf->rx_current);
