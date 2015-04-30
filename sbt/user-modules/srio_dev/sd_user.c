@@ -166,7 +166,7 @@ void sd_user_recv_mbox (struct sd_mesg *mesg, int mbox)
 
 			list_add_tail(&qm->list, &priv->queue);
 
-			hexdump_buff(qm, size);
+//			hexdump_buff(qm, size);
 			wake_up_interruptible(&priv->wait);
 		}
 	}
@@ -219,7 +219,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 
 			list_add_tail(&qm->list, &priv->queue);
 
-			hexdump_buff(qm, size);
+//			hexdump_buff(qm, size);
 			wake_up_interruptible(&priv->wait);
 		}
 	}
@@ -269,7 +269,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 
 			list_add_tail(&qm->list, &priv->queue);
 
-			hexdump_buff(qm, size);
+//			hexdump_buff(qm, size);
 			wake_up_interruptible(&priv->wait);
 		}
 	}
@@ -278,14 +278,14 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 }
 
 
-static const char *fifo_name[2] = { "targ", "init" };
+//static const char *fifo_name[2] = { "targ", "init" };
 void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 {
 	int  mbox;
 	int  type;
 
-	pr_debug("RX %zu bytes on %s fifo\n", desc->used, fifo_name[init]);
-	hexdump_buff(desc->virt, desc->used);
+//	pr_debug("RX %zu bytes on %s fifo\n", desc->used, fifo_name[init]);
+//	hexdump_buff(desc->virt, desc->used);
 
 	if ( desc->used < 12 )
 	{
@@ -523,6 +523,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 {
 	struct sd_mesg *mesg;
 	struct sd_desc *desc[16];
+	uint8_t         tid;
 	int             size = s;
 	int             num = 1;
 	int             ret = s;
@@ -567,8 +568,11 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		case 10: // DBELL
+			tid = 
 			desc[0]->virt[1] = mesg->mesg.dbell.info << 16;
-			desc[0]->virt[2] = 0x00A00000; // TODO: TID
+			desc[0]->virt[2]   = sd_user_dev->tid++;
+			desc[0]->virt[2] <<= 24;
+			desc[0]->virt[2]  |= 0x00A00000;
 			desc[0]->used = 12;
 			break;
 
@@ -584,8 +588,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 				pr_debug("sd_mbox_frag() produced %d frags:\n", num);
 				for ( idx = 0; idx < num; idx++ )
 				{
-					pr_debug("frag %d:\n", idx);
-					hexdump_buff(desc[idx]->virt, desc[idx]->used);
+//					pr_debug("frag %d:\n", idx);
+//					hexdump_buff(desc[idx]->virt, desc[idx]->used);
 				}
 			}
 			break;

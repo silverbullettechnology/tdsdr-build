@@ -26,6 +26,9 @@
 #include "sd_fifo.h"
 #include "sd_desc.h"
 
+#define pr_trace(...) do{ }while(0)
+//#define pr_trace pr_debug
+
 
 
 static void sd_mbox_reasm_timeout (unsigned long arg)
@@ -49,7 +52,7 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 	void                 *dst;
 
 	ra = &fifo->sd->mbox_reasm[mbox][ltr];
-	pr_debug("%s: mbox %d, letter %u, seg %u / num %u\n", fifo->name, mbox, ltr, seg, num);
+	pr_trace("%s: mbox %d, letter %u, seg %u / num %u\n", fifo->name, mbox, ltr, seg, num);
 	num++;
 	len++;
 
@@ -61,8 +64,6 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 			pr_err("%s: failed to alloc %u for message\n", fifo->name, num * len);
 			return NULL;
 		}
-		pr_debug("sd_mesg_alloc() ok:\n");
-		hexdump_buff(ra->mesg, 0x28 + num * len);
 		ra->bits = (1 << num) - 1;
 		ra->num  = num;
 		ra->len  = len;
@@ -87,7 +88,7 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 	// payload fraction
 	dst  = ra->mesg->mesg.mbox.data;
 	dst += ra->len * seg;
-	pr_debug("%s: buff %p, offs %03x, dst %p\n", fifo->name,
+	pr_trace("%s: buff %p, offs %03x, dst %p\n", fifo->name,
 	         ra->mesg->mesg.mbox.data, ra->len * seg, dst);
 	memcpy(dst, &desc->virt[SD_HEAD_SIZE], len);
 	sd_desc_free(fifo->sd, desc);
@@ -96,20 +97,20 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 	ra->bits &= ~bit;
 	if ( ra->bits )
 	{
-		pr_debug("%s: seg %u -> bits %04x, wait\n", fifo->name, seg, ra->bits);
+		pr_trace("%s: seg %u -> bits %04x, wait\n", fifo->name, seg, ra->bits);
 		mod_timer(&ra->timer, jiffies + 10); // 100ms for now
 		return NULL;
 	}
 
 	// done: figure final size (last frag may be partial size), zero state, return
-	pr_debug("%s: seg %u -> bits %04x, done (last seg %u)\n", fifo->name,
+	pr_trace("%s: seg %u -> bits %04x, done (last seg %u)\n", fifo->name,
 	         seg, ra->bits, len);
 	ret = ra->mesg;
 	ret->size = offsetof(struct sd_mesg,      mesg) + 
 	            offsetof(struct sd_mesg_mbox, data) + 
 	            (num - 1) * ra->len + len;
-	pr_debug("Final size %u:\n", ret->size);
-	hexdump_buff(ret, ret->size);
+	pr_trace("Final size %u:\n", ret->size);
+//	hexdump_buff(ret, ret->size);
 	del_timer(&ra->timer);
 	memset(ra, 0, sizeof(*ra));
 
@@ -143,7 +144,7 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 		pr_err("%s: Message too big (%d frags, max 16)\n", __func__, num);
 		return -EFBIG;
 	}
-	pr_debug("%s: mesg size %d -> %d frags\n", __func__, size, num);
+	pr_trace("%s: mesg size %d -> %d frags\n", __func__, size, num);
 
 	// setup HELLO header on first fragment.  if the message needs fragmentation, then the
 	// size on all descriptors except the last is the chunk size, 256 in this driver, -1.

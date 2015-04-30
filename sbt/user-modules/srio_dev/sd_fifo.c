@@ -381,9 +381,8 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 		return;
 	}
 	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
-
-	pr_debug("%s: %s: %zu used:\n", sf->name, __func__, desc->used);
-	hexdump_buff(desc->virt, desc->used);
+	pr_debug("%s: %s: %08x:%08x.%08x, size %zu\n", sf->name, __func__,
+	         desc->virt[0], desc->virt[2], desc->virt[1], desc->used);
 
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
 	REG_WRITE(&sf->regs->tdr, desc->dest);
@@ -524,9 +523,8 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 
 	if ( (desc->virt[0] & 0xFFFF) != sf->sd->devid )
 	{
-		pr_err("%s: %s: packet to %04x dropped, we're %04x\n", sf->name, __func__,
-		       desc->virt[0] & 0xFFFF, sf->sd->devid);
-		hexdump_buff(desc->virt, desc->used);
+		pr_err("%s: %s: %08x:%08x.%08x, dropped\n", sf->name, __func__,
+		       desc->virt[0], desc->virt[2], desc->virt[1]);
 		sd_desc_free(sf->sd, desc);
 		//TODO: stats
 		return;
@@ -543,7 +541,7 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 		pr_debug("%s: %s: response packet %08x.%08x\n", sf->name, __func__,
 		         desc->virt[2], desc->virt[1]);
 		list_for_each_safe(walk, temp, &sf->tx_retry)
-    	{
+		{
 			desc = container_of(walk, struct sd_desc, list);
 			pr_debug("%s: %s:   desc %p resp %08x\n", sf->name, __func__, desc, desc->resp);
 			if ( (desc->resp & 0xFFFFFF00) == resp )
@@ -565,14 +563,12 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 		tuser = desc->virt[0];
 
 	/* Dispatch to listener, or dump and free for debug */
+	pr_debug("%s: %s: %08x:%08x.%08x, RX complete\n", sf->name, __func__,
+	         desc->virt[0], desc->virt[2], desc->virt[1]);
 	if ( sf->rx_func )
 		sf->rx_func(sf, desc);
 	else
-	{
-		pr_debug("%s: %s: DMA RX complete:\n", sf->name, __func__);
-		hexdump_buff(desc->virt, desc->used);
 		sd_desc_free(sf->sd, desc);
-	}
 
 	/* Build and send response packet if necessary */
 	if ( resp )
