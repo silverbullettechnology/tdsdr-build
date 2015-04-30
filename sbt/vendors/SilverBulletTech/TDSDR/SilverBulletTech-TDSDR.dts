@@ -182,8 +182,8 @@
 			clocks = < &clkc 15 &clkc 16 &clkc 17 >;
 
 			/* DMA enable mask: TX:2, RX:4 */
-			sbt,init-dma = <6>;
-			sbt,targ-dma = <6>;
+			sbt,init-dma = <0>;
+			sbt,targ-dma = <0>;
 			sbt,shadow-dma = <0>;
 		};
 
