@@ -59,6 +59,7 @@ uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
 
 uint32_t  prev_status;
+time_t    periodic = -1;
 
 
 /** control for main loop for orderly shutdown */
@@ -142,6 +143,7 @@ void menu (void)
 	printf("\nCommands understood:\n"
 	       "Q - exit\n"
 	       "R - Reset SRIO core\n"
+	       "P - Toggle Periodic mode\n"
 		   "1 - Send a short SWRITE\n"
 		   "2 - Send a DBELL\n"
 		   "3 - Send a short MESSAGE\n"
@@ -238,6 +240,7 @@ int main (int argc, char **argv)
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
 	uint32_t         curr_status, diff_status;
+	char             repeat = 0;
 
 	mesg   = (struct sd_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
@@ -277,7 +280,13 @@ int main (int argc, char **argv)
 		}
 
 		if ( !sel )
-			continue;
+		{
+			time_t now = time(NULL);
+			if ( periodic > 0 && periodic < now )
+				periodic = now + 15;
+			else
+				continue;
+		}
 
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
@@ -364,14 +373,15 @@ int main (int argc, char **argv)
 		}
 
 		// data from terminal to buffer
-		if ( FD_ISSET(0, &rfds) )
+		if ( FD_ISSET(0, &rfds) || repeat )
 		{
-			char  key;
-			if ( read(0, &key, sizeof(key)) < 1 )
+			char  key = repeat;
+			if ( FD_ISSET(0, &rfds) && read(0, &key, sizeof(key)) < 1 )
 			{
 				perror("read() from terminal");
 				break;
 			}
+			repeat = key;
 
 			size = 0;
 			memset(buff, 0, sizeof(buff));
@@ -450,6 +460,21 @@ int main (int argc, char **argv)
 					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
+
+				case 'p':
+					if ( periodic < 0 )
+					{
+						periodic = time(NULL) + 15;
+						printf("\nPeriodic mode enabled, commands will repeat every 15 seconds\n");
+						repeat = '\0';
+					}
+					else
+					{
+						periodic = -1;
+						printf("\nPeriodic mode disabled\n");
+					}
+					break;
+
 				case 'r':
 					printf("\nRESET SRIO core...\n");
 					if ( ioctl(dev, SD_USER_IOCS_SRIO_RESET, 0) )
@@ -465,6 +490,9 @@ int main (int argc, char **argv)
 				case '\r':
 				case '\n':
 					printf("\n\n");
+					break;
+
+				case '\0':
 					break;
 
 				default:
