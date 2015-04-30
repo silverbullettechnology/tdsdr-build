@@ -35,6 +35,7 @@
 #include "srio-tool.h"
 
 #define  DEV_NODE "/dev/" SD_USER_DEV_NODE
+#define  PERIOD 15
 
 char *argv0;
 
@@ -282,8 +283,8 @@ int main (int argc, char **argv)
 		if ( !sel )
 		{
 			time_t now = time(NULL);
-			if ( periodic > 0 && periodic < now )
-				periodic = now + 15;
+			if ( periodic > 0 && periodic <= now )
+				periodic = now + PERIOD;
 			else
 				continue;
 		}
@@ -373,16 +374,21 @@ int main (int argc, char **argv)
 		}
 
 		// data from terminal to buffer
-		if ( FD_ISSET(0, &rfds) || repeat )
+		char  key = '\0';
+		if ( FD_ISSET(0, &rfds) )
 		{
-			char  key = repeat;
-			if ( FD_ISSET(0, &rfds) && read(0, &key, sizeof(key)) < 1 )
+			if ( read(0, &key, sizeof(key)) < 1 )
 			{
 				perror("read() from terminal");
 				break;
 			}
 			repeat = key;
+		}
+		else if ( periodic > 0 && repeat )
+			key = repeat;
 
+		if ( key > '\0' )
+		{
 			size = 0;
 			memset(buff, 0, sizeof(buff));
 			mesg->src_addr = opt_loc_addr;
@@ -464,8 +470,9 @@ int main (int argc, char **argv)
 				case 'p':
 					if ( periodic < 0 )
 					{
-						periodic = time(NULL) + 15;
-						printf("\nPeriodic mode enabled, commands will repeat every 15 seconds\n");
+						periodic = time(NULL) + PERIOD;
+						printf("\nPeriodic mode enabled: commands will repeat every %d sec\n",
+						       PERIOD);
 						repeat = '\0';
 					}
 					else
@@ -492,12 +499,8 @@ int main (int argc, char **argv)
 					printf("\n\n");
 					break;
 
-				case '\0':
-					break;
-
 				default:
 					menu();
-
 			}
 			mesg->size = size;
 		}
