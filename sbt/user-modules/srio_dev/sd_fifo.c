@@ -875,14 +875,6 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 
 			pr_debug("TC: IRQ at end of TX desc %p, cleanup\n", desc);
 
-			/* unlock: caller may call _tx_enqueue */
-			if ( sf->tx_func )
-			{
-				spin_unlock_irqrestore(&sf->tx.lock, flags);
-				sf->tx_func(sf, desc->info, 0);
-				spin_lock_irqsave(&sf->tx.lock, flags);
-			}
-
 			/* if response expected, add to retry list */
 			if ( desc->resp )
 			{
@@ -898,6 +890,13 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 			else
 			{
 				pr_debug("%s: %s: desc %p: no resp expected, free\n", sf->name, __func__, desc);
+				/* unlock: caller may call _tx_enqueue */
+				if ( sf->tx_func )
+				{
+					spin_unlock_irqrestore(&sf->tx.lock, flags);
+					sf->tx_func(sf, desc->info, 0);
+					spin_lock_irqsave(&sf->tx.lock, flags);
+				}
 				sd_desc_free(sf->sd, desc);
 			}
 
