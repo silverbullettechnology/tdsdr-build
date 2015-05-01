@@ -43,6 +43,64 @@
 #include "sd_user.h"
 
 
+#define SD_OF_STATUS_CHECK  (HZ / 10)
+#define SD_OF_STATUS_CLEAR  150
+const char *sd_of_status_bits[] =
+{
+	"link", "port", "clock", "1x", "error", "notintable", "disperr",
+};
+static void sd_of_status_tick (unsigned long param)
+{
+	struct srio_dev *sd   = (struct srio_dev *)param;
+	unsigned         curr = sd_regs_srio_status(sd);
+	unsigned         diff = curr ^ sd->status_prev;
+	unsigned         mask;
+	char             buf[256];
+	char            *ptr = buf;
+	char            *end = buf + sizeof(buf);
+	int              bit;
+
+	mod_timer(&sd->status_timer, jiffies + SD_OF_STATUS_CHECK);
+
+	for ( bit = 0; bit < ARRAY_SIZE(sd_of_status_bits); bit++ )
+	{
+		mask = 1 << bit;
+		if ( diff & mask )
+		{
+			if ( sd->status_counts[bit] < 5 )
+				ptr += scnprintf(ptr, end - ptr, "%s%c%s",
+				                 ptr > buf ? ", " : "",
+				                 (curr & mask) >> bit ? '+' : '-',
+				                 sd_of_status_bits[bit]);
+
+			if ( sd->status_counts[bit] < ULONG_MAX )
+				sd->status_counts[bit]++;
+		}
+	}
+	if ( ptr > buf )
+		pr_info("%s: %s\n", dev_name(sd->dev), buf);
+
+	if ( !sd->status_every )
+	{
+		ptr = buf;
+		for ( bit = 0; bit < ARRAY_SIZE(sd_of_status_bits); bit++ )
+			if ( sd->status_counts[bit] > 5 )
+				ptr += scnprintf(ptr, end - ptr, "%s%s:%lu",
+				                 ptr > buf ? ", " : "counts: ",
+				                 sd_of_status_bits[bit],
+				                 sd->status_counts[bit]);
+		if ( ptr > buf )
+			pr_info("%s: %s\n", dev_name(sd->dev), buf);
+
+		memset(sd->status_counts, 0, sizeof(sd->status_counts));
+		sd->status_every = SD_OF_STATUS_CLEAR;
+	}
+	else
+		sd->status_every--;
+
+	sd->status_prev = curr;
+}
+
 
 static int sd_of_probe (struct platform_device *pdev)
 {
@@ -210,6 +268,11 @@ pr_debug("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
 
 	platform_set_drvdata(pdev, sd);
 
+	sd->status_prev  = sd_regs_srio_status(sd);
+	sd->status_every = SD_OF_STATUS_CLEAR;
+	setup_timer(&sd->status_timer, sd_of_status_tick, (unsigned long)sd);
+	mod_timer(&sd->status_timer,   jiffies + SD_OF_STATUS_CHECK);
+
 	return ret;
 
 test_exit:
@@ -241,6 +304,8 @@ sd_free:
 static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
+
+	del_timer(&sd->status_timer);
 
 	sd_user_exit();
 	sd_test_exit();

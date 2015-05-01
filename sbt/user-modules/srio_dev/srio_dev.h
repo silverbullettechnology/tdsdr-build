@@ -76,6 +76,12 @@ struct srio_dev
 	u32                gt_txpostcursor;
 	u32                gt_rxlpmen;
 
+	/* Status monitoring */
+	struct timer_list  status_timer;
+	unsigned           status_every;
+	unsigned           status_prev;
+	unsigned long      status_counts[7];
+
 	/* Mapped pointer for the maintenance registers */
 	void __iomem  *maint;
 
