@@ -521,6 +521,8 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	REG_RMW(&sf->regs->ier, 0, RFPF|RC);
 	sf->rx_current = NULL;
 
+	/* Unmap to flush cache */
+	sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
 	if ( (desc->virt[0] & 0xFFFF) != sf->sd->devid )
 	{
 		pr_err("%s: %s: %08x:%08x.%08x, dropped\n", sf->name, __func__,
@@ -530,12 +532,11 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 		return;
 	}
 
-	/* Unmap to flush cache, handle response packets */
-	sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
+	/* handle response packets */
 	if ( (desc->virt[2] & 0x00F00000) == 0x00D00000 )
 	{
 		/* everything needed is in the MSW of the HELLO header */
-		resp = desc->virt[2];
+		resp = desc->virt[2] & 0xFFF00000;
 		sd_desc_free(sf->sd, desc);
 		
 		pr_debug("%s: %s: response packet %08x.%08x\n", sf->name, __func__,
@@ -544,7 +545,7 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 		{
 			desc = container_of(walk, struct sd_desc, list);
 			pr_debug("%s: %s:   desc %p resp %08x\n", sf->name, __func__, desc, desc->resp);
-			if ( (desc->resp & 0xFFFFFF00) == resp )
+			if ( (desc->resp & 0xFFF00000) == resp )
 			{
 				pr_debug("%s: %s:   match TTL %u, free\n\n", sf->name, __func__, desc->resp & 0xFF);
 				list_del_init(&desc->list);
@@ -573,7 +574,7 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	/* Build and send response packet if necessary */
 	if ( resp )
 	{
-		desc = sd_desc_alloc(sf->sd, GFP_ATOMIC);
+		desc = sd_desc_alloc(sf->sd, GFP_ATOMIC|GFP_DMA);
 		BUG_ON(!desc);
 		desc->virt[0] = (tuser >> 16) | (tuser << 16);
 		desc->virt[1] = 0;
@@ -608,18 +609,27 @@ static void sd_fifo_rx_dma (struct sd_fifo *sf, uint32_t size);
 /** RX DMA completion callback */
 static void sd_fifo_rx_dma_complete (void *param)
 {
-	struct sd_fifo *sf = param;
-	struct sd_desc *desc;
-	unsigned long   flags;
-	uint32_t        rlr;
+	struct sd_fifo  *sf = param;
+	struct sd_desc  *desc;
+	enum dma_status  status;
+	unsigned long    flags;
+	uint32_t         rlr;
 
 	spin_lock_irqsave(&sf->rx.lock, flags);
 	BUG_ON(!sf->rx_current);
 	desc = sf->rx_current;
 
 	del_timer(&sf->rx.timer);
-	pr_trace("%s: %s: status %d\n", sf->name, __func__,
-	         dma_async_is_tx_complete(sf->rx.chan, sf->rx.cookie, NULL, NULL));
+	status = dma_async_is_tx_complete(sf->rx.chan, sf->rx.cookie, NULL, NULL);
+	switch ( status == DMA_ERROR )
+	{
+		pr_err("%s: %s: RX DMA_ERROR, reset RX\n", sf->name, __func__);
+		dmaengine_terminate_all(sf->rx.chan);
+		sd_fifo_reset(sf, SD_FR_RX);
+		spin_unlock_irqrestore(&sf->rx.lock, flags);
+		return;
+	}
+	pr_debug("%s: %s: status %d\n", sf->name, __func__, status);
 
 	/* If size is set this is the ACK for the last chunk: dispatch and stop.
 	 * After the last chunk is read and the packet dispatched, read RDFO to find out
@@ -918,7 +928,7 @@ next:
 			/* No current descriptor: alloc one from slab */
 			if ( !sf->rx_current )
 			{
-				sf->rx_current = sd_desc_alloc(sf->sd, GFP_ATOMIC);
+				sf->rx_current = sd_desc_alloc(sf->sd, GFP_ATOMIC|GFP_DMA);
 				pr_trace("%s: %s: rx_current now %p\n", sf->name, __func__,
 				         sf->rx_current);
 

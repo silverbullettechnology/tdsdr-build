@@ -32,7 +32,8 @@
 struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int mbox);
 
 
-int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *mesg);
+int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *mesg,
+                  gfp_t flags);
 
 
 int sd_mbox_open_outb_mbox (struct rio_mport *mport, void *dev_id, int mbox,

@@ -542,7 +542,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		goto fail;
 	}
 
-	if ( !(desc[0] = sd_desc_alloc(sd_user_dev, GFP_KERNEL)) )
+	if ( !(desc[0] = sd_desc_alloc(sd_user_dev, GFP_KERNEL|GFP_DMA)) )
 	{
 		ret = -ENOMEM;
 		goto fail;
@@ -577,7 +577,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		case 11: // MESSAGE
-			if ( (num = sd_mbox_frag(sd_user_dev, desc, mesg)) < 1 )
+			if ( (num = sd_mbox_frag(sd_user_dev, desc, mesg, GFP_KERNEL|GFP_DMA)) < 1 )
 			{
 				ret = -EFBIG;
 				goto fail;

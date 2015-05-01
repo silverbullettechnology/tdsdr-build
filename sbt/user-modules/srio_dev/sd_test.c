@@ -182,7 +182,7 @@ static ssize_t sd_test_trigger_write (struct file *f, const char __user *u, size
 		return -EINVAL;
 	}
 
-	if ( !(desc = sd_desc_alloc(sd_test_dev, GFP_KERNEL)) )
+	if ( !(desc = sd_desc_alloc(sd_test_dev, GFP_KERNEL|GFP_DMA)) )
 	{
 		kfree(desc);
 		return -ENOMEM;
