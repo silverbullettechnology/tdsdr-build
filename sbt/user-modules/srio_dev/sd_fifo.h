@@ -112,6 +112,7 @@ struct sd_fifo
 	struct list_head             tx_retry;
 	unsigned                     tx_cookie;
 	sd_tx_callback               tx_func;
+	struct timer_list            rt_timer;
 };
 
 

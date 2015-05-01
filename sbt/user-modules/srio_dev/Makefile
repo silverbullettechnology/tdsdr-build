@@ -60,7 +60,7 @@ EXTRA_CFLAGS += -I$(PWD)
 #CFLAGS_sd_fifo.o  += -DDEBUG
 #CFLAGS_sd_of.o    += -DDEBUG
 #CFLAGS_sd_proc.o  += -DDEBUG
-EXTRA_CFLAGS += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
 EXTRA_CFLAGS += -Werror
 
 all:  modules

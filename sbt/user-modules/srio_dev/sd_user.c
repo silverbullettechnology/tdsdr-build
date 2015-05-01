@@ -356,7 +356,10 @@ void sd_user_recv_init (struct sd_fifo *fifo, struct sd_desc *desc)
 
 void sd_user_tx_done (struct sd_fifo *fifo, unsigned cookie, int result)
 {
-	pr_debug("%s: TX desc %u %s\n", __func__, cookie, result ? "failed" : "success");
+	if ( result )
+		pr_err("%s: TX desc %u failed (%d)\n", __func__, cookie, result);
+	else
+		pr_debug("%s: TX desc %u success\n", __func__, cookie);
 }
 
 

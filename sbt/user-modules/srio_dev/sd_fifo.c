@@ -32,6 +32,8 @@
 #define pr_trace(...) do{ }while(0)
 //#define pr_trace pr_debug
 
+#define RT_TIMER_DELAY 10 // 100ms
+
 
 /* Bits for IER / ISR */
 #define RFPE    (1 << 19)
@@ -484,6 +486,60 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 }
 
 
+static void sd_fifo_tx_retry (unsigned long param)
+{
+	struct list_head *temp, *walk;
+	struct sd_fifo   *sf = (struct sd_fifo *)param;
+	struct sd_desc   *desc;
+	unsigned long     flags;
+	int               empty;
+	int               retry = 0;
+
+	pr_debug("%s: %s: retry timer running\n", sf->name, __func__);
+
+	spin_lock_irqsave(&sf->tx.lock, flags);
+	empty = list_empty(&sf->tx_queue);
+	if ( !list_empty(&sf->tx_retry) )
+	{
+		list_for_each_safe(walk, temp, &sf->tx_retry)
+		{
+			desc = container_of(walk, struct sd_desc, list);
+			list_del_init(&desc->list);
+			if ( desc->resp-- & 0x000000FF )
+			{
+				pr_debug("%s: %s: desc %p retry, resp %08x\n",
+				         sf->name, __func__, desc, desc->resp);
+				if ( sf->tx.chan && !desc->phys )
+				{
+					desc->phys = dma_map_single(sf->dev, desc->virt, desc->used,
+					                            DMA_MEM_TO_DEV);
+					BUG_ON(!desc->phys);
+				}
+				desc->offs = 0;
+				list_add_tail(&desc->list, &sf->tx_queue);
+				retry++;
+			}
+			else
+			{
+				pr_info("%s: %s: desc %p dropped, resp %08x\n",
+				        sf->name, __func__, desc, desc->resp);
+				if ( sf->tx_func )
+					sf->tx_func(sf, desc->info, 1);
+				sd_desc_free(sf->sd, desc);
+			}
+		}
+	}
+	if ( empty && retry )
+	{
+		pr_debug("%s: %s: retry %d, empty %d, tx_start\n",
+		         sf->name, __func__, retry, empty);
+		sd_fifo_tx_start(sf);
+	}
+
+	spin_unlock_irqrestore(&sf->tx.lock, flags);
+}
+
+
 /******** RX handling *******/
 
 
@@ -552,10 +608,14 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 				if ( sf->tx_func )
 					sf->tx_func(sf, desc->info, 0);
 				sd_desc_free(sf->sd, desc);
-				return;
+				break;
 			}
 		}
-		pr_debug("%s: %s: not matched?\n\n", sf->name, __func__);
+		if ( list_empty(&sf->tx_retry) )
+		{
+			pr_debug("%s: %s: retry list empty, stop timer\n\n", sf->name, __func__);
+			del_timer(&sf->rt_timer);
+		}
 		return;
 	}
 
@@ -829,6 +889,11 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 				pr_debug("%s: %s: desc %p: resp %08x expected, add to rx_retry\n",
 				         sf->name, __func__, desc, desc->resp);
 				list_add_tail(&desc->list, &sf->tx_retry);
+				if ( !timer_pending(&sf->rt_timer) )
+				{
+					pr_debug("%s: %s: start retry timer\n", sf->name, __func__);
+					mod_timer(&sf->rt_timer, jiffies + RT_TIMER_DELAY);
+				}
 			}
 			else
 			{
@@ -1240,6 +1305,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref)
 
 	setup_timer(&sf->rx.timer, sd_fifo_rx_dma_timeout, (unsigned long)sf);
 	setup_timer(&sf->tx.timer, sd_fifo_tx_dma_timeout, (unsigned long)sf);
+	setup_timer(&sf->rt_timer, sd_fifo_tx_retry,       (unsigned long)sf);
 
 	sf->rx_current = NULL;
 	INIT_LIST_HEAD(&sf->tx_queue);
@@ -1294,6 +1360,8 @@ void sd_fifo_free (struct sd_fifo *sf)
 
 	/* Disable all IRQs first */
 	REG_WRITE(&sf->regs->ier, 0);
+
+	del_timer(&sf->rt_timer);
 
 	if ( sf->tx.chan ) dma_release_channel(sf->tx.chan);
 	if ( sf->rx.chan ) dma_release_channel(sf->rx.chan);
