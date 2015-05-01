@@ -22,28 +22,11 @@
 #include "sd_regs.h"
 
 
-#define CTRL_SRIO_RESET       0x00000001
-#define CTRL_SRIO_LOOPBACK    0x0000001C
-#define CTRL_GT_DIFFCTRL      0x000001E0
-#define CTRL_GT_TXPRECURSOR   0x00003E00
-#define CTRL_GT_TXPOSTCURSOR  0x0007C000
-#define CTRL_GT_RXLPMEN       0x00080000
-
-#define STAT_SRIO_LINK_INITIALIZED  0x00000001
-#define STAT_SRIO_PORT_INITIALIZED  0x00000002
-#define STAT_SRIO_CLOCK_OUT_LOCK    0x00000004
-#define STAT_SRIO_MODE_1X           0x00000008
-#define STAT_PORT_ERROR             0x00000010
-#define STAT_GTRX_NOTINTABLE_OR     0x00000020
-#define STAT_GTRX_DISPERR_OR        0x00000040
-#define STAT_DEVICE_ID              0xFF000000
-
-
 void sd_regs_srio_reset (struct srio_dev *sd)
 {
-	REG_RMW(&sd->sys_regs->ctrl, 0, CTRL_SRIO_RESET);
+	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_SRIO_RESET_M);
 	msleep(10);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_SRIO_RESET, 0);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_SRIO_RESET_M, 0);
 	msleep(10);
 }
 
@@ -60,23 +43,23 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 	char     *e = dst + max;
 
 	p += scnprintf(p, e - p, "ctrl:\n");
-	p += scnprintf(p, e - p, "  srio_reset     : %u\n", (v & CTRL_SRIO_RESET     )      );
-	p += scnprintf(p, e - p, "  srio_loopback  : %u\n", (v & CTRL_SRIO_LOOPBACK  ) >>  2);
-	p += scnprintf(p, e - p, "  gt_diffctrl    : %u\n", (v & CTRL_GT_DIFFCTRL    ) >>  5);
-	p += scnprintf(p, e - p, "  gt_txprecursor : %u\n", (v & CTRL_GT_TXPRECURSOR ) >>  9);
-	p += scnprintf(p, e - p, "  gt_txpostcursor: %u\n", (v & CTRL_GT_TXPOSTCURSOR) >> 14);
-	p += scnprintf(p, e - p, "  gt_rxlpmen     : %u\n", (v & CTRL_GT_RXLPMEN     ) >> 19);
+	p += scnprintf(p, e - p, "  srio_reset     : %u\n", (v & SD_SR_CTRL_SRIO_RESET_M     ) >> SD_SR_CTRL_SRIO_RESET_S     );
+	p += scnprintf(p, e - p, "  srio_loopback  : %u\n", (v & SD_SR_CTRL_SRIO_LOOPBACK_M  ) >> SD_SR_CTRL_SRIO_LOOPBACK_S  );
+	p += scnprintf(p, e - p, "  gt_diffctrl    : %u\n", (v & SD_SR_CTRL_GT_DIFFCTRL_M    ) >> SD_SR_CTRL_GT_DIFFCTRL_S    );
+	p += scnprintf(p, e - p, "  gt_txprecursor : %u\n", (v & SD_SR_CTRL_GT_TXPRECURSOR_M ) >> SD_SR_CTRL_GT_TXPRECURSOR_S );
+	p += scnprintf(p, e - p, "  gt_txpostcursor: %u\n", (v & SD_SR_CTRL_GT_TXPOSTCURSOR_M) >> SD_SR_CTRL_GT_TXPOSTCURSOR_S);
+	p += scnprintf(p, e - p, "  gt_rxlpmen     : %u\n", (v & SD_SR_CTRL_GT_RXLPMEN_M     ) >> SD_SR_CTRL_GT_RXLPMEN_S     );
 
 	v = sd_regs_srio_status(sd);
 	p += scnprintf(p, e - p, "\nstatus:\n");
-	p += scnprintf(p, e - p, "  srio_link_initialized: %u\n", (v & STAT_SRIO_LINK_INITIALIZED)      );
-	p += scnprintf(p, e - p, "  srio_port_initialized: %u\n", (v & STAT_SRIO_PORT_INITIALIZED) >>  1);
-	p += scnprintf(p, e - p, "  srio_clock_out_lock  : %u\n", (v & STAT_SRIO_CLOCK_OUT_LOCK  ) >>  2);
-	p += scnprintf(p, e - p, "  srio_mode_1x         : %u\n", (v & STAT_SRIO_MODE_1X         ) >>  3);
-	p += scnprintf(p, e - p, "  port_error           : %u\n", (v & STAT_PORT_ERROR           ) >>  4);
-	p += scnprintf(p, e - p, "  gtrx_notintable_or   : %u\n", (v & STAT_GTRX_NOTINTABLE_OR   ) >>  5);
-	p += scnprintf(p, e - p, "  gtrx_disperr_or      : %u\n", (v & STAT_GTRX_DISPERR_OR      ) >>  6);
-	p += scnprintf(p, e - p, "  device_id            : %u\n", (v & STAT_DEVICE_ID            ) >> 24);
+	p += scnprintf(p, e - p, "  srio_link_initialized: %u\n", (v & SD_SR_STAT_SRIO_LINK_INITIALIZED_M) >> SD_SR_STAT_SRIO_LINK_INITIALIZED_S);
+	p += scnprintf(p, e - p, "  srio_port_initialized: %u\n", (v & SD_SR_STAT_SRIO_PORT_INITIALIZED_M) >> SD_SR_STAT_SRIO_PORT_INITIALIZED_S);
+	p += scnprintf(p, e - p, "  srio_clock_out_lock  : %u\n", (v & SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_M  ) >> SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_S  );
+	p += scnprintf(p, e - p, "  srio_mode_1x         : %u\n", (v & SD_SR_STAT_SRIO_MODE_1X_M         ) >> SD_SR_STAT_SRIO_MODE_1X_S         );
+	p += scnprintf(p, e - p, "  port_error           : %u\n", (v & SD_SR_STAT_PORT_ERROR_M           ) >> SD_SR_STAT_PORT_ERROR_S           );
+	p += scnprintf(p, e - p, "  gtrx_notintable_or   : %u\n", (v & SD_SR_STAT_GTRX_NOTINTABLE_OR_M   ) >> SD_SR_STAT_GTRX_NOTINTABLE_OR_S   );
+	p += scnprintf(p, e - p, "  gtrx_disperr_or      : %u\n", (v & SD_SR_STAT_GTRX_DISPERR_OR_M      ) >> SD_SR_STAT_GTRX_DISPERR_OR_S      );
+	p += scnprintf(p, e - p, "  device_id            : %u\n", (v & SD_SR_STAT_DEVICE_ID_M            ) >> SD_SR_STAT_DEVICE_ID_S            );
 	p += scnprintf(p, e - p, "\n");
 
 	return p - dst;
@@ -86,57 +69,57 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 void sd_regs_set_gt_loopback (struct srio_dev *sd, unsigned mode)
 {
 	pr_debug("Set gt_loopback to %u\n", mode);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_SRIO_LOOPBACK, (mode << 2) & CTRL_SRIO_LOOPBACK);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_SRIO_LOOPBACK_M, (mode << SD_SR_CTRL_SRIO_LOOPBACK_S) & SD_SR_CTRL_SRIO_LOOPBACK_M);
 }
 
 void sd_regs_set_gt_diffctrl (struct srio_dev *sd, unsigned val)
 {
 	pr_debug("Set gt_diffctrl to %u\n", val);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_DIFFCTRL, (val << 5) & CTRL_GT_DIFFCTRL);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_DIFFCTRL_M, (val << SD_SR_CTRL_GT_DIFFCTRL_S) & SD_SR_CTRL_GT_DIFFCTRL_M);
 }
 
 void sd_regs_set_gt_txprecursor (struct srio_dev *sd, unsigned val)
 {
 	pr_debug("Set gt_txprecursor to %u\n", val);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPRECURSOR, (val << 9) & CTRL_GT_TXPRECURSOR);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_TXPRECURSOR_M, (val << SD_SR_CTRL_GT_TXPRECURSOR_S) & SD_SR_CTRL_GT_TXPRECURSOR_M);
 }
 
 void sd_regs_set_gt_txpostcursor (struct srio_dev *sd, unsigned val)
 {
 	pr_debug("Set gt_txpostcursor to %u\n", val);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_TXPOSTCURSOR, (val << 14) & CTRL_GT_TXPOSTCURSOR);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_TXPOSTCURSOR_M, (val << SD_SR_CTRL_GT_TXPOSTCURSOR_S) & SD_SR_CTRL_GT_TXPOSTCURSOR_M);
 }
 
 void sd_regs_set_gt_rxlpmen (struct srio_dev *sd, unsigned val)
 {
 	pr_debug("Set gt_rxlpmen to %u\n", val);
-	REG_RMW(&sd->sys_regs->ctrl, CTRL_GT_RXLPMEN, (val << 19) & CTRL_GT_RXLPMEN);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_RXLPMEN_M, (val << SD_SR_CTRL_GT_RXLPMEN_S) & SD_SR_CTRL_GT_RXLPMEN_M);
 }
 
 
 unsigned sd_regs_get_gt_loopback (struct srio_dev *sd)
 {
-	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_SRIO_LOOPBACK) >> 2;
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_SRIO_LOOPBACK_M) >> SD_SR_CTRL_SRIO_LOOPBACK_S;
 }
 
 unsigned sd_regs_get_gt_diffctrl (struct srio_dev *sd)
 {
-	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_DIFFCTRL) >> 5;
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_GT_DIFFCTRL_M) >> SD_SR_CTRL_GT_DIFFCTRL_S;
 }
 
 unsigned sd_regs_get_gt_txprecursor (struct srio_dev *sd)
 {
-	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_TXPRECURSOR) >> 9;
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_GT_TXPRECURSOR_M) >> SD_SR_CTRL_GT_TXPRECURSOR_S;
 }
 
 unsigned sd_regs_get_gt_txpostcursor (struct srio_dev *sd)
 {
-	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_TXPOSTCURSOR) >> 14;
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_GT_TXPOSTCURSOR_M) >> SD_SR_CTRL_GT_TXPOSTCURSOR_S;
 }
 
 unsigned sd_regs_get_gt_rxlpmen (struct srio_dev *sd)
 {
-	return (REG_READ(&sd->sys_regs->ctrl) & CTRL_GT_RXLPMEN) >> 19;
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_GT_RXLPMEN_M) >> SD_SR_CTRL_GT_RXLPMEN_S;
 }
 
 

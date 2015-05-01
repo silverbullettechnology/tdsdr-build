@@ -82,6 +82,38 @@ struct sd_lpsl_ef_regs
 };
 
 
+#define SD_SR_CTRL_SRIO_RESET_M             0x00000001
+#define SD_SR_CTRL_SRIO_RESET_S                      0
+#define SD_SR_CTRL_SRIO_LOOPBACK_M          0x0000001C
+#define SD_SR_CTRL_SRIO_LOOPBACK_S                   2
+#define SD_SR_CTRL_GT_DIFFCTRL_M            0x000001E0
+#define SD_SR_CTRL_GT_DIFFCTRL_S                     5
+#define SD_SR_CTRL_GT_TXPRECURSOR_M         0x00003E00
+#define SD_SR_CTRL_GT_TXPRECURSOR_S                  9
+#define SD_SR_CTRL_GT_TXPOSTCURSOR_M        0x0007C000
+#define SD_SR_CTRL_GT_TXPOSTCURSOR_S                14
+#define SD_SR_CTRL_GT_RXLPMEN_M             0x00080000
+#define SD_SR_CTRL_GT_RXLPMEN_S                     19
+
+#define SD_SR_STAT_SRIO_LINK_INITIALIZED_M  0x00000001
+#define SD_SR_STAT_SRIO_LINK_INITIALIZED_S           0
+#define SD_SR_STAT_SRIO_PORT_INITIALIZED_M  0x00000002
+#define SD_SR_STAT_SRIO_PORT_INITIALIZED_S           1
+#define SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_M    0x00000004
+#define SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_S             2
+#define SD_SR_STAT_SRIO_MODE_1X_M           0x00000008
+#define SD_SR_STAT_SRIO_MODE_1X_S                    3
+#define SD_SR_STAT_PORT_ERROR_M             0x00000010
+#define SD_SR_STAT_PORT_ERROR_S                      4
+#define SD_SR_STAT_GTRX_NOTINTABLE_OR_M     0x00000020
+#define SD_SR_STAT_GTRX_NOTINTABLE_OR_S              5
+#define SD_SR_STAT_GTRX_DISPERR_OR_M        0x00000040
+#define SD_SR_STAT_GTRX_DISPERR_OR_S                 6
+#define SD_SR_STAT_DEVICE_ID_M              0xFF000000
+#define SD_SR_STAT_DEVICE_ID_S                      24
+
+
+
 /* SYS_REG registers (SBT Implementation) */
 struct sd_sys_reg
 {
