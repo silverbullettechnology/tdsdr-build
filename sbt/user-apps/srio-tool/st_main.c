@@ -35,7 +35,7 @@
 #include "srio-tool.h"
 
 #define  DEV_NODE "/dev/" SD_USER_DEV_NODE
-#define  PERIOD 15
+#define  PERIOD 5
 
 char *argv0;
 
@@ -384,7 +384,7 @@ int main (int argc, char **argv)
 			}
 			repeat = key;
 		}
-		else if ( periodic > 0 && repeat )
+		else if ( !sel && periodic > 0 && repeat )
 			key = repeat;
 
 		if ( key > '\0' )
