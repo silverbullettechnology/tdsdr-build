@@ -1,3 +1,15 @@
+.reset
 petalinux
 kernel
 images/*
+*.o
+sbt/user-apps/*/.sgbuilt_user
+sbt/user-libs/*/.sgbuilt_lib
+sbt/user-modules/*/.sgbuilt_module
+sbt/user-modules/*/*.ko
+sbt/user-modules/*/*.o.cmd
+sbt/user-modules/*/Module.symvers
+sbt/user-modules/*/modules.order
+sbt/user-modules/*/*.mod.c
+sbt/user-modules/*/.*.ko.cmd
+sbt/user-modules/*/.tmp_versions/
