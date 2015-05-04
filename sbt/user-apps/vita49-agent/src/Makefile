@@ -75,7 +75,7 @@ DAEMON_OBJS += \
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
 	-lrt \
-	../lib/config/libconfig.a
+	-lconfig
 
 
 # Worker core
@@ -110,7 +110,7 @@ WORKER_OBJS += \
 # Daemon library code - never cleaned 
 WORKER_LIBS := \
 	-lrt \
-	../lib/config/libconfig.a
+	-lconfig
 
 
 # Test stub
@@ -146,7 +146,8 @@ CONTROL_OBJS += tool/control/sequence/disco.o
 #CONTROL_OBJS += tool/control/sequence/enum.o
 
 CONTROL_LIBS := \
-	../lib/config/libconfig.a
+	-lrt \
+	-lconfig
 
 
 # Regular built objects to scan for unit-test code

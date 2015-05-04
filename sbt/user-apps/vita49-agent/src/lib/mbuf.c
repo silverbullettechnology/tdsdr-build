@@ -698,7 +698,7 @@ int mbuf_set_le32 (struct mbuf *mbuf, uint32_t val)
 
 int mbuf_set_n64 (struct mbuf *mbuf, uint64_t val)
 {
-	ENTER("mbuf %p, val %016lx", mbuf, val);
+	ENTER("mbuf %p, val %016llx", mbuf, val);
 	if ( mbuf_set_avail(mbuf) < sizeof(uint64_t) )
 		RETURN_VALUE("%d", -1);
 
@@ -713,7 +713,7 @@ int mbuf_set_n64 (struct mbuf *mbuf, uint64_t val)
 
 int mbuf_set_be64 (struct mbuf *mbuf, uint64_t val)
 {
-	ENTER("mbuf %p, val %016lx", mbuf, val);
+	ENTER("mbuf %p, val %016llx", mbuf, val);
 	if ( mbuf_set_avail(mbuf) < sizeof(uint64_t) )
 		RETURN_VALUE("%d", -1);
 
@@ -737,7 +737,7 @@ int mbuf_set_be64 (struct mbuf *mbuf, uint64_t val)
 
 int mbuf_set_le64 (struct mbuf *mbuf, uint64_t val)
 {
-	ENTER("mbuf %p, val %016lx", mbuf, val);
+	ENTER("mbuf %p, val %016llx", mbuf, val);
 	if ( mbuf_set_avail(mbuf) < sizeof(uint64_t) )
 		RETURN_VALUE("%d", -1);
 

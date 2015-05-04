@@ -13,11 +13,21 @@
 #
 # vim:ts=4:noexpandtab
 
+ifneq ($(PETALINUX),)
+include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
+include $(LOGGING_MK)
+export DESTDIR := $(ROMFSDIR)
+.PHONY: romfs image
+else
+include host.mk
+endif
+
 .PHONY: all install clean
 
 # cross-compile friendly
-CC     := $(CROSS_COMPILE)gcc
+CC     ?= $(CROSS_COMPILE)gcc
 CFLAGS += -Iinclude -I../include -I../lib
+LFLAGS += -L../lib/config
 
 # Compile with debugging
 CFLAGS += -g
@@ -43,4 +53,11 @@ all install clean:
 tests:
 	$(MAKE) -C lib       all
 	$(MAKE) -C src       $@
+
+ifneq ($(PETALINUX),)
+romfs: all install
+
+image: romfs
+	make -C ${PETALINUX}/software/petalinux-dist image
+endif
 

@@ -28,7 +28,6 @@
 
 extern char *argv0;
 
-
 char *macfmt (uint8_t *mac);
 
 void dump_line (unsigned char *ptr, int len);

@@ -207,7 +207,7 @@ LOG_DEBUG("%s: start avail %d\n", __func__, mbuf_get_avail(mbuf));
 			FAIL(V49_ERR_LIST_SIZE);
 
 		// read UUIDs and merge into list
-		LOG_DEBUG("  res_info %lu records\n", len / sizeof(uuid_t));
+		LOG_DEBUG("  res_info %u records\n", len / sizeof(uuid_t));
 		for ( ; len; len -= sizeof(*res) )
 		{
 			if ( !(res = calloc(1, sizeof(*res))) )

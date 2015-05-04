@@ -119,7 +119,7 @@ int main (int argc, char **argv)
 	int    cmd_argc;
 	char  *ptr;
 	int    opt;
-	int    ret;
+	int    ret = 0;
 
 	// avoid basename, doesn't work in some uClibc versions
 	if ( (argv0 = strrchr(*argv, '/')) && argv0[1] )

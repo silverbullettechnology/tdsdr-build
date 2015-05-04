@@ -40,6 +40,7 @@
 #include <daemon/daemon.h>
 
 
+char           *argv0;
 int             daemon_opt_daemon = 1;
 char           *daemon_opt_log    = NULL;
 char           *daemon_opt_config = DEF_CONFIG;

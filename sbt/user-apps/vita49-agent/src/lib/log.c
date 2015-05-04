@@ -37,6 +37,7 @@
 
 LOG_MODULE_STATIC("log_core", LOG_LEVEL_DEBUG);
 
+extern char *argv0;
 
 static struct descript log_level_descript[] =
 {

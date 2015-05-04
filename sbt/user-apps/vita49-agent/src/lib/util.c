@@ -31,7 +31,6 @@
 #include "lib/util.h"
 #include "lib/log.h"
 
-char *argv0 = NULL;
 
 /** Set minimum log level for this module
  *

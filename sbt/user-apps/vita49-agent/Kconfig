@@ -1,0 +1,4 @@
+if USER_APPS_VITA49_AGENT
+	comment "No additional options for VITA49_AGENT"
+
+endif

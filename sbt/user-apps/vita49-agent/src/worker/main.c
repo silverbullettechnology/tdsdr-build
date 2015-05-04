@@ -39,6 +39,7 @@
 LOG_MODULE_STATIC("worker", LOG_LEVEL_DEBUG);
 
 
+char           *argv0 = NULL;
 char           *worker_opt_log     = NULL;
 char           *worker_opt_config  = DEF_CONFIG;
 char           *worker_opt_section = NULL;
