@@ -1,0 +1,32 @@
+ret 15: line 1: used 15: line 1 - normal
+
+ret 23: line 2: used 23: line 2 quoted # comment
+
+ret 20: line 3: used 20: line 3 quoted single
+
+ret 22: line 4: used 22: line 4 quoted trailing
+
+ret 0: line 5: used 0: 
+
+ret 0: line 6: used 0: 
+
+ret 0: line 7: used 0: 
+
+ret 0: line 8: used 0: 
+
+ret 104: line 9: used 104: <line 9 - st - should require a re-read since after this string><this string should be what's read next>
+
+ret 92: line 10: used 92: <line 10 test - should require a re-read since after this string><this string has a comment>
+
+ret 25: line 12: used 25: lines 11-12 quoted\x0Adouble
+
+ret 0: line 13: used 0: 
+
+ret 16: line 14: used 16: line 15 trailing
+
+ret 21: line 16: used 21: line 16-17 line\x0Abreak
+
+ret 15: line 17: used 15: line 18 hex\x09tab
+
+ret 15: line 18: used 15: line 19 foo@bar
+

@@ -1,0 +1,19 @@
+line 1 - normal
+"line 2 quoted # comment"
+"line 3 quoted single"
+"line 4 quoted trailing" # comment
+# <long comment 5 st... may   a re-read since after this string><this string should be what's read next>
+# <long comment 6 st... may   a re-read since after this string><this string should make for an unreasonably long comment.....>
+# <long comment 7 st... may   a re-read since after this string><this string should make for an unreasonably long comment......>
+# <long comment 8 st... may   a re-read since after this string><this string should make for an unreasonably long comment.......>
+<line 9 - st - should require a re-read since after this string><this string should be what's read next>
+<line 10 test - should require a re-read since after this string><this string has a comment> # after
+"lines 11-12 quoted
+double"
+
+# line 14 leading comment
+line 15 trailing # comment
+line 16-17 line\
+break
+line 18 hex\x9tab
+line 19 foo\x40bar

@@ -1,0 +1,31 @@
+# test for a data line in default section
+default-tag = default-val
+
+# test for a section not present in the map
+[catchall]
+catchall-tag = catchall-val
+
+# test for a section matching exactly in the map
+[exact]
+exact-tag = exact-val
+
+# test for a section matching a prefix
+[prefix]
+prefix-tag = prefix-val
+
+# test for a section matching a suffix
+[signpost]
+signpost-tag = signpost-val
+
+# test for a section matching outer wildcards with no leading text
+[outer]
+outer-tag = outer-val
+
+# test for a section matching outer wildcards with leading and trailing text
+[grouted]
+grouted-tag = grouted-val
+
+# test for a section matching outer wildcards with no trailing text
+[without]
+without-tag = without-val
+
