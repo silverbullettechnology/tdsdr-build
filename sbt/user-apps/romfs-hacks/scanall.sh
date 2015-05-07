@@ -21,18 +21,24 @@ fstab () {
 scan () {
 	/bin/grep -q " $1" /proc/partitions || return
 
+	case `realpath /sys/block/$1/device | cut -d/ -f7` in
+		mmc0) name="card" ;;
+		mmc1) name="emmc" ;;
+		*) return ;;
+	esac
+
 	case `/bin/grep -c " ${1}p" /proc/partitions` in
-		0)	fstab /dev/$1     /media/$2 ;;
-		1)	fstab /dev/${1}p1 /media/$2 ;;
+		0)	fstab /dev/$1     /media/$name ;;
+		1)	fstab /dev/${1}p1 /media/$name ;;
 		*)	num=1;
 			for part in `/bin/grep "${1}p" /proc/partitions | cut -c26-`; do
-				fstab "/dev/$part" "/media/$2/$num"
+				fstab "/dev/$part" "/media/$name/$num"
 				num=$(($num + 1))
 			done
 			;;
 	esac
 }
 
-scan "mmcblk0" "card"
-scan "mmcblk1" "emmc"
+scan "mmcblk0"
+scan "mmcblk1"
 
