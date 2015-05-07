@@ -1,36 +1,36 @@
-Silver Bullet Technology SDRDC Build Scripts
+Silver Bullet Technology TD-SDR Build Scripts
 ==============
 
 Introduction
 --------------
 These Build Scripts automate the process of retrieving, configuring, and building the
 Linux software supplied by Silver Bullet Technology (SBT) for use with its Software-
-Defined Radio DaughterCard (SDRDC).
+Defined Radio DaughterCard (TD-SDR).
 
 
 Prerequisites
 --------------
 To build the Linux software components (kernel, root filesystem, and devicetree) and use
 the precompiled bootloader and FPGA bitstream (boot.bin):
-- A modern Linux system is required; these scripts were developed under Xubuntu 13.10.
-  64-bit is supported as long as 32-bit compatibility libraries installed.  
+- A modern Linux system is required; these scripts were developed under Xubuntu 14.04.
+  64-bit is supported as long as 32-bit compatibility libraries are installed.  
 - A copy of PetaLogix PetaLinux SDK, v2013.4, available from Xilinx.com.
 - A valid Xilinx license for PetaLinux; the free evaluation license is adequate
 
 To build the bootloader and FPGA bitstream (boot.bin):
-- A copy of Xilinx ISE Design Suite 14.7, available from Xilinx.com.
-- A valid Xilinx license for ISE Design Suite; the free evaluation license is adequate
+- A copy of Xilinx Vivado 2014.2, available from Xilinx.com.
+- A valid Xilinx license for Vivado; the free evaluation license is adequate
 
 
 Ubuntu-specific Setup
 --------------
-At this writing Ubuntu 13.10 is the supported build environment.  In general it must be
+At this writing Ubuntu 14.04 is the supported build environment.  In general it must be
 set up to support development under PetaLinux, which has some specific requirements as
 detailed below.  The flavor of GUI (Ubuntu, Kubuntu, or Xubuntu) should not make a
 significant difference, but primary development is done under Xubuntu, which is also
 recommended for use in Virtual Machines due to its relatively lightweight XFCE GUI.
 
-PetaLinux and the SDRDC scripts require typical development software with a few specific
+PetaLinux and the TD-SDR scripts require typical development software with a few specific
 packages.  Install these with *apt-get*:
 ```
 sudo apt-get install build-essential git gawk dos2unix realpath zip
@@ -91,24 +91,25 @@ Setup Steps
 
 3. It is strongly recommended you unpack the PetaLinux tarball to a temporary directory,
    install the ZC702 BSP downloaded in step 1, and test your Xilinx license and software
-   dependencies before continuing with the SDRDC build.  A Xilinx guide to the process is 
+   dependencies before continuing with the TD-SDR build.  A Xilinx guide to the process
+   is
    [UG976](http://www.xilinx.com/support/documentation/sw_manuals/petalinux2013_04/ug976-petalinux-installation.pdf).
 
-4. Clone a copy of the SDRDC build scripts from the SBT github repository and cd into the
+4. Clone a copy of the TD-SDR build scripts from the SBT github repository and cd into the
    resulting directory.  Edit the file *Config* and set the variable *SBT_PETALINUX_SDK*
    to point to the PetaLinux SDK tarball downloaded in step 1
    ```
-   git clone -b sdrdc-devel https://github.com/silverbullettechnology/sdrdc-build.git
-   cd sdrdc-build
+   git clone -b tdsdr-devel https://github.com/silverbullettechnology/tdsdr-build.git
+   cd tdsdr-build
    nano Config
    ```
 
-5. Run the SDRDC setup scripts:
+5. Run the TD-SDR setup scripts:
    ```
    make setup
    ```
 
-   This will clone a copy of the Linux kernel tree from github into your sdrdc-build
+   This will clone a copy of the Linux kernel tree from github into your tdsdr-build
    working directory.  As this can take some time, you may want instead to set up a local
    clone of this repository as a cache, which will make setting up subsequent working
    directories much faster.  Instructions for this optional step will be added soon.
@@ -117,7 +118,7 @@ Setup Steps
    the PetaLinux license terms to use the PetaLinux SDK.
 
    PetaLinux will also try to test whether your user account is authorized to use *sudo*
-   to run commands as root.  This is not necessary for building the SDRDC firmware, and
+   to run commands as root.  This is not necessary for building the TD-SDR firmware, and
    you can press Enter at the password prompt to skip this test.  The warning message this
    produces can be ignored.
 
@@ -134,7 +135,7 @@ produce a timestamped directory under *out*.  The build files are also archived 
 .zip file with the same timestamp.
 
 Copy the four files (*boot.bin*, *kernel.img*, *devtree.img*, and *ramdisk.img*) to the
-micro-SD card, insert into the SDRDC, and apply 5V power
+micro-SD card, insert into the TD-SDR, and apply power
 
 You can also cd into the *petalinux* directory and use the normal PetaLinux tools after
 sourcing the *settings.sh* file as described in UG976:
@@ -148,7 +149,7 @@ make -C software/petalinux all
 
 This approach is faster, but not recommended pending some issues with building the
 readline library.  If the PetaLinux build fails the recommended action is to change back
-to the sdrdc-build working directory and re-run:
+to the tdsdr-build working directory and re-run:
 ```
 make
 ```
