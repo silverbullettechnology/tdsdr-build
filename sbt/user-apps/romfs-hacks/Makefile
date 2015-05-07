@@ -45,6 +45,12 @@ endif
 	rm -f  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
 	ln -sv ../init.d/gpio-setup  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
 	install -m644 gpio-setup     $(ROMFSDIR)/etc
+	install -m755 first-led      $(ROMFSDIR)/etc/init.d/first-led
+	install -m755 last-led       $(ROMFSDIR)/etc/init.d/last-led
+	rm -f  $(ROMFSDIR)/etc/rcS.d/S03first-led
+	rm -f  $(ROMFSDIR)/etc/rcS.d/S99last-led
+	ln -sv ../init.d/first-led   $(ROMFSDIR)/etc/rcS.d/S03first-led
+	ln -sv ../init.d/last-led    $(ROMFSDIR)/etc/rcS.d/S99last-led
 
 image: 
 	echo image
