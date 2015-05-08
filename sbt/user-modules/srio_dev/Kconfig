@@ -1,4 +1,8 @@
 if USER_MODULES_SRIO_DEV
+	config USER_MODULES_SRIO_DEV_AUTOLOAD
+	bool "Auto load module at boot"
+	help
+	  Say Y to autoload the module at boot.
 
 endif
 

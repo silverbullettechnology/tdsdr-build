@@ -78,10 +78,12 @@ modules:
 
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))
 	$(MAKE) -C $(KSRC) M=$(LOCALPWD) INSTALL_MOD_PATH=${ROMFSDIR} modules_install
-	install -m755 srio-setup.sh $(ROMFSDIR)/bin/srio-setup
 	mkdir -p $(ROMFSDIR)/etc/init.d $(ROMFSDIR)/etc/rcS.d
 	install -m755 srio.sh $(ROMFSDIR)/etc/init.d
+	rm -f $(ROMFSDIR)/etc/rcS.d/S90srio.sh
+ifeq ($(CONFIG_USER_MODULES_SRIO_DEV_AUTOLOAD),y)
 	ln -sf ../init.d/srio.sh $(ROMFSDIR)/etc/rcS.d/S90srio.sh
+endif
 
 .PHONY: romfs image
 
