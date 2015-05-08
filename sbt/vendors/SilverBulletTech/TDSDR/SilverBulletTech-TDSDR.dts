@@ -387,6 +387,7 @@
 			interrupt-parent = <&ps7_scugic_0>;
 			interrupts = < 0 24 4 >;
 			reg = < 0xe0100000 0x1000 >;
+			xlnx,has-wp = <0x0>;
 		} ;
 		ps7_sd_1: ps7-sdio@e0101000 {
 			clock-frequency = <125000000>;
@@ -397,6 +398,7 @@
 			interrupts = < 0 47 4 >;
 			reg = < 0xe0101000 0x1000 >;
 			xlnx,has-cd = <0x0>;
+			xlnx,has-wp = <0x0>;
 		} ;
 		ps7_slcr_0: ps7-slcr@f8000000 {
 			compatible = "xlnx,ps7-slcr-1.00.a", "xlnx,zynq-slcr";
