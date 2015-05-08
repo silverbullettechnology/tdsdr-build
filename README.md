@@ -67,7 +67,7 @@ Setup Steps
 --------------
 1. If you don't have a copy already, download the _PetaLinux 13.04 Installation archive
    for Zynq and MicroBlaze_ from
-   [here](http://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/petalinux/2013-04.html). 
+   [here](http://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/embedded-design-tools/2013-04.html). 
    You will need a valid Xilinx account to download the SDK installation archive.  Save it
    somewhere convenient like your home directory.  It is strongly recommended you also
    download the _PetaLinux 13.04 Board Support Package for Xilinx ZC702 evaluation kit_
@@ -75,12 +75,22 @@ Setup Steps
 
 2. You will need a valid Xilinx license installed in your Linux machine to use PetaLinux.
    An evaluation license is adequate and can be created [here](http://www.xilinx.com/getlicense). 
-   These are node-locked licenses for which you'll need your Linux machine's ethernet MAC
-   address as a Host ID.  You can get this by running at the command prompt:
+   If you already have a Xilinx license on your development machine, you may need to add
+   the item _PetaLinux Tools License (Evaluation)_ to it.  If you are creating a new
+   license be sure to add this item.
+
+   These are node-locked licenses for which you'll need the MAC address of one or more
+   network interface in your Linux machine.  The first ethernet interface (usually *eth0*)
+   or WiFi interface (usually *wlan0*) are adequate. You can get this by running at the
+   command prompt:
    ```
    ifconfig
    ```
-   
+
+   The MAC address follows the label *HWaddr* and will look like *70:69:01:cc:fa:ca*.
+   When creating the license enter it as the *Host ID* without the separating colon
+   characters: *706901ccfaca*
+
    Once created, the license file should be emailed to you, and should be downloadable
    from the license management tool on the Xilinx website.  The resulting *Xilinx.lic*
    file should be copied to the *.Xilinx* directory under your home directory:
