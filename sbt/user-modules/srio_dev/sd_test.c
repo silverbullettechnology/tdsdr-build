@@ -204,8 +204,7 @@ struct file_operations  sd_test_trigger_fops =
 
 
 static struct proc_dir_entry *sd_test_stat_proc;
-static ssize_t sd_test_stat_read (struct file *f, char __user *u, size_t s,
-                                       loff_t *o)
+static ssize_t sd_test_stat_read (struct file *f, char __user *u, size_t s, loff_t *o)
 {
 	static char  b[4096];
 	ssize_t      l = 0;
@@ -285,39 +284,110 @@ struct file_operations  sd_test_gt_loopback_fops =
 
 
 static struct proc_dir_entry *sd_test_reset_proc;
-static void sd_test_reset_apply (void)
-{
-	sd_regs_srio_reset(sd_test_dev);
-	printk("SRIO reset\n");
-
-	sd_fifo_reset(sd_test_dev->init_fifo, SD_FR_ALL);
-	sd_fifo_reset(sd_test_dev->targ_fifo, SD_FR_ALL);
-}
-static ssize_t sd_test_reset_write (struct file *f, const char __user *u, size_t s,
-                                    loff_t *o)
+static ssize_t sd_test_reset_read (struct file *f, char __user *u, size_t s, loff_t *o)
+                                 
 {
 	if ( *o )
 		return 0;
 
-	sd_test_reset_apply();
+	printk("SRIO reset\n");
+	sd_regs_srio_reset(sd_test_dev);
+	sd_fifo_reset(sd_test_dev->init_fifo, SD_FR_ALL);
+	sd_fifo_reset(sd_test_dev->targ_fifo, SD_FR_ALL);
+
+	return 0;
+}
+struct file_operations  sd_test_reset_fops =
+{
+	read:  sd_test_reset_read,
+};
+
+
+static struct proc_dir_entry *sd_test_rxdfelpmreset_proc;
+static ssize_t sd_test_rxdfelpmreset_read (struct file *f, char __user *u, size_t s,
+                                           loff_t *o)
+{
+	if ( *o )
+		return 0;
+
+	printk("SRIO rxdfelpmreset\n");
+	sd_regs_gt_srio_rxdfelpmreset(sd_test_dev);
+
+	return 0;
+}
+struct file_operations  sd_test_rxdfelpmreset_fops =
+{
+	read:  sd_test_rxdfelpmreset_read,
+};
+
+
+static struct proc_dir_entry *sd_test_phy_link_reset_proc;
+static ssize_t sd_test_phy_link_reset_read (struct file *f, char __user *u, size_t s,
+                                            loff_t *o)
+{
+	if ( *o )
+		return 0;
+
+	printk("SRIO phy_link_reset\n");
+	sd_regs_gt_phy_link_reset(sd_test_dev);
+
+	return 0;
+}
+struct file_operations  sd_test_phy_link_reset_fops =
+{
+	read:  sd_test_phy_link_reset_read,
+};
+
+
+static struct proc_dir_entry *sd_test_force_reinit_proc;
+static ssize_t sd_test_force_reinit_read (struct file *f, char __user *u, size_t s,
+                                          loff_t *o)
+{
+	if ( *o )
+		return 0;
+
+	printk("SRIO force_reinit\n");
+	sd_regs_gt_force_reinit(sd_test_dev);
+
+	return 0;
+}
+struct file_operations  sd_test_force_reinit_fops =
+{
+	read:  sd_test_force_reinit_read,
+};
+
+
+static struct proc_dir_entry *sd_test_phy_mce_proc;
+static ssize_t sd_test_phy_mce_read (struct file *f, char __user *u, size_t s,
+                                     loff_t *o)
+{
+	if ( *o )
+		return 0;
+
+	printk("SRIO phy_mce\n");
+	sd_regs_gt_phy_mce(sd_test_dev);
 
 	*o += s;
 	return s;
 }
-struct file_operations  sd_test_reset_fops =
+struct file_operations  sd_test_phy_mce_fops =
 {
-	write:  sd_test_reset_write,
+	read:  sd_test_phy_mce_read,
 };
 
 
 void sd_test_exit (void)
 {
-	if ( sd_test_addr_proc      ) proc_remove(sd_test_addr_proc);
-	if ( sd_test_pattern_proc   ) proc_remove(sd_test_pattern_proc);
-	if ( sd_test_trigger_proc   ) proc_remove(sd_test_trigger_proc);
-	if ( sd_test_stat_proc      ) proc_remove(sd_test_stat_proc);
-	if ( sd_test_gt_loopback_proc     ) proc_remove(sd_test_gt_loopback_proc);
-	if ( sd_test_reset_proc     ) proc_remove(sd_test_reset_proc);
+	if ( sd_test_addr_proc          ) proc_remove(sd_test_addr_proc);
+	if ( sd_test_pattern_proc       ) proc_remove(sd_test_pattern_proc);
+	if ( sd_test_trigger_proc       ) proc_remove(sd_test_trigger_proc);
+	if ( sd_test_stat_proc          ) proc_remove(sd_test_stat_proc);
+	if ( sd_test_gt_loopback_proc   ) proc_remove(sd_test_gt_loopback_proc);
+	if ( sd_test_reset_proc         ) proc_remove(sd_test_reset_proc);
+	if ( sd_test_rxdfelpmreset_proc ) proc_remove(sd_test_rxdfelpmreset_proc);
+	if ( sd_test_phy_link_reset_proc) proc_remove(sd_test_phy_link_reset_proc);
+	if ( sd_test_force_reinit_proc  ) proc_remove(sd_test_force_reinit_proc);
+	if ( sd_test_phy_mce_proc       ) proc_remove(sd_test_phy_mce_proc);
 
 	if ( sd_test_proc ) proc_remove(sd_test_proc);
 }
@@ -358,6 +428,26 @@ int sd_test_init (struct srio_dev *sd)
 	sd_test_reset_proc = proc_create("reset", 0666, sd_test_proc,
 	                                 &sd_test_reset_fops);
 	if ( !sd_test_reset_proc )
+		goto fail;
+
+	sd_test_rxdfelpmreset_proc = proc_create("rxdfelpmreset", 0444, sd_test_proc,
+	                                         &sd_test_rxdfelpmreset_fops);
+	if ( !sd_test_rxdfelpmreset_proc )
+		goto fail;
+
+	sd_test_phy_link_reset_proc = proc_create("phy_link_reset", 0444, sd_test_proc,
+	                                          &sd_test_phy_link_reset_fops);
+	if ( !sd_test_phy_link_reset_proc )
+		goto fail;
+
+	sd_test_force_reinit_proc = proc_create("force_reinit", 0444, sd_test_proc,
+	                                        &sd_test_force_reinit_fops);
+	if ( !sd_test_force_reinit_proc )
+		goto fail;
+
+	sd_test_phy_mce_proc = proc_create("phy_mce", 0444, sd_test_proc,
+	                                   &sd_test_phy_mce_fops);
+	if ( !sd_test_phy_mce_proc )
 		goto fail;
 
 	return 0;

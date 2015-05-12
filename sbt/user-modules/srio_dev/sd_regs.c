@@ -30,6 +30,38 @@ void sd_regs_srio_reset (struct srio_dev *sd)
 	msleep(10);
 }
 
+void sd_regs_gt_srio_rxdfelpmreset (struct srio_dev *sd)
+{
+	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M);
+	msleep(10);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M, 0);
+	msleep(10);
+}
+
+void sd_regs_gt_phy_link_reset (struct srio_dev *sd)
+{
+	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_PHY_LINK_RESET_M);
+	msleep(10);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_PHY_LINK_RESET_M, 0);
+	msleep(10);
+}
+
+void sd_regs_gt_force_reinit (struct srio_dev *sd)
+{
+	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_FORCE_REINIT_M);
+	msleep(10);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_FORCE_REINIT_M, 0);
+	msleep(10);
+}
+
+void sd_regs_gt_phy_mce (struct srio_dev *sd)
+{
+	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_PHY_MCE_M);
+	msleep(10);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_PHY_MCE_M, 0);
+	msleep(10);
+}
+
 unsigned sd_regs_srio_status (struct srio_dev *sd)
 {
 	return REG_READ(&sd->sys_regs->stat);
@@ -44,11 +76,16 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 
 	p += scnprintf(p, e - p, "ctrl:\n");
 	p += scnprintf(p, e - p, "  srio_reset     : %u\n", (v & SD_SR_CTRL_SRIO_RESET_M     ) >> SD_SR_CTRL_SRIO_RESET_S     );
+	p += scnprintf(p, e - p, "  swrite_bypass  : %u\n", (v & SD_SR_CTRL_SWRITE_BYPASS_M  ) >> SD_SR_CTRL_SWRITE_BYPASS_S  );
 	p += scnprintf(p, e - p, "  srio_loopback  : %u\n", (v & SD_SR_CTRL_SRIO_LOOPBACK_M  ) >> SD_SR_CTRL_SRIO_LOOPBACK_S  );
 	p += scnprintf(p, e - p, "  gt_diffctrl    : %u\n", (v & SD_SR_CTRL_GT_DIFFCTRL_M    ) >> SD_SR_CTRL_GT_DIFFCTRL_S    );
 	p += scnprintf(p, e - p, "  gt_txprecursor : %u\n", (v & SD_SR_CTRL_GT_TXPRECURSOR_M ) >> SD_SR_CTRL_GT_TXPRECURSOR_S );
 	p += scnprintf(p, e - p, "  gt_txpostcursor: %u\n", (v & SD_SR_CTRL_GT_TXPOSTCURSOR_M) >> SD_SR_CTRL_GT_TXPOSTCURSOR_S);
 	p += scnprintf(p, e - p, "  gt_rxlpmen     : %u\n", (v & SD_SR_CTRL_GT_RXLPMEN_M     ) >> SD_SR_CTRL_GT_RXLPMEN_S     );
+	p += scnprintf(p, e - p, "  gt_srio_rxdfelpmreset: %u\n", (v & SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M) >> SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_S);
+	p += scnprintf(p, e - p, "  gt_phy_link_reset    : %u\n", (v & SD_SR_CTRL_GT_PHY_LINK_RESET_M    ) >> SD_SR_CTRL_GT_PHY_LINK_RESET_S    );
+	p += scnprintf(p, e - p, "  gt_force_reinit      : %u\n", (v & SD_SR_CTRL_GT_FORCE_REINIT_M      ) >> SD_SR_CTRL_GT_FORCE_REINIT_S      );
+	p += scnprintf(p, e - p, "  gt_phy_mce           : %u\n", (v & SD_SR_CTRL_GT_PHY_MCE_M           ) >> SD_SR_CTRL_GT_PHY_MCE_S           );
 
 	v = sd_regs_srio_status(sd);
 	p += scnprintf(p, e - p, "\nstatus:\n");
@@ -59,12 +96,20 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max)
 	p += scnprintf(p, e - p, "  port_error           : %u\n", (v & SD_SR_STAT_PORT_ERROR_M           ) >> SD_SR_STAT_PORT_ERROR_S           );
 	p += scnprintf(p, e - p, "  gtrx_notintable_or   : %u\n", (v & SD_SR_STAT_GTRX_NOTINTABLE_OR_M   ) >> SD_SR_STAT_GTRX_NOTINTABLE_OR_S   );
 	p += scnprintf(p, e - p, "  gtrx_disperr_or      : %u\n", (v & SD_SR_STAT_GTRX_DISPERR_OR_M      ) >> SD_SR_STAT_GTRX_DISPERR_OR_S      );
+	p += scnprintf(p, e - p, "  phy_rcvd_mce         : %u\n", (v & SD_SR_STAT_PHY_RCVD_MCE_M         ) >> SD_SR_STAT_PHY_RCVD_MCE_S         );
+	p += scnprintf(p, e - p, "  phy_rcvd_link_reset  : %u\n", (v & SD_SR_STAT_PHY_RCVD_LINK_RESET_M  ) >> SD_SR_STAT_PHY_RCVD_LINK_RESET_S  );
 	p += scnprintf(p, e - p, "  device_id            : %u\n", (v & SD_SR_STAT_DEVICE_ID_M            ) >> SD_SR_STAT_DEVICE_ID_S            );
 	p += scnprintf(p, e - p, "\n");
 
 	return p - dst;
 }
 
+
+void sd_regs_set_swrite_bypass (struct srio_dev *sd, unsigned val)
+{
+	pr_debug("Set swrite_bypass to %u\n", val);
+	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_SWRITE_BYPASS_M, (val << SD_SR_CTRL_SWRITE_BYPASS_S) & SD_SR_CTRL_SWRITE_BYPASS_M);
+}
 
 void sd_regs_set_gt_loopback (struct srio_dev *sd, unsigned mode)
 {
@@ -96,6 +141,11 @@ void sd_regs_set_gt_rxlpmen (struct srio_dev *sd, unsigned val)
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_RXLPMEN_M, (val << SD_SR_CTRL_GT_RXLPMEN_S) & SD_SR_CTRL_GT_RXLPMEN_M);
 }
 
+
+unsigned sd_regs_get_swrite_bypass (struct srio_dev *sd)
+{
+	return (REG_READ(&sd->sys_regs->ctrl) & SD_SR_CTRL_SWRITE_BYPASS_M) >> SD_SR_CTRL_SWRITE_BYPASS_S;
+}
 
 unsigned sd_regs_get_gt_loopback (struct srio_dev *sd)
 {

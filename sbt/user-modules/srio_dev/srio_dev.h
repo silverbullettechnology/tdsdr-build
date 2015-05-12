@@ -80,7 +80,7 @@ struct srio_dev
 	struct timer_list  status_timer;
 	unsigned           status_every;
 	unsigned           status_prev;
-	unsigned long      status_counts[7];
+	unsigned long      status_counts[10];
 
 	/* Mapped pointer for the maintenance registers */
 	void __iomem  *maint;

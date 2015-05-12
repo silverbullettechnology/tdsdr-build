@@ -52,21 +52,28 @@
 #define SD_USER_IOCS_SWRITE_SUB     _IOW(MAGIC_SD_USER, 7, uint64_t *)
 
 // SYS_REG controls
-#define SD_USER_IOCS_SRIO_RESET     _IOW(MAGIC_SD_USER, 8, unsigned long)
+#define SD_USER_IOCS_SRIO_RESET     _IOW(MAGIC_SD_USER, 20, unsigned long)
+#define SD_USER_IOCS_RXDFELPMRESET  _IOW(MAGIC_SD_USER, 21, unsigned long)
+#define SD_USER_IOCS_PHY_LINK_RESET _IOW(MAGIC_SD_USER, 22, unsigned long)
+#define SD_USER_IOCS_FORCE_REINIT   _IOW(MAGIC_SD_USER, 23, unsigned long)
+#define SD_USER_IOCS_PHY_MCE        _IOW(MAGIC_SD_USER, 24, unsigned long)
 
-#define SD_USER_IOCG_STATUS         _IOR(MAGIC_SD_USER, 9, unsigned long *)
+// SYS_REG status reporting
+#define SD_USER_IOCG_STATUS         _IOR(MAGIC_SD_USER, 30, unsigned long *)
 
 // Get/set test/tuning values
-#define SD_USER_IOCG_GT_LOOPBACK    _IOR(MAGIC_SD_USER, 10, unsigned long *)
-#define SD_USER_IOCS_GT_LOOPBACK    _IOW(MAGIC_SD_USER, 11, unsigned long)
-#define SD_USER_IOCG_GT_DIFFCTRL    _IOR(MAGIC_SD_USER, 12, unsigned long *)
-#define SD_USER_IOCS_GT_DIFFCTRL    _IOW(MAGIC_SD_USER, 13, unsigned long)
-#define SD_USER_IOCG_GT_TXPRECURS   _IOR(MAGIC_SD_USER, 14, unsigned long *)
-#define SD_USER_IOCS_GT_TXPRECURS   _IOW(MAGIC_SD_USER, 15, unsigned long)
-#define SD_USER_IOCG_GT_TXPOSTCURS  _IOR(MAGIC_SD_USER, 16, unsigned long *)
-#define SD_USER_IOCS_GT_TXPOSTCURS  _IOW(MAGIC_SD_USER, 17, unsigned long)
-#define SD_USER_IOCG_GT_RXLPMEN     _IOR(MAGIC_SD_USER, 18, unsigned long *)
-#define SD_USER_IOCS_GT_RXLPMEN     _IOW(MAGIC_SD_USER, 19, unsigned long)
+#define SD_USER_IOCG_SWRITE_BYPASS  _IOR(MAGIC_SD_USER, 40, unsigned long *)
+#define SD_USER_IOCS_SWRITE_BYPASS  _IOW(MAGIC_SD_USER, 41, unsigned long)
+#define SD_USER_IOCG_GT_LOOPBACK    _IOR(MAGIC_SD_USER, 42, unsigned long *)
+#define SD_USER_IOCS_GT_LOOPBACK    _IOW(MAGIC_SD_USER, 43, unsigned long)
+#define SD_USER_IOCG_GT_DIFFCTRL    _IOR(MAGIC_SD_USER, 44, unsigned long *)
+#define SD_USER_IOCS_GT_DIFFCTRL    _IOW(MAGIC_SD_USER, 45, unsigned long)
+#define SD_USER_IOCG_GT_TXPRECURS   _IOR(MAGIC_SD_USER, 46, unsigned long *)
+#define SD_USER_IOCS_GT_TXPRECURS   _IOW(MAGIC_SD_USER, 47, unsigned long)
+#define SD_USER_IOCG_GT_TXPOSTCURS  _IOR(MAGIC_SD_USER, 48, unsigned long *)
+#define SD_USER_IOCS_GT_TXPOSTCURS  _IOW(MAGIC_SD_USER, 49, unsigned long)
+#define SD_USER_IOCG_GT_RXLPMEN     _IOR(MAGIC_SD_USER, 50, unsigned long *)
+#define SD_USER_IOCS_GT_RXLPMEN     _IOW(MAGIC_SD_USER, 51, unsigned long)
 
 
 #ifdef __KERNEL__

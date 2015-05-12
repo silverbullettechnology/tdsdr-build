@@ -732,10 +732,44 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			sd_regs_srio_reset(sd_user_dev);
 			return 0;
 
+		case SD_USER_IOCS_RXDFELPMRESET:
+			pr_debug("SD_USER_IOCS_RXDFELPMRESET:\n");
+			sd_regs_gt_srio_rxdfelpmreset(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_PHY_LINK_RESET:
+			pr_debug("SD_USER_IOCS_PHY_LINK_RESET:\n");
+			sd_regs_gt_phy_link_reset(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_FORCE_REINIT:
+			pr_debug("SD_USER_IOCS_FORCE_REINIT:\n");
+			sd_regs_gt_force_reinit(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_PHY_MCE:
+			pr_debug("SD_USER_IOCS_PHY_MCE:\n");
+			sd_regs_gt_phy_mce(sd_user_dev);
+			return 0;
+
+
+		// SYS_REG status reporting
 		case SD_USER_IOCG_STATUS:
 			val = sd_regs_srio_status(sd_user_dev);
 			pr_trace("SD_USER_IOCG_STATUS: %08lx\n", val);
 			return put_user(val, (unsigned long *)arg);
+
+
+		// Get/set test/tuning values
+		case SD_USER_IOCG_SWRITE_BYPASS:
+			val = sd_regs_get_swrite_bypass(sd_user_dev);
+			pr_debug("SD_USER_IOCG_SWRITE_BYPASS: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_SWRITE_BYPASS:
+			pr_debug("SD_USER_IOCS_SWRITE_BYPASS: %lu\n", arg);
+			sd_regs_set_swrite_bypass(sd_user_dev, arg);
+			return 0;
 
 		case SD_USER_IOCG_GT_LOOPBACK:
 			val = sd_regs_get_gt_loopback(sd_user_dev);

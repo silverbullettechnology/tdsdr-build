@@ -48,6 +48,7 @@
 const char *sd_of_status_bits[] =
 {
 	"link", "port", "clock", "1x", "error", "notintable", "disperr",
+	 "", "phy_rcvd_mce", "phy_rcvd_link_reset"
 };
 static void sd_of_status_tick (unsigned long param)
 {
