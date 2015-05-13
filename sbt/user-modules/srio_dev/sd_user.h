@@ -75,6 +75,17 @@
 #define SD_USER_IOCG_GT_RXLPMEN     _IOR(MAGIC_SD_USER, 50, unsigned long *)
 #define SD_USER_IOCS_GT_RXLPMEN     _IOW(MAGIC_SD_USER, 51, unsigned long)
 
+struct sd_user_cm_ctrl
+{
+	unsigned  ch;
+	unsigned  sel;
+	unsigned  trim;
+};
+
+// Control of RX common-mode termination for CH 0..3.
+#define SD_USER_IOCG_CM_CTRL        _IOR(MAGIC_SD_USER, 60, struct sd_user_cm_ctrl *)
+#define SD_USER_IOCS_CM_CTRL        _IOW(MAGIC_SD_USER, 61, struct sd_user_cm_ctrl *)
+
 
 #ifdef __KERNEL__
 int  sd_user_init (struct srio_dev *sd);

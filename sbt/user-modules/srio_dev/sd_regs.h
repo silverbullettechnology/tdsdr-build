@@ -123,8 +123,8 @@ struct sd_lpsl_ef_regs
 #define SD_SR_STAT_PHY_RCVD_MCE_S                    8
 #define SD_SR_STAT_PHY_RCVD_LINK_RESET_M    0x00000200
 #define SD_SR_STAT_PHY_RCVD_LINK_RESET_S             9
-#define SD_SR_STAT_DEVICE_ID_M              0xFF000000
-#define SD_SR_STAT_DEVICE_ID_S                      24
+#define SD_SR_STAT_DEVICE_ID_M              0xFFFF0000
+#define SD_SR_STAT_DEVICE_ID_S                      16
 
 #define SD_SR_DEST_ADC_SW_DEST0_M           0x00000001
 #define SD_SR_DEST_ADC_SW_DEST0_S                    0
@@ -167,5 +167,16 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 
 uint16_t sd_regs_get_devid (struct srio_dev *sd);
 void     sd_regs_set_devid (struct srio_dev *sd, uint16_t id);
+
+
+/* DRP registers (SBT Implementation) */
+
+void sd_regs_set_cm_sel  (struct srio_dev *sd, unsigned ch, unsigned val);
+void sd_regs_set_cm_trim (struct srio_dev *sd, unsigned ch, unsigned val);
+
+unsigned sd_regs_get_cm_sel   (struct srio_dev *sd, unsigned ch);
+unsigned sd_regs_get_cm_trim  (struct srio_dev *sd, unsigned ch);
+
+
 
 #endif /* _INCLUDE_SD_REGS_H_ */

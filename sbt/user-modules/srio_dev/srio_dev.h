@@ -88,6 +88,9 @@ struct srio_dev
 	/* Mapped pointer for the SYS_REG registers */
 	struct sd_sys_reg __iomem  *sys_regs;
 
+	/* Mapped pointer for the DRP registers */
+	void __iomem  *drp_regs;
+
 	/* Shadow FIFO may be included in design to allow sniffing parts of the message path
 	 * (ie init_fifo -> SRIO core).  If it's not specified in the devtree then no driver
 	 * will be started for it, but if the FIFO is included in the PL the software must be

@@ -145,12 +145,15 @@ void menu (void)
 	       "Q - exit\n"
 	       "R - Reset SRIO core\n"
 	       "P - Toggle Periodic mode\n"
-		   "1 - Send a short SWRITE\n"
-		   "2 - Send a DBELL\n"
-		   "3 - Send a short MESSAGE\n"
-		   "4 - Ping peer with a DBELL\n"
-		   "5 - Send a 2-frag MESSAGE (384 bytes)\n"
-		   "6 - Send a 3-frag MESSAGE (640 bytes)\n\n");
+	       "G - Get RX settings\n"
+	       "A/S/D/F - Adjust RX0/1/2/3 CM_TRIM (cap +, lower -)\n"
+	       "Z/X/C/V - Adjust RX0/1/2/3 CM_SEL (AVTT, GND, Float, Adjust)\n"
+	       "1 - Send a short SWRITE\n"
+	       "2 - Send a DBELL\n"
+	       "3 - Send a short MESSAGE\n"
+	       "4 - Ping peer with a DBELL\n"
+	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
+	       "6 - Send a 3-frag MESSAGE (640 bytes)\n\n");
 }
 
 
@@ -161,13 +164,15 @@ void menu (void)
 #define STAT_PORT_ERROR             0x00000010
 #define STAT_GTRX_NOTINTABLE_OR     0x00000020
 #define STAT_GTRX_DISPERR_OR        0x00000040
-#define STAT_DEVICE_ID              0xFF000000
+#define STAT_PHY_RCVD_MCE           0x00000100
+#define STAT_PHY_RCVD_LINK_RESET    0x00000200
+#define STAT_DEVICE_ID              0xFFFF0000
 
 static const char *desc_status (uint32_t  reg)
 {
 	static char buff[256];
 
-	snprintf(buff, sizeof(buff), "bits: { %s%s%s%s%s%s%s} device_id: %02x", 
+	snprintf(buff, sizeof(buff), "bits: { %s%s%s%s%s%s%s%s%s} device_id: %02x", 
 	         reg & STAT_SRIO_LINK_INITIALIZED ? "LINK "       : "",
 	         reg & STAT_SRIO_PORT_INITIALIZED ? "PORT "       : "",
 	         reg & STAT_SRIO_CLOCK_OUT_LOCK   ? "CLOCK "      : "",
@@ -175,13 +180,55 @@ static const char *desc_status (uint32_t  reg)
 	         reg & STAT_PORT_ERROR            ? "ERROR "      : "",
 	         reg & STAT_GTRX_NOTINTABLE_OR    ? "NOTINTABLE " : "",
 	         reg & STAT_GTRX_DISPERR_OR       ? "DISPERR "    : "",
-	         (reg & STAT_DEVICE_ID) >> 24);
+	         reg & STAT_PHY_RCVD_MCE          ? "PHY_RCVD_MCE " : "",
+	         reg & STAT_PHY_RCVD_LINK_RESET   ? "PHY_RCVD_LINK_RESET " : "",
+	         (reg & STAT_DEVICE_ID) >> 16);
 
 	return buff;
 }
 
+static const char *cm_ctrl_sel (unsigned sel)
+{
+	switch ( sel )
+	{
+		case 0: return "AVTT";
+		case 1: return "GND";
+		case 2: return "Float";
+		case 3: return "Adjust";
+	}
+	return "???";
+}
 
+static unsigned cm_ctrl_trim (unsigned sel)
+{
+	switch ( sel )
+	{
+		case  0: return  100;
+		case  1: return  200;
+		case  2: return  250;
+		case  3: return  300;
+		case  4: return  350;
+		case  5: return  400;
+		case  6: return  500;
+		case  7: return  550;
+		case  8: return  600;
+		case  9: return  700;
+		case 10: return  800;
+		case 11: return  850;
+		case 12: return  900;
+		case 13: return  950;
+		case 14: return 1000;
+		case 15: return 1100;
+	}
+	return 0;
+}
 
+static void cm_ctrl_print (const struct sd_user_cm_ctrl *cm_ctrl, const char *pref)
+{
+	printf("%sCH %u sel %u (%s) trim %u (%umV)\n", pref, cm_ctrl->ch,
+	       cm_ctrl->sel,  cm_ctrl_sel(cm_ctrl->sel),
+	       cm_ctrl->trim, cm_ctrl_trim(cm_ctrl->trim));
+}
 
 int main (int argc, char **argv)
 {
@@ -237,6 +284,9 @@ int main (int argc, char **argv)
 	int             mfda;
 	int             sel;
 	int             ret;
+
+	/* RX CM_CTRL buffer */
+	struct sd_user_cm_ctrl cm_ctrl;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
@@ -393,6 +443,7 @@ int main (int argc, char **argv)
 			memset(buff, 0, sizeof(buff));
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
+			cm_ctrl.ch = 0;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -487,6 +538,57 @@ int main (int argc, char **argv)
 					if ( ioctl(dev, SD_USER_IOCS_SRIO_RESET, 0) )
 						perror("SD_USER_IOCS_SRIO_RESET");
 					break;
+
+				case 'g':
+					printf("RX settings:\n");
+					for ( cm_ctrl.ch = 0; cm_ctrl.ch < 4; cm_ctrl.ch++ )
+						if ( ioctl(dev, SD_USER_IOCG_CM_CTRL, &cm_ctrl) )
+							perror("SD_USER_IOCG_CM_CTRL");
+						else
+							cm_ctrl_print(&cm_ctrl, "  ");
+					break;
+
+				// note: depends on cm_ctrl.ch being reset to zero before switch
+				case 'f': cm_ctrl.ch++; // fall-through
+				case 'd': cm_ctrl.ch++; // fall-through
+				case 's': cm_ctrl.ch++; // fall-through
+				case 'a':
+					if ( ioctl(dev, SD_USER_IOCG_CM_CTRL, &cm_ctrl) )
+						perror("SD_USER_IOCG_CM_CTRL");
+
+					if ( cm_ctrl.sel != 3 )
+						cm_ctrl.sel = 3;
+
+					if ( isupper(key) && cm_ctrl.trim < 15 )
+						cm_ctrl.trim++;
+					else if ( islower(key) && cm_ctrl.trim > 0 )
+						cm_ctrl.trim--;
+					else
+						break;
+
+					if ( ioctl(dev, SD_USER_IOCS_CM_CTRL, &cm_ctrl) )
+						perror("SD_USER_IOCS_CM_CTRL");
+					else
+						cm_ctrl_print(&cm_ctrl, "SET: ");
+					break;
+
+				// note: depends on cm_ctrl.ch being reset to zero before switch
+				case 'v': cm_ctrl.ch++; // fall-through
+				case 'c': cm_ctrl.ch++; // fall-through
+				case 'x': cm_ctrl.ch++; // fall-through
+				case 'z':
+					if ( ioctl(dev, SD_USER_IOCG_CM_CTRL, &cm_ctrl) )
+						perror("SD_USER_IOCG_CM_CTRL");
+
+					cm_ctrl.sel++;
+					cm_ctrl.sel &= 3;
+
+					if ( ioctl(dev, SD_USER_IOCS_CM_CTRL, &cm_ctrl) )
+						perror("SD_USER_IOCS_CM_CTRL");
+					else
+						cm_ctrl_print(&cm_ctrl, "SET: ");
+					break;
+	       
 
 				case 'q':
 				case '\033':

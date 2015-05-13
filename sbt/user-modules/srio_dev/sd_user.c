@@ -624,6 +624,7 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	unsigned long        val;
 	uint16_t             u16x2[2];
 	uint64_t             u64x2[2];
+	struct sd_user_cm_ctrl  cm_ctrl;
 
 	if ( _IOC_TYPE(cmd) != MAGIC_SD_USER )
 		return -EINVAL;
@@ -820,6 +821,33 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			pr_debug("SD_USER_IOCS_GT_RXLPMEN: %lu", arg);
 			sd_regs_set_gt_rxlpmen(sd_user_dev, arg);
 			return 0;
+
+		// Control of RX common-mode termination for CH 0..3.
+		case SD_USER_IOCG_CM_CTRL:
+		case SD_USER_IOCS_CM_CTRL:
+			if ( copy_from_user(&cm_ctrl, (void *)arg, sizeof(cm_ctrl)) )
+				return -EFAULT;
+
+			if ( cm_ctrl.ch > 3 )
+				return -EINVAL;
+
+			if ( cmd == SD_USER_IOCS_CM_CTRL )
+			{
+				if ( cm_ctrl.trim > 15 || cm_ctrl.sel > 3 )
+					return -EINVAL;
+
+				pr_debug("SD_USER_IOCS_CM_CTRL: ch %u SET sel %u trim %u\n",
+				         cm_ctrl.ch, cm_ctrl.sel, cm_ctrl.trim);
+				sd_regs_set_cm_sel(sd_user_dev,  cm_ctrl.ch, cm_ctrl.sel);
+				sd_regs_set_cm_trim(sd_user_dev, cm_ctrl.ch, cm_ctrl.trim);
+				return 0;
+			}
+
+			cm_ctrl.sel  = sd_regs_get_cm_sel(sd_user_dev, cm_ctrl.ch);
+			cm_ctrl.trim = sd_regs_get_cm_trim(sd_user_dev, cm_ctrl.ch);
+			pr_debug("SD_USER_IOCG_CM_CTRL: ch %u get sel %u trim %u\n",
+			         cm_ctrl.ch, cm_ctrl.sel, cm_ctrl.trim);
+			return copy_to_user((void *)arg, &cm_ctrl, sizeof(cm_ctrl));
 	}
 
 	return -EINVAL;

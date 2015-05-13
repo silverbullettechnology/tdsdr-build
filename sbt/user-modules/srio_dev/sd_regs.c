@@ -205,3 +205,52 @@ void sd_regs_set_devid (struct srio_dev *sd, uint16_t id)
 }
 
 
+#define SD_DRP_RX_CM_CTRL      0x044
+#define SD_DRP_RX_CM_SEL_M    0x0030
+#define SD_DRP_RX_CM_SEL_S         4
+#define SD_DRP_RX_CM_TRIM1_M  0x000E
+#define SD_DRP_RX_CM_TRIM1_S       1
+
+#define SD_DRP_RX_PMA_RSV2     0x208
+#define SD_DRP_RX_CM_TRIM2_M  0x0010
+#define SD_DRP_RX_CM_TRIM2_S       4
+
+
+void sd_regs_set_cm_sel (struct srio_dev *sd, unsigned ch, unsigned val)
+{
+	pr_debug("%s(sd, ch %u, val %u)\n", __func__, ch, val);
+	ch  = (ch & 3) << 11;  // CH 0..3, 0x800 bytes each
+	REG_RMW(sd->drp_regs + ch + SD_DRP_RX_CM_CTRL, SD_DRP_RX_CM_SEL_M, (val << SD_DRP_RX_CM_SEL_S) & SD_DRP_RX_CM_SEL_M);
+}
+
+void sd_regs_set_cm_trim (struct srio_dev *sd, unsigned ch, unsigned val)
+{
+	pr_debug("%s(sd, ch %u, val %u)\n", __func__, ch, val);
+	ch  = (ch & 3) << 11;
+
+	REG_RMW(sd->drp_regs + ch + SD_DRP_RX_CM_CTRL, SD_DRP_RX_CM_TRIM1_M, (val << SD_DRP_RX_CM_TRIM1_S) & SD_DRP_RX_CM_TRIM1_M);
+
+	val >>= 3;
+
+	REG_RMW(sd->drp_regs + ch + SD_DRP_RX_PMA_RSV2, SD_DRP_RX_CM_TRIM2_M, (val << SD_DRP_RX_CM_TRIM2_S) & SD_DRP_RX_CM_TRIM2_M);
+}
+
+unsigned sd_regs_get_cm_sel (struct srio_dev *sd, unsigned ch)
+{
+	ch = (ch & 3) << 11;
+	return (REG_READ(sd->drp_regs + ch + SD_DRP_RX_CM_CTRL) & SD_DRP_RX_CM_SEL_M) >> SD_DRP_RX_CM_SEL_S;
+}
+
+unsigned sd_regs_get_cm_trim (struct srio_dev *sd, unsigned ch)
+{
+	unsigned val;
+
+	ch    = (ch & 3) << 11;
+	val   = (REG_READ(sd->drp_regs + ch + SD_DRP_RX_PMA_RSV2) & SD_DRP_RX_CM_TRIM2_M) >> SD_DRP_RX_CM_TRIM2_S;
+	val <<= 3;
+	val  |= (REG_READ(sd->drp_regs + ch + SD_DRP_RX_CM_CTRL) & SD_DRP_RX_CM_TRIM1_M) >> SD_DRP_RX_CM_TRIM1_S;
+
+	return val;
+}
+
+

@@ -108,6 +108,7 @@ static int sd_of_probe (struct platform_device *pdev)
 	struct srio_dev       *sd;
 	struct resource       *maint;
 	struct resource       *sys_regs;
+	struct resource       *drp_regs;
 	int                    ret = 0;
 
 
@@ -120,6 +121,12 @@ static int sd_of_probe (struct platform_device *pdev)
 	if ( !(sys_regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sys-regs")) )
 	{
 		dev_err(&pdev->dev, "resource sys-regs undefined.\n");
+		return -ENXIO;
+	}
+
+	if ( !(drp_regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "drp-regs")) )
+	{
+		dev_err(&pdev->dev, "resource drp-regs undefined.\n");
 		return -ENXIO;
 	}
 
@@ -169,11 +176,24 @@ pr_debug("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
 		goto maint;
 	}
 
+	sd->drp_regs = devm_ioremap_resource(sd->dev, drp_regs);
+	if ( IS_ERR(sd->drp_regs) )
+	{
+		dev_err(sd->dev, "DRP regs ioremap fail, stop\n");
+		goto sys_regs;
+	}
+pr_debug("DRP: 0x%x -> %p\n", drp_regs->start, sd->drp_regs);
+pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
+         REG_READ(sd->drp_regs + 0x0044),
+         REG_READ(sd->drp_regs + 0x0844),
+         REG_READ(sd->drp_regs + 0x1044),
+         REG_READ(sd->drp_regs + 0x1844));
+
 	if ( sd_desc_init(sd) )
 	{
 		pr_err("Settting up sd_desc failed, stop\n");
 		ret = -EINVAL;
-		goto sys_regs;
+		goto drp_regs;
 	}
 
 	if ( !(sd->init_fifo = sd_fifo_probe(pdev, "init")) )
@@ -287,6 +307,9 @@ init_fifo:
 
 desc_init:
 	sd_desc_exit(sd);
+
+drp_regs:
+	devm_iounmap(sd->dev, sd->drp_regs);
 
 sys_regs:
 	devm_iounmap(sd->dev, sd->sys_regs);
