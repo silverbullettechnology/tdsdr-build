@@ -291,6 +291,8 @@ int main (int argc, char **argv)
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
 	uint32_t         curr_status, diff_status;
+	unsigned         diff_count = 0;
+	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
 
 	mesg   = (struct sd_mesg *)buff;
@@ -320,19 +322,29 @@ int main (int argc, char **argv)
 			perror("SD_USER_IOCG_STATUS");
 		else if ( (diff_status = (curr_status ^ prev_status)) )
 		{
-			printf("\nSTAT: %08x -> %08x\n", prev_status, curr_status);
-			if ( (diff_status & curr_status) )
-				printf(" SET: %08x -> %s\n", diff_status & curr_status,
-				       desc_status(diff_status & curr_status));
-			if ( (diff_status & prev_status) )
-				printf(" CLR: %08x -> %s\n", diff_status & prev_status,
-				       desc_status(diff_status & prev_status));
+			if ( diff_count++ < 5 )
+			{
+				printf("\nSTAT: %08x -> %08x\n", prev_status, curr_status);
+				if ( (diff_status & curr_status) )
+					printf(" SET: %08x -> %s\n", diff_status & curr_status,
+					       desc_status(diff_status & curr_status));
+				if ( (diff_status & prev_status) )
+					printf(" CLR: %08x -> %s\n", diff_status & prev_status,
+					       desc_status(diff_status & prev_status));
+			}
 			prev_status = curr_status;
 		}
 
 		if ( !sel )
 		{
 			time_t now = time(NULL);
+			if ( now >= diff_reset )
+			{
+				if ( diff_count >= 5 )
+					printf("%u lines of status change suppressed\n", diff_count);
+				diff_count = 0;
+				diff_reset = now + 15;
+			}
 			if ( periodic > 0 && periodic <= now )
 				periodic = now + PERIOD;
 			else
