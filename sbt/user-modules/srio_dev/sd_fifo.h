@@ -189,5 +189,11 @@ static inline unsigned sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *d
 	return sd_fifo_tx_burst(sf, &desc, 1);
 }
 
+/** Flush all TX descriptors
+ *
+ *  \param  sf  Pointer to sd_fifo struct
+ */
+void sd_fifo_tx_discard (struct sd_fifo *sf);
+
 
 #endif /* _INCLUDE_SD_FIFO_H_ */

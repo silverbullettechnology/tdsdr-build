@@ -324,7 +324,7 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		// MESSAGE: reassembly done by sd_mbox_reasm(), returns NULL while reassembling
 		// the message, or an sd_mesg for dispatch to users when complete.
 		case 11: 
-			mbox = (desc->virt[1] >> 3) & 0x3F;
+			mbox = (desc->virt[1] >> 4) & 0x3F;
 			if ( mbox < RIO_MAX_MBOX && sd_user_dev->mbox_users[mbox] )
 			{
 				struct sd_mesg *mesg;
@@ -544,6 +544,15 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		ret = -EFAULT;
 		goto fail;
 	}
+
+	if ( sd_user_dev->devid == 0xFFFF )
+		switch ( mesg->src_addr )
+		{
+			case 0x0000:
+			case 0xFFFF:
+				ret = -EADDRNOTAVAIL;
+				goto fail;
+		}
 
 	if ( !(desc[0] = sd_desc_alloc(sd_user_dev, GFP_KERNEL|GFP_DMA)) )
 	{
@@ -924,13 +933,18 @@ int sd_user_init (struct srio_dev *sd)
 	spin_lock_init(&lock);
 	INIT_LIST_HEAD(&list);
 
+	// success
+	return 0;
+}
+
+
+void sd_user_attach (struct srio_dev *sd)
+{
 	sd_fifo_init_rx(sd->init_fifo, sd_user_recv_init, HZ);
 	sd_fifo_init_rx(sd->targ_fifo, sd_user_recv_targ, HZ);
 	sd_fifo_init_tx(sd->init_fifo, sd_user_tx_done,   HZ);
 	sd_fifo_init_tx(sd->targ_fifo, sd_user_tx_done,   HZ);
 
-	// success
-	return 0;
 }
 
 

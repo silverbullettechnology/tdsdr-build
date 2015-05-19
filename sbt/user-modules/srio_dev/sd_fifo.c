@@ -161,6 +161,8 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask)
 	{
 		pr_info("%s: %s: start TX reset\n", sf->name, __func__);
 		REG_RMW(&sf->regs->ier, TFPE|TFPF|TSE|TC|TPOE, TRC);
+		del_timer(&sf->rt_timer);
+		sd_fifo_tx_discard(sf);
 		sf->tx.stats.resets++;
 	}
 	if ( mask & SD_FR_RX )
@@ -186,6 +188,34 @@ void sd_fifo_reset (struct sd_fifo *sf, int mask)
 
 
 /******** TX handling *******/
+
+
+/** Flush all TX descriptors
+ *
+ *  \param  sf  Pointer to sd_fifo struct
+ */
+void sd_fifo_tx_discard (struct sd_fifo *sf)
+{
+	struct list_head *temp, *walk;
+	struct sd_desc   *desc;
+
+	list_for_each_safe(walk, temp, &sf->tx_queue)
+    {
+		desc = container_of(walk, struct sd_desc, list);
+		list_del_init(&desc->list);
+		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
+		sd_desc_free(sf->sd, desc);
+		pr_info("%s: %s: TX queue: desc %p freed\n", sf->name, __func__, desc);
+	}
+	list_for_each_safe(walk, temp, &sf->tx_retry)
+    {
+		desc = container_of(walk, struct sd_desc, list);
+		list_del_init(&desc->list);
+		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
+		sd_desc_free(sf->sd, desc);
+		pr_info("%s: %s: TX retry: desc %p freed\n", sf->name, __func__, desc);
+	}
+}
 
 
 /** Finish a TX, writing the TLR register with the size in bytes
@@ -439,9 +469,12 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 		BUG_ON(!desc[idx]->virt);
 		BUG_ON(!desc[idx]->used);
 
-		/* Set correct return address before DMA map */
-		desc[idx]->virt[0] &= 0x0000FFFF;
-		desc[idx]->virt[0] |= devid;
+		/* Set correct return address before DMA map, if devid is valid */
+		if ( devid != 0xFFFF0000 )
+		{
+			desc[idx]->virt[0] &= 0x0000FFFF;
+			desc[idx]->virt[0] |= devid;
+		}
 
 		if ( sf->tx.chan && !desc[idx]->phys )
 		{
@@ -456,7 +489,10 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 
 		// pre-calculate expected response packet descriptor based on this packet's HELLO
 		// header, including TTL in bottom 8 bits.
-		desc[idx]->resp = sd_fifo_response(desc[idx]->virt + 1);
+		if ( devid != 0xFFFF0000 )
+			desc[idx]->resp = sd_fifo_response(desc[idx]->virt + 1);
+		else
+			desc[idx]->resp = 0;
 	}
 
 	pr_trace("%s: %s: lock...\n", sf->name, __func__);
@@ -579,10 +615,12 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 
 	/* Unmap to flush cache */
 	sd_fifo_unmap(sf, desc, DMA_DEV_TO_MEM);
-	if ( (desc->virt[0] & 0xFFFF) != sf->sd->devid )
+
+	/* If devid is set, filter for it */
+	if ( sf->sd->devid != 0xFFFF && (desc->virt[0] & 0xFFFF) != sf->sd->devid )
 	{
-		pr_err("%s: %s: %08x:%08x.%08x, dropped\n", sf->name, __func__,
-		       desc->virt[0], desc->virt[2], desc->virt[1]);
+		pr_debug("%s: %s: %08x:%08x.%08x, dropped\n", sf->name, __func__,
+		         desc->virt[0], desc->virt[2], desc->virt[1]);
 		sd_desc_free(sf->sd, desc);
 		//TODO: stats
 		return;
@@ -1354,9 +1392,6 @@ resource:
  */
 void sd_fifo_free (struct sd_fifo *sf)
 {
-	struct list_head *temp, *walk;
-	struct sd_desc   *desc;
-
 	/* Disable all IRQs first */
 	REG_WRITE(&sf->regs->ier, 0);
 
@@ -1372,23 +1407,8 @@ void sd_fifo_free (struct sd_fifo *sf)
 
 	devm_iounmap(sf->dev, sf->regs);
 
-	/* Free TX and RX queues */
-	list_for_each_safe(walk, temp, &sf->tx_queue)
-    {
-		desc = container_of(walk, struct sd_desc, list);
-		list_del_init(&desc->list);
-		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
-		sd_desc_free(sf->sd, desc);
-		pr_info("%s: %s: TX queue: desc %p freed\n", sf->name, __func__, desc);
-	}
-	list_for_each_safe(walk, temp, &sf->tx_retry)
-    {
-		desc = container_of(walk, struct sd_desc, list);
-		list_del_init(&desc->list);
-		sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
-		sd_desc_free(sf->sd, desc);
-		pr_info("%s: %s: TX retry: desc %p freed\n", sf->name, __func__, desc);
-	}
+	/* Free TX queues and RX current */
+	sd_fifo_tx_discard(sf);
 	if ( sf->rx_current )
 		sd_desc_free(sf->sd, sf->rx_current);
 

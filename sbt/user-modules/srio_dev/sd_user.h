@@ -88,8 +88,9 @@ struct sd_user_cm_ctrl
 
 
 #ifdef __KERNEL__
-int  sd_user_init (struct srio_dev *sd);
-void sd_user_exit (void);
+int  sd_user_init   (struct srio_dev *sd);
+void sd_user_attach (struct srio_dev *sd);
+void sd_user_exit   (void);
 #endif
 
 

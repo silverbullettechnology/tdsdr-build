@@ -25,41 +25,36 @@
 void sd_regs_srio_reset (struct srio_dev *sd)
 {
 	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_SRIO_RESET_M);
-	msleep(10);
+	mdelay(1);
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_SRIO_RESET_M, 0);
-	msleep(10);
 }
 
 void sd_regs_gt_srio_rxdfelpmreset (struct srio_dev *sd)
 {
 	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M);
-	msleep(10);
+	mdelay(1);
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M, 0);
-	msleep(10);
 }
 
 void sd_regs_gt_phy_link_reset (struct srio_dev *sd)
 {
 	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_PHY_LINK_RESET_M);
-	msleep(10);
+	mdelay(1);
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_PHY_LINK_RESET_M, 0);
-	msleep(10);
 }
 
 void sd_regs_gt_force_reinit (struct srio_dev *sd)
 {
 	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_FORCE_REINIT_M);
-	msleep(10);
+	mdelay(1);
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_FORCE_REINIT_M, 0);
-	msleep(10);
 }
 
 void sd_regs_gt_phy_mce (struct srio_dev *sd)
 {
 	REG_RMW(&sd->sys_regs->ctrl, 0, SD_SR_CTRL_GT_PHY_MCE_M);
-	msleep(10);
+	mdelay(1);
 	REG_RMW(&sd->sys_regs->ctrl, SD_SR_CTRL_GT_PHY_MCE_M, 0);
-	msleep(10);
 }
 
 unsigned sd_regs_srio_status (struct srio_dev *sd)

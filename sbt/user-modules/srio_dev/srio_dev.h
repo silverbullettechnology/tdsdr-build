@@ -26,6 +26,7 @@
 #include "sd_mbox.h"
 #include "sd_fifo.h"
 #include "sd_desc.h"
+#include "sd_dhcp.h"
 
 
 /* Need room for 3 words of header, once that's moved to the desc header this can be
@@ -57,6 +58,8 @@ struct srio_dev
 	struct kmem_cache *desc_pool;
 
 	uint16_t           devid;
+	struct sd_dhcp     dhcp;
+
 	uint8_t            tid;
 	uint32_t           pef;
 
@@ -81,6 +84,9 @@ struct srio_dev
 	unsigned           status_every;
 	unsigned           status_prev;
 	unsigned long      status_counts[10];
+
+	/* Try to recover from errors */
+	struct timer_list  reset_timer;
 
 	/* Mapped pointer for the maintenance registers */
 	void __iomem  *maint;

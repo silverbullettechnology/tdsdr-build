@@ -47,7 +47,7 @@ struct sd_mesg_dbell  *dbell;
 uint32_t  buff[8192];
 int       size;
 
-uint16_t  opt_loc_addr = 2;
+uint16_t  opt_loc_addr = 0xFFFF;
 uint16_t  opt_rem_addr = 2;
 
 long      opt_mbox_sub        = 0xF; // sub all 4 mboxes
@@ -265,8 +265,12 @@ int main (int argc, char **argv)
 
 	st_term_setup();
 
-	if ( ioctl(dev, SD_USER_IOCS_LOC_DEV_ID, opt_loc_addr) )
+	if ( opt_loc_addr < 0xFFFF && ioctl(dev, SD_USER_IOCS_LOC_DEV_ID, opt_loc_addr) )
 		perror("SD_USER_IOCS_LOC_DEV_ID");
+
+	if ( opt_loc_addr == 0xFFFF && ioctl(dev, SD_USER_IOCG_LOC_DEV_ID, &opt_loc_addr) )
+		perror("SD_USER_IOCG_LOC_DEV_ID");
+	printf("Local SRIO device-ID is 0x%04x\n", opt_loc_addr);
 
 	if ( ioctl(dev, SD_USER_IOCS_MBOX_SUB, opt_mbox_sub) )
 		perror("SD_USER_IOCS_MBOX_SUB");

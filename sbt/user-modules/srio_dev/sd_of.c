@@ -18,6 +18,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -41,6 +42,27 @@
 #include "sd_rdma.h"
 #include "sd_mbox.h"
 #include "sd_user.h"
+
+static int devid = 0xFFFF;
+module_param(devid, int, 0);
+
+
+#define LINK_MASK (SD_SR_STAT_SRIO_LINK_INITIALIZED_M | SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_M \
+                 | SD_SR_STAT_SRIO_PORT_INITIALIZED_M | SD_SR_STAT_PORT_ERROR_M)
+
+#define LINK_WANT (SD_SR_STAT_SRIO_LINK_INITIALIZED_M | SD_SR_STAT_SRIO_CLOCK_OUT_LOCK_M \
+                 | SD_SR_STAT_SRIO_PORT_INITIALIZED_M)
+
+
+static void sd_of_reset (unsigned long param)
+{
+	struct srio_dev *sd = (struct srio_dev *)param;
+
+	pr_err("Reset SRIO link...\n");
+	sd_regs_srio_reset(sd);
+	sd_fifo_reset(sd->init_fifo, SD_FR_ALL);
+	sd_fifo_reset(sd->targ_fifo, SD_FR_ALL);
+}
 
 
 #define SD_OF_STATUS_CHECK  (HZ / 10)
@@ -99,6 +121,28 @@ static void sd_of_status_tick (unsigned long param)
 	else
 		sd->status_every--;
 
+	// Check for link status change
+	if ( diff & LINK_MASK )
+	{
+		if ( (curr & LINK_MASK) == LINK_WANT )
+		{
+			pr_info("SRIO link up\n");
+			sd_dhcp_resume(sd);
+		}
+		else
+		{
+			pr_info("SRIO link down\n");
+			sd_dhcp_pause(sd);
+		}
+	}
+
+	// Check for link status change
+	if ( (diff & SD_SR_STAT_PORT_ERROR_M) && (curr & SD_SR_STAT_PORT_ERROR_M) )
+	{
+		pr_err("SRIO link error, start recovery\n");
+		mod_timer(&sd->reset_timer, jiffies + HZ);
+	}
+	
 	sd->status_prev = curr;
 }
 
@@ -136,7 +180,16 @@ static int sd_of_probe (struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	sd->dev = &pdev->dev;
-	sd->devid = 0x0002;
+
+	/* Module parameter overrides devicetree, devicetree can override default. */
+	if ( devid != 0xFFFF )
+		sd->devid = devid;
+	else
+	{
+		u32 val = 0xFFFF;
+		of_property_read_u32(pdev->dev.of_node, "sbt,device-id", &val);
+		sd->devid = val;
+	}
 
 
 	/* Default values */
@@ -294,6 +347,26 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 	setup_timer(&sd->status_timer, sd_of_status_tick, (unsigned long)sd);
 	mod_timer(&sd->status_timer,   jiffies + SD_OF_STATUS_CHECK);
 
+	setup_timer(&sd->reset_timer, sd_of_reset, (unsigned long)sd);
+
+	/* Do dynamic probe if device-ID is still not set */
+	if ( sd->devid == 0xFFFF )
+	{
+		u32  min = 1;
+		u32  max = 6;
+		u32  rep = 5;
+
+		of_property_read_u32(pdev->dev.of_node, "sbt,device-id-min", &min);
+		of_property_read_u32(pdev->dev.of_node, "sbt,device-id-max", &max);
+		of_property_read_u32(pdev->dev.of_node, "sbt,device-id-rep", &rep);
+
+		pr_debug("%s: Start dynamic probe: min %u, max %u, rep %u\n",
+		         dev_name(sd->dev), min, max, rep);
+		sd_dhcp_start(sd, min, max, rep);
+	}
+	else
+		sd_user_attach(sd);
+
 	return ret;
 
 test_exit:
@@ -329,7 +402,10 @@ static int sd_of_remove (struct platform_device *pdev)
 {
 	struct srio_dev *sd = platform_get_drvdata(pdev);
 
+	sd_dhcp_pause(sd);
+
 	del_timer(&sd->status_timer);
+	del_timer(&sd->reset_timer);
 
 	sd_user_exit();
 	sd_test_exit();

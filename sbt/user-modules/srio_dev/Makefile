@@ -52,7 +52,7 @@ LOCALPWD=$(shell pwd)
 obj-m += srio.o
 
 srio-y := sd_of.o sd_regs.o sd_fifo.o sd_desc.o sd_recv.o sd_test.o \
-          sd_ops.o sd_rdma.o sd_mbox.o sd_user.o sd_mesg.o
+          sd_ops.o sd_rdma.o sd_mbox.o sd_user.o sd_mesg.o sd_dhcp.o
 
 EXTRA_CFLAGS += -I$(PWD)
 
@@ -60,7 +60,8 @@ EXTRA_CFLAGS += -I$(PWD)
 #CFLAGS_sd_fifo.o  += -DDEBUG
 #CFLAGS_sd_of.o    += -DDEBUG
 #CFLAGS_sd_proc.o  += -DDEBUG
-#EXTRA_CFLAGS += -DDEBUG
+#CFLAGS_sd_dhcp.o  += -DDEBUG
+EXTRA_CFLAGS += -DDEBUG
 EXTRA_CFLAGS += -Werror
 
 all:  modules
