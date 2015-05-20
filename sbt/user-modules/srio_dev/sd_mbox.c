@@ -124,6 +124,7 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 	unsigned  size;
 	unsigned  num;
 	unsigned  idx;
+	unsigned  ltr;
 	void     *src;
 
 	size = mesg->size -
@@ -146,10 +147,17 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 	}
 	pr_trace("%s: mesg size %d -> %d frags\n", __func__, size, num);
 
+	// Letter number 0..3 is normally a rolling counter per mbox, but allow the user the
+	// flexibility of trading off smaller messages and more mailboxes
+	if ( mesg->mesg.mbox.mbox > 3 )
+		ltr = mesg->mesg.mbox.letter;
+	else
+		ltr = sd->mbox_letter[mesg->mesg.mbox.mbox]++;
+
 	// setup HELLO header on first fragment.  if the message needs fragmentation, then the
 	// size on all descriptors except the last is the chunk size, 256 in this driver, -1.
 	// In the last/only descriptor a smaller chunk size is used
-	desc[0]->virt[1]  = mesg->mesg.mbox.letter & 3;
+	desc[0]->virt[1]  = ltr & 3;
 	desc[0]->virt[1] |= (mesg->mesg.mbox.mbox & 0x3F) << 4;
 	desc[0]->virt[2]  = 0x00B00000;
 	desc[0]->virt[2] |= (num - 1) << 28;

@@ -44,7 +44,7 @@ static void sd_dhcp_tick (unsigned long param)
 	desc->virt[0]  = sd->dhcp.cur << 16;
 	desc->virt[0] |= sd->dhcp.cur;
 	desc->virt[1]  = sd->dhcp.rep & 3;
-	desc->virt[1] |= 3 << 4;
+	desc->virt[1] |= 0x3F << 4;
 	desc->virt[2]  = 0x00B00000;
 	desc->virt[2] |= sizeof(sd->dhcp.rand) << 4;
 	memcpy(&desc->virt[SD_HEAD_SIZE], sd->dhcp.rand, sizeof(sd->dhcp.rand));
@@ -96,7 +96,7 @@ void sd_dhcp_recv (struct sd_fifo *fifo, struct sd_desc *desc)
 	}
 
 	// TODO: can we use short-message with a larger mbox number?
-	if ( ((desc->virt[2] >> 20) & 0x0F) != 11 || ((desc->virt[1] >> 4) & 0x3F) != 3 )
+	if ( ((desc->virt[2] >> 20) & 0x0F) != 11 || ((desc->virt[1] >> 4) & 0x3F) != 0x3F )
 	{
 		pr_debug("ignored: not MESSAGE to mbox 3 (%u / %u)\n",
 		         ((desc->virt[2] >> 20) & 0x0F),

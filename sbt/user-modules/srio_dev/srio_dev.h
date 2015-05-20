@@ -64,6 +64,7 @@ struct srio_dev
 	uint32_t           pef;
 
 	struct sd_mbox_reasm  mbox_reasm[RIO_MAX_MBOX][4];
+	uint8_t               mbox_letter[RIO_MAX_MBOX];
 
 	/* RX MESSAGE (type 11): number of listeners and reassembly cache */
 	int                mbox_users[RIO_MAX_MBOX];
