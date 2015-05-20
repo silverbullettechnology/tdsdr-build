@@ -154,6 +154,7 @@ static int sd_of_probe (struct platform_device *pdev)
 	struct resource       *sys_regs;
 	struct resource       *drp_regs;
 	int                    ret = 0;
+	u32                    flags;
 
 
 	if ( !(maint = platform_get_resource_byname(pdev, IORESOURCE_MEM, "maint")) )
@@ -249,7 +250,9 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 		goto drp_regs;
 	}
 
-	if ( !(sd->init_fifo = sd_fifo_probe(pdev, "init")) )
+	flags = SD_FL_INFO | SD_FL_WARN | SD_FL_ERROR;
+	of_property_read_u32(pdev->dev.of_node, "sbt,init-flags", &flags);
+	if ( !(sd->init_fifo = sd_fifo_probe(pdev, "init", flags)) )
 	{
 		dev_err(&pdev->dev, "initiator fifo probe fail, stop\n");
 		ret = -ENXIO;
@@ -257,7 +260,9 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 	}
 	sd->init_fifo->sd = sd;
 
-	if ( !(sd->targ_fifo = sd_fifo_probe(pdev, "targ")) )
+	flags = SD_FL_INFO | SD_FL_WARN | SD_FL_ERROR;
+	of_property_read_u32(pdev->dev.of_node, "sbt,targ-flags", &flags);
+	if ( !(sd->targ_fifo = sd_fifo_probe(pdev, "targ", flags)) )
 	{
 		dev_err(&pdev->dev, "target fifo probe fail, stop\n");
 		ret = -ENXIO;
@@ -266,7 +271,9 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 	sd->targ_fifo->sd = sd;
 
 
-	if ( (sd->shadow_fifo = sd_fifo_probe(pdev, "shadow")) )
+	flags = SD_FL_TRACE | SD_FL_DEBUG | SD_FL_INFO | SD_FL_WARN | SD_FL_ERROR | SD_FL_NO_RX | SD_FL_NO_TX | SD_FL_NO_RSP;
+	of_property_read_u32(pdev->dev.of_node, "sbt,shadow-flags", &flags);
+	if ( (sd->shadow_fifo = sd_fifo_probe(pdev, "shadow", flags)) )
 	{
 		pr_debug("Shadow FIFO active\n");
 		sd->shadow_fifo->sd = sd;

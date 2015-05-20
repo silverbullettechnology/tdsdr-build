@@ -186,6 +186,16 @@
 			sbt,init-dma = <0>;
 			sbt,targ-dma = <0>;
 			sbt,shadow-dma = <0>;
+
+			/* Tuning for dynamic discovery */
+			sbt,device-id-min = <1>;
+			sbt,device-id-max = <6>;
+			sbt,device-id-rep = <5>;
+
+			/* Debugging and filtering flags */
+			sbt,init-flags   = <0x001C>;
+			sbt,targ-flags   = <0x001C>;
+			sbt,shadow-flags = <0x0700>;
 		};
 
 		leds_4bits: gpio@41200000 {
