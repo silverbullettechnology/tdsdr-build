@@ -140,6 +140,8 @@ CONTROL_OBJS := \
 	tool/control/config.o \
 	tool/control/expect.o \
 	tool/control/socket.o \
+	tool/control/socket/srio.o \
+	tool/control/socket/unix.o \
 	tool/control/sequence.o \
 	tool/control/main.o
 

@@ -21,7 +21,7 @@
 
 #include <lib/log.h>
 
-#include "sequence.h"
+#include <tool/control/sequence.h>
 
 
 LOG_MODULE_STATIC("control_sequence", LOG_LEVEL_DEBUG);

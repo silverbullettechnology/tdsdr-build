@@ -35,6 +35,8 @@
 #include <stdarg.h>
 #include <getopt.h>
 
+#include <config/include/config.h>
+
 #include <lib/log.h>
 #include <lib/clocks.h>
 #include <common/default.h>
@@ -43,8 +45,9 @@
 #include <common/vita49/common.h>
 #include <common/vita49/control.h>
 
-#include "control.h"
-#include "sequence.h"
+#include <tool/control/socket.h>
+#include <tool/control/control.h>
+#include <tool/control/sequence.h>
 
 
 LOG_MODULE_STATIC("control_main", LOG_LEVEL_DEBUG);
@@ -56,8 +59,8 @@ char *opt_config    = DEF_CONFIG;
 long  opt_reps      = 1;
 long  opt_pause     = 0;
 
-int   opt_sock_type = AF_UNIX;
-char *opt_sock_path = NULL;
+char *opt_sock_type = "unix";
+char *opt_sock_addr = NULL;
 
 char *default_argv[] = { "list", NULL };
 
@@ -100,14 +103,27 @@ static void signal_fatal (int signum)
 
 static void usage (void)
 {
-	printf ("Usage: %s [-r reps] [-p pause] [-d lvl] [-l log] [-c config] [command [args ...]]\n\n"
+	printf ("Usage: %s [-r reps] [-p pause] [-d lvl] [-l log] [-c config]\n"
+	        "       %*s [-s type[:address]] [command [args ...]]\n\n"
 	        "Where:\n"
 	        "-r reps       Run the command reps repetitions\n"
 	        "-p pause      Pause between reps for pause ms\n"
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
-	        "-c config     Specify a different config file (default %s)\n",
-	        argv0, DEF_CONFIG);
+	        "-c config     Specify a different config file (default %s)\n" 
+	        "-s type[:adr] Specify a different socket type and address than config\n"
+	        "\n"
+	        "Socket types and optional address format.  The type name may be followed by an\n"
+	        "optional address, separated by a : character.  Types recognized:\n"
+	        "unix - Unix Domain socket: address is the filesystem path of the socket:\n"
+	        "       -s unix\n"
+	        "       -s unix:/path/to/socket\n"
+	        "srio - Serial RapidIO type 11 (message): address is the mbox number,\n"
+	        "       optionally followed by the RapidIO device-ID of the agent node:\n"
+	        "       -s srio\n"
+	        "       -s srio:3\n"
+	        "       -s srio:3,12\n",
+	        argv0, strlen(argv0), " ", DEF_CONFIG);
 	        
 	exit (1);
 }
@@ -129,10 +145,9 @@ int main (int argc, char **argv)
 
 	// defaults
 	log_dupe(stderr);
-	opt_sock_path = strdup(CONTROL_LOCAL_SOCKET_PATH);
 
 	// basic arguments parsing
-	while ( (opt = getopt(argc, argv, "r:p:d:l:c:")) != -1 )
+	while ( (opt = getopt(argc, argv, "r:p:d:l:c:s:")) != -1 )
 		switch ( opt )
 		{
 			case 'l': opt_log    = optarg;  break;
@@ -173,9 +188,26 @@ int main (int argc, char **argv)
 				log_trace(1);
 				break;
 
+			case 's':
+				if ( (ptr = strchr(optarg, ':')) ) // for particular module(s)
+				{
+					*ptr++ = '\0';
+					opt_sock_addr = ptr;
+				}
+				else
+					opt_sock_addr = NULL;
+				opt_sock_type = optarg;
+				break;
+
 			default:
 				usage();
 		}
+
+	if ( !(sock = socket_alloc(opt_sock_type)) )
+	{
+		LOG_ERROR("Socket type '%s' unknown.\n", opt_sock_type);
+		usage();
+	}
 
 	// remaining arguments form the command
 	if ( optind < argc )
@@ -208,8 +240,11 @@ int main (int argc, char **argv)
 	}
 
 	// open connection to daemon
-	if ( socket_open() < 0 )
+	if ( socket_check(sock) < 0 )
+	{
+		LOG_ERROR("Failed to connect to server: %s", strerror(errno));
 		return 1;
+	}
 
 
 	signal(SIGTERM, signal_fatal);
@@ -372,7 +407,8 @@ int main (int argc, char **argv)
 	close(sock);
 #endif
 
-	socket_close();
+	socket_close(sock);
+	sock = NULL;
 
 	return ret;
 }

@@ -24,8 +24,8 @@
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>
 
-#include "../sequence.h"
-#include "../expect.h"
+#include <tool/control/sequence.h>
+#include <tool/control/expect.h>
 
 
 LOG_MODULE_STATIC("control_sequence_disco", LOG_LEVEL_TRACE);

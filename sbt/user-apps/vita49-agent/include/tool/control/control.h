@@ -1,4 +1,4 @@
-/** Control tool configuration
+/** 
  *
  *  \author    Morgan Hughes <morgan.hughes@silver-bullet-tech.com>
  *  \version   v0.0
@@ -17,47 +17,19 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
-#include <termios.h>
-#include <unistd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h>
-#include <ctype.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <getopt.h>
-
-#include <config/include/config.h>
-
-#include <lib/log.h>
-
-#include <tool/control/control.h>
+#ifndef SRC_TOOL_CONTROL_CONTROL_H
+#define SRC_TOOL_CONTROL_CONTROL_H
 
 
-LOG_MODULE_STATIC("control_config", LOG_LEVEL_DEBUG);
+// main.c
+extern char *argv0;
+extern char *opt_log;
+extern char *opt_config;
+extern char *opt_sock_type;
+extern char *opt_sock_path;
+
+// config.c
+extern struct config_context config_context;
 
 
-static int config (const char *section, const char *tag, const char *val,
-                   const char *file, int line, void *data)
-{
-	if ( !tag || !val )
-		return 0;
-	
-	// TODO: needs overhaul
-
-	return 0;
-}
-struct config_context config_context =
-{
-	.catchall_function = config,
-};
-
-
+#endif // SRC_TOOL_CONTROL_CONTROL_H

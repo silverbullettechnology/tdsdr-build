@@ -1,4 +1,4 @@
-/** Control tool configuration
+/** Serial RapidIO adapter control definitions, server and client
  *
  *  \author    Morgan Hughes <morgan.hughes@silver-bullet-tech.com>
  *  \version   v0.0
@@ -17,47 +17,12 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
-#include <termios.h>
-#include <unistd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h>
-#include <ctype.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <getopt.h>
+#ifndef INCLUDE_COMMON_CONTROL_SRIO_H
+#define INCLUDE_COMMON_CONTROL_SRIO_H
+#include <sd_user.h>
 
-#include <config/include/config.h>
+#define CONTROL_SRIO_NODE_PATH  "/dev/srio"
+#define CONTROL_SRIO_BUFF_SIZE  ((sizeof(struct sd_mesg) + 0x000003FF) & 0xFFFFFC00)
 
-#include <lib/log.h>
-
-#include <tool/control/control.h>
-
-
-LOG_MODULE_STATIC("control_config", LOG_LEVEL_DEBUG);
-
-
-static int config (const char *section, const char *tag, const char *val,
-                   const char *file, int line, void *data)
-{
-	if ( !tag || !val )
-		return 0;
-	
-	// TODO: needs overhaul
-
-	return 0;
-}
-struct config_context config_context =
-{
-	.catchall_function = config,
-};
-
-
+#endif /* INCLUDE_COMMON_CONTROL_SRIO_H */
+/* Ends */
