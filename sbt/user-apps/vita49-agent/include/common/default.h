@@ -21,7 +21,7 @@
 #define INCLUDE_COMMON_DEFAULT_H
 
 
-#define DEF_CONFIG "./daemon.conf"
+#define DEF_CONFIG "/etc/vita49-agent/daemon.conf"
 
 
 #endif /* INCLUDE_COMMON_DEFAULT_H */

@@ -49,11 +49,12 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 	LOG_DEBUG("%s: got message for worker %s:\n", __func__, worker_name(worker));
 	v49_dump(LOG_LEVEL_DEBUG, req_v49);
 
-	if ( !(mbuf = mbuf_alloc(CONTROL_LOCAL_BUFF_SIZE, sizeof(struct message))) )
+	if ( !(mbuf = mbuf_alloc(DAEMON_MBUF_SIZE, sizeof(struct message))) )
 	{
 		LOG_ERROR("mbuf_alloc() failed: %s\n", strerror(errno));
 		RETURN;
 	}
+	mbuf_beg_set(mbuf, DAEMON_MBUF_HEAD);
 	memcpy(mbuf_user(mbuf), req_user, sizeof(*req_user));
 
 	v49_reset(&rsp_v49);

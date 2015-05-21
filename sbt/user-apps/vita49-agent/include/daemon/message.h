@@ -23,6 +23,11 @@
 #include <daemon/control.h>
 #include <daemon/worker.h>
 
+/* Currently sized for a maximum-length SRIO type 11 (message) packet with sd_user header
+ * size reserved */
+#define DAEMON_MBUF_SIZE  5120
+#define DAEMON_MBUF_HEAD   256
+
 
 struct message
 {

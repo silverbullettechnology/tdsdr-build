@@ -19,9 +19,13 @@ all:
 	true
 
 install:
-	mkdir -p $(DESTDIR)/etc $(DESTDIR)/usr/lib
+	mkdir -p $(DESTDIR)/etc/rcS.d $(DESTDIR)/usr/lib
 	-cp -av etc/* $(DESTDIR)/etc
 	-cp -av lib/* $(DESTDIR)/usr/lib
+	rm -f $(DESTDIR)/etc/rcS.d/S91vita49-agent
+ifeq ($(CONFIG_USER_APPS_VITA49_AGENT_AUTOLOAD),y)
+	ln -sf ../init.d/vita49-agent $(ROMFSDIR)/etc/rcS.d/S91vita49-agent
+endif
 
 clean:
 	true

@@ -15,10 +15,10 @@
 
 # output targets
 BINS := \
-	../bin/control \
+	../bin/vita49-agent \
 	../bin/test-stub \
-	../bin/worker \
-	../bin/daemon
+	../bin/vita49-agent-worker \
+	../bin/vita49-agent-daemon
 
 
 # Daemon core
@@ -31,6 +31,7 @@ DAEMON_OBJS += \
 
 # Control classes for user control
 DAEMON_OBJS += \
+	daemon/control/srio.o \
 	daemon/control/local.o \
 	daemon/control/dummy.o
 
@@ -172,15 +173,15 @@ tests: $(BINS)
 		$(SHELL) tests/harness.sh $$d; \
 	done
 
-../bin/daemon: $(DAEMON_OBJS)
+../bin/vita49-agent-daemon: $(DAEMON_OBJS)
 	mkdir -p ../bin
 	$(CC) $(CFLAGS) $(LFLAGS) $^ $(DAEMON_LIBS) -o $@
 
-../bin/worker: $(WORKER_OBJS)
+../bin/vita49-agent-worker: $(WORKER_OBJS)
 	mkdir -p ../bin
 	$(CC) $(CFLAGS) $(LFLAGS) $^ $(WORKER_LIBS) -o $@
 
-../bin/control: $(CONTROL_OBJS)
+../bin/vita49-agent: $(CONTROL_OBJS)
 	mkdir -p ../bin
 	$(CC) $(CFLAGS) $(LFLAGS) $^ $(CONTROL_LIBS) -o $@
 
@@ -191,9 +192,9 @@ tests: $(BINS)
 
 install:
 	mkdir -p $(DESTDIR)/usr/bin $(DESTDIR)/usr/sbin
-	install -m755 ../bin/daemon         $(DESTDIR)/usr/sbin
-	install -m755 ../bin/worker         $(DESTDIR)/usr/bin
-	install -m755 ../bin/control        $(DESTDIR)/usr/bin
+	install -m755 ../bin/vita49-agent-daemon  $(DESTDIR)/usr/sbin
+	install -m755 ../bin/vita49-agent-worker  $(DESTDIR)/usr/bin
+	install -m755 ../bin/vita49-agent         $(DESTDIR)/usr/bin
 
 clean:
 	rm -f $(BUILT_OBJS)

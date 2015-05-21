@@ -1,4 +1,7 @@
 if USER_APPS_VITA49_AGENT
-	comment "No additional options for VITA49_AGENT"
+	config USER_APPS_VITA49_AGENT_AUTOLOAD
+	bool "Auto start agent at boot"
+	help
+	  Say Y to autostart the agent at boot.
 
 endif

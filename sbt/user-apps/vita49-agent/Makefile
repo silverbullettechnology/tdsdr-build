@@ -27,6 +27,7 @@ endif
 # cross-compile friendly
 CC     ?= $(CROSS_COMPILE)gcc
 CFLAGS += -Iinclude -I../include -I../lib
+CFLAGS += -I$(PETALINUX)/software/user-modules/srio_dev
 LFLAGS += -L../lib/config
 
 # Compile with debugging
