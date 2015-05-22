@@ -63,6 +63,14 @@ uint32_t  prev_status;
 time_t    periodic = -1;
 
 
+uint8_t  v49_disco_mesg[] = 
+{
+	0x59,0x00,0x00,0x0a,0x00,0x00,0x00,0x00,0x00,0x11,0x22,0x33,0x00,0x01,0x00,0x01,
+	0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x67,0x45,0x8b,0xc6,0x23,0x7b,0x69,0x98,
+	0x3c,0x73,0x48,0x33,0x51,0xdc,0xb0,0xff,
+};
+
+
 /** control for main loop for orderly shutdown */
 static int main_loop = 1;
 static void signal_fatal (int signum)
@@ -153,7 +161,8 @@ void menu (void)
 	       "3 - Send a short MESSAGE\n"
 	       "4 - Ping peer with a DBELL\n"
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
-	       "6 - Send a 3-frag MESSAGE (640 bytes)\n\n");
+	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
+	       "7 - Send a Vita49 DISCO message (40 bytes)\n\n");
 }
 
 
@@ -486,9 +495,13 @@ int main (int argc, char **argv)
 					mesg->type = 11;
 					mbox->mbox   = opt_mbox_send;
 					mbox->letter = opt_mbox_letter;
-					mbox->data[0] = 0x55AA55AA;
-					mbox->data[1] = 0x5A5A5A5A;
-					size = sizeof(uint32_t) * 2;
+					mbox->data[0] = 0x11111111;
+					mbox->data[1] = 0x22222222;
+					mbox->data[2] = 0x33333333;
+					mbox->data[3] = 0x44444444;
+					mbox->data[4] = 0x55555555;
+					mbox->data[5] = 0x66666666;
+					size = sizeof(uint32_t) * 6;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
@@ -509,8 +522,8 @@ int main (int argc, char **argv)
 					mbox->mbox   = opt_mbox_send;
 					mbox->letter = opt_mbox_letter;
 					memset(&mbox->data[  0], 0x55, 256);
-					memset(&mbox->data[ 64], 0xAA, 128);
-					size = 384;
+					memset(&mbox->data[ 64], 0xAA,  60);
+					size = 316;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
 					hexdump_buff(mbox->data, size);
@@ -524,10 +537,23 @@ int main (int argc, char **argv)
 					mbox->letter = opt_mbox_letter;
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA, 256);
-					memset(&mbox->data[128], 0x55, 128);
-					size = 640;
+					memset(&mbox->data[128], 0x55,  11);
+					size = 523;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
 					       opt_mbox_send, opt_mbox_letter, size);
+					hexdump_buff(mbox->data, size);
+					size += offsetof(struct sd_mesg_mbox, data);
+					size += offsetof(struct sd_mesg,      mesg);
+					break;
+
+				case '7':
+					mesg->type = 11;
+					mbox->mbox   = opt_mbox_send;
+					mbox->letter = opt_mbox_letter;
+					memcpy(mbox->data, v49_disco_mesg, sizeof(v49_disco_mesg));
+					size = sizeof(v49_disco_mesg);
+					printf("\nSEND: DISCO to mbox %d, payload %d:\n",
+					       opt_mbox_send, size);
 					hexdump_buff(mbox->data, size);
 					size += offsetof(struct sd_mesg_mbox, data);
 					size += offsetof(struct sd_mesg,      mesg);

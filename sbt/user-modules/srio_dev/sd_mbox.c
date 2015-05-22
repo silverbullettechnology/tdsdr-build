@@ -118,34 +118,34 @@ struct sd_mesg *sd_mbox_reasm (struct sd_fifo *fifo, struct sd_desc *desc, int m
 }
 
 
+#define DATA_SIZE (sizeof(uint32_t) * SD_DATA_SIZE)
+#define HEAD_SIZE (sizeof(uint32_t) * SD_HEAD_SIZE)
+
 int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *mesg,
                   gfp_t flags)
 {
-	unsigned  size;
+	unsigned  left;
+	unsigned  len;
 	unsigned  num;
 	unsigned  idx;
 	unsigned  ltr;
-	void     *src;
+	void     *ptr;
 
-	size = mesg->size -
+	left = mesg->size -
 	       offsetof(struct sd_mesg, mesg) -
 	       offsetof(struct sd_mesg_mbox, data);
-	if ( size < 8 || size > RIO_MAX_MSG_SIZE || (size & 7) )
+	if ( left > RIO_MAX_MSG_SIZE )
 	{
-		pr_err("%s: Bad message size %d (max %u, min 8, multiple of 8)\n", __func__,
-		       size, RIO_MAX_MSG_SIZE);
+		pr_err("%s: Bad message size %d (max %u)\n", __func__, left, RIO_MAX_MSG_SIZE);
 		return -EINVAL;
 	}
-	// TODO: zero-pad to 8-byte length
 
-	num = (size + (sizeof(uint32_t) * SD_DATA_SIZE) - 1) /
-	      (sizeof(uint32_t) * SD_DATA_SIZE);
-	if ( num >= 16 )
+	if ( (num = (left + DATA_SIZE - 1) / DATA_SIZE) >= 16 )
 	{
-		pr_err("%s: Message too big (%d frags, max 16)\n", __func__, num);
+		pr_err("%s: Message too big (%u frags, max 16)\n", __func__, num);
 		return -EFBIG;
 	}
-	pr_trace("%s: mesg size %d -> %d frags\n", __func__, size, num);
+	pr_trace("%s: mesg size %d -> %d frags\n", __func__, left, num);
 
 	// Letter number 0..3 is normally a rolling counter per mbox, but allow the user the
 	// flexibility of trading off smaller messages and more mailboxes
@@ -161,21 +161,24 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 	desc[0]->virt[1] |= (mesg->mesg.mbox.mbox & 0x3F) << 4;
 	desc[0]->virt[2]  = 0x00B00000;
 	desc[0]->virt[2] |= (num - 1) << 28;
-	desc[0]->virt[2] |= (min(size, (sizeof(uint32_t) * SD_DATA_SIZE)) - 1) << 4;
+	desc[0]->virt[2] |= (min(left, DATA_SIZE) - 1) << 4;
 
 	// Payload of first fragment
-	src = mesg->mesg.mbox.data;
-	memcpy(&desc[0]->virt[SD_HEAD_SIZE], src, min(size, (sizeof(uint32_t) * SD_DATA_SIZE)));
-	desc[0]->used = min(size, (sizeof(uint32_t) * SD_DATA_SIZE)) +
-	                sizeof(uint32_t) * SD_HEAD_SIZE;
-
-	src  += (sizeof(uint32_t) * SD_DATA_SIZE);
-	size -= (sizeof(uint32_t) * SD_DATA_SIZE);
+	ptr = mesg->mesg.mbox.data;
+	memcpy(&desc[0]->virt[SD_HEAD_SIZE], ptr, min(left, DATA_SIZE));
+	desc[0]->used = min(left, DATA_SIZE) + HEAD_SIZE;
 
 	// alloc first: caller is responsible for allocating and setting up first desc, and
 	// freeing any descs allocated in here
 	for ( idx = 1; idx < num; idx++ )
 	{
+		pr_debug("%s: frag %u: %08x:%08x.%08x used %04x\n", __func__, idx - 1,
+		         desc[idx - 1]->virt[0], desc[idx - 1]->virt[2],
+		         desc[idx - 1]->virt[1], desc[idx - 1]->used);
+
+		ptr  += DATA_SIZE;
+		left -= DATA_SIZE;
+
 		if ( !(desc[idx] = sd_desc_alloc(sd, flags)) )
 		{
 			pr_err("%s: Failed to alloc fragment %d\n", __func__, idx);
@@ -183,23 +186,36 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 		}
 
 		// copy addresses and header from frag 0 and modify
-		memcpy(desc[idx]->virt, desc[0]->virt, sizeof(uint32_t) * SD_HEAD_SIZE);
+		memcpy(desc[idx]->virt, desc[0]->virt, HEAD_SIZE);
 		desc[idx]->virt[2] |= idx << 24;
-		if ( size < (sizeof(uint32_t) * SD_DATA_SIZE) )
-		{
-			desc[idx]->virt[2] &= ~0x00000FF0;
-			desc[idx]->virt[2] |= (size - 1) << 4;
-		}
 
 		// Payload of fragment
-		memcpy(&desc[idx]->virt[SD_HEAD_SIZE], src,
-		       min(size, (sizeof(uint32_t) * SD_DATA_SIZE)));
-		desc[idx]->used = min(size, (sizeof(uint32_t) * SD_DATA_SIZE)) +
-		                sizeof(uint32_t) * SD_HEAD_SIZE;
+		memcpy(&desc[idx]->virt[SD_HEAD_SIZE], ptr, min(left, DATA_SIZE));
+		desc[idx]->used = min(left, DATA_SIZE) + HEAD_SIZE;
 
-		src  += (sizeof(uint32_t) * SD_DATA_SIZE);
-		size -= (sizeof(uint32_t) * SD_DATA_SIZE);
 	}
+
+	// padding: type 11 messages are limited to 8/16/32/64/128/256 byte payload lengths,
+	// which applies to last/only fragment since we fragment at 256 bytes.  find the
+	// smallest valid length, zero-pad, and adjust the HELLO word in the descriptor
+	if ( left < 256 )
+		for ( len = 8; len < 256; len <<= 1 )
+			if ( left < len )
+			{
+				ptr = &desc[num - 1]->virt[SD_HEAD_SIZE];
+				memset(ptr + left, 0, (len - left));
+
+				desc[num - 1]->virt[2] &= ~0x00000FF0;
+				desc[num - 1]->virt[2] |= (len - 1) << 4;
+				desc[num - 1]->used = len + HEAD_SIZE;
+
+				pr_debug("%s: Pad last frag %u -> %u\n", __func__, left, len);
+				break;
+			}
+
+	pr_debug("%s: frag %u: %08x:%08x.%08x used %04x (last)\n", __func__, num - 1,
+	         desc[num - 1]->virt[0], desc[num - 1]->virt[2],
+	         desc[num - 1]->virt[1], desc[num - 1]->used);
 
 	return num;
 }

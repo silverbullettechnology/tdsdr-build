@@ -172,7 +172,8 @@ void daemon_northbound (struct mbuf *mbuf)
 	// early-out: if it has an explicit control destination trust that
 	if ( user->control )
 	{
-		LOG_DEBUG("%s: unicast %p\n", control_name(user->control), mbuf);
+		LOG_DEBUG("%s: unicast %p (socket %d)\n", control_name(user->control), mbuf,
+		          user->socket);
 		control_enqueue(user->control, mbuf);
 		RETURN_ERRNO(0);
 	}

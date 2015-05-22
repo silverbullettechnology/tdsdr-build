@@ -82,6 +82,7 @@ struct socket *socket_alloc (const char *name)
 		RETURN_VALUE("%p", NULL);
 
 	ai->class = ac;
+	ai->name = strdup(name);
 
 	mqueue_init(&ai->queue, 0);
 
@@ -106,17 +107,12 @@ int socket_config_inst (struct socket *sock, const char *path)
 	/* If the class has a libconfig callback, use that */
 	if ( sock->class->ops->config_fn )
 	{
-		struct config_section_map cm[] =
-		{
-			{ (char *)sock->name, sock->class->ops->config_fn, sock },
-			{ NULL }
-		};
 		struct config_context cc =
 		{
 			.default_section   = NULL,
 			.default_function  = NULL,
-			.catchall_function = NULL,
-			.section_map       = cm,
+			.catchall_function = sock->class->ops->config_fn,
+			.section_map       = NULL,
 			.data              = sock
 		};
 
@@ -191,6 +187,8 @@ void socket_free (struct socket *sock)
 	ENTER("sock %p", sock);
 	if ( !sock )
 		RETURN_ERRNO(EFAULT);
+	
+	free((char *)sock->name);
 
 	// free_fn is optional for simple modules, use free() if undefined
 	if ( sock->class->ops->free_fn )

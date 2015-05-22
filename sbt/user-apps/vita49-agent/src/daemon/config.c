@@ -20,9 +20,10 @@
 #include <lib/log.h>
 #include <lib/growlist.h>
 
+#include <common/default.h>
 #include <common/resource.h>
-#include <daemon/resource.h>
 
+#include <daemon/resource.h>
 #include <daemon/worker.h>
 #include <daemon/control.h>
 #include <daemon/config.h>
@@ -191,7 +192,7 @@ int daemon_config (const char *path)
 	ENTER("path %s", path);
 
 	// setting default values for items which can be changed with libconfig 
-	resource_config_path = strdup(DEF_RESOURCE_CONFIG_PATH);
+	resource_config_path = strdup(DEF_RESOURCE);
 
 	static struct config_section_map cm[] =
 	{

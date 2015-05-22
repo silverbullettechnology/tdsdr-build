@@ -26,6 +26,8 @@
 #include <daemon/worker.h>
 #include <daemon/message.h>
 
+#include <common/default.h>
+
 
 LOG_MODULE_STATIC("worker_child", LOG_LEVEL_WARN);
 
@@ -302,7 +304,7 @@ static int worker_child_read (struct worker *worker, fd_set *rfds)
 	int                       len;
 
 	// Receive into failsafe buffer if mbuf_alloc failed
-	if ( !(mbuf = mbuf_alloc(DAEMON_MBUF_SIZE, sizeof(struct message))) )
+	if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, sizeof(struct message))) )
 	{
 		char  buff[128];
 		LOG_WARN("%s: mbuf_alloc() failed, message dropped\n", worker_name(worker));
@@ -313,7 +315,7 @@ static int worker_child_read (struct worker *worker, fd_set *rfds)
 
 		RETURN_VALUE("%d", 0);
 	}
-	mbuf_beg_set(mbuf, DAEMON_MBUF_HEAD);
+	mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 	user = mbuf_user(mbuf);
 	user->worker = worker;
 

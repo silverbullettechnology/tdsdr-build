@@ -39,6 +39,7 @@
 #include <daemon/control.h>
 #include <daemon/message.h>
 
+#include <common/default.h>
 #include <common/control/local.h>
 
 
@@ -342,7 +343,7 @@ static int control_local_read (struct control *ctrl, fd_set *rfds)
 	for ( idx = 0; idx < CONTROL_LOCAL_CLIENTS_MAX; idx++ )
 		if ( priv->client[idx].handle >= 0 && FD_ISSET(priv->client[idx].handle, rfds) )
 		{
-			struct mbuf *mbuf = mbuf_alloc(DAEMON_MBUF_SIZE, sizeof(struct message));
+			struct mbuf *mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, sizeof(struct message));
 			int          len;
 
 			// Receive into failsafe buffer if mbuf_alloc failed
@@ -361,7 +362,7 @@ static int control_local_read (struct control *ctrl, fd_set *rfds)
 				user->socket  = idx;
 				user->worker  = priv->client[idx].worker;
 
-				mbuf_beg_set(mbuf, DAEMON_MBUF_HEAD);
+				mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 				len = mbuf_read(mbuf, priv->client[idx].handle, CONTROL_LOCAL_BUFF_SIZE);
 			}
 

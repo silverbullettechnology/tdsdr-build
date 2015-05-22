@@ -532,6 +532,10 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 
 		desc[idx]->offs = 0;
 
+		sf_debug(sf, "%08x:%08x.%08x, %zu bytes, TX queued:\n", 
+		         desc[idx]->virt[0], desc[idx]->virt[2], desc[idx]->virt[1], desc[idx]->used - 12);
+		hexdump_buff(&desc[idx]->virt[SD_HEAD_SIZE], desc[idx]->used - 12);
+
 		// pre-calculate expected response packet descriptor based on this packet's HELLO
 		// header, including TTL in bottom 8 bits.
 		if ( devid != 0xFFFF0000 && !(sf->flags & SD_FL_NO_RSP) )
@@ -718,8 +722,9 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	}
 
 	/* Dispatch to listener, or dump and free for debug */
-	sf_debug(sf, "%08x:%08x.%08x, RX complete\n", 
-	         desc->virt[0], desc->virt[2], desc->virt[1]);
+	sf_debug(sf, "%08x:%08x.%08x, %zu bytes, RX complete:\n", 
+	         desc->virt[0], desc->virt[2], desc->virt[1], desc->used - 12);
+	hexdump_buff(&desc->virt[SD_HEAD_SIZE], desc->used - 12);
 	if ( sf->rx_func )
 		sf->rx_func(sf, desc);
 	else

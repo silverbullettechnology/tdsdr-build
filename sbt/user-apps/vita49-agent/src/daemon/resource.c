@@ -26,6 +26,7 @@
 #include <lib/uuid.h>
 #include <lib/growlist.h>
 
+#include <common/default.h>
 #include <common/resource.h>
 
 #include <daemon/resource.h>

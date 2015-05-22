@@ -72,6 +72,27 @@ static struct socket *socket_unix_alloc (void)
 }
 
 
+/** Command-line configuration of a socket, usually instead of a config-file parse,
+ *  usually the address of the remote peer.   Return nonzero if the passed argument is
+ *  invalid. */
+static int socket_unix_cmdline (struct socket *sock, const char *arg)
+{
+	ENTER("sock %p, arg %p", sock, arg);
+	struct socket_unix_priv *priv = (struct socket_unix_priv *)sock;
+
+	free(priv->path);
+	errno = 0;
+	if ( !(priv->path = strdup(arg)) )
+	{
+		LOG_ERROR("%s: failed to strdup() socket path: %s\n", 
+		          priv->sock.name, strerror(errno));
+		RETURN_VALUE("%d", -1);
+	}
+
+	RETURN_ERRNO_VALUE(0, "%d", 0);
+}
+
+
 /** Config callback */
 static int socket_unix_config (const char *section, const char *tag, const char *val,
                                  const char *file, int line, void *data)
@@ -79,24 +100,19 @@ static int socket_unix_config (const char *section, const char *tag, const char 
 	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
 	      section, tag, val, file, line, data);
 	struct socket_unix_priv *priv = (struct socket_unix_priv *)data;
+	int                      ret;
 	
 	if ( !tag || !val )
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 
+	errno = 0;
 	if ( !strcmp(tag, "socket") )
 	{
-		free(priv->path);
-		if ( !(priv->path = strdup(val)) )
-		{
-			LOG_ERROR("%s[%d]: %s: failed to strdup() socket path: %s\n", file, line, 
-			          priv->sock.name, strerror(errno));
-			RETURN_VALUE("%d", 0);
-		}
-		RETURN_ERRNO_VALUE(0, "%d", 0);
+		ret = socket_unix_cmdline(&priv->sock, val);
+		RETURN_VALUE("%d", ret);
 	}
 
-	errno = 0;
-	int ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
+	ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
 	RETURN_VALUE("%d", ret);
 }
 
@@ -314,6 +330,7 @@ static struct socket_ops socket_unix_ops =
 {
 	alloc_fn:      socket_unix_alloc,
 	config_fn:     socket_unix_config,
+	cmdline_fn:    socket_unix_cmdline,
 	check_fn:      socket_unix_check,
 	fd_set_fn:     socket_unix_fd_set,
 	fd_is_set_fn:  socket_unix_fd_is_set,

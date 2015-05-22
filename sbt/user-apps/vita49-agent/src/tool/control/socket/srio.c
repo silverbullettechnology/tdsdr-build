@@ -37,6 +37,7 @@
 #include <lib/mbuf.h>
 #include <lib/mqueue.h>
 
+#include <common/default.h>
 #include <common/control/srio.h>
 
 #include <tool/control/socket.h>
@@ -87,10 +88,37 @@ static struct socket *socket_srio_alloc (void)
 	}
 	priv->desc = -1;
 	priv->mbox =  0;
+	priv->addr =  5;
 	priv->next =  0;
 	mqueue_init(&priv->sock.queue, 0);
 
 	RETURN_ERRNO_VALUE(0, "%p", (struct socket *)priv);
+}
+
+
+/** Command-line configuration of a socket, usually instead of a config-file parse,
+ *  usually the address of the remote peer.   Return nonzero if the passed argument is
+ *  invalid. */
+static int socket_srio_cmdline (struct socket *sock, const char *arg)
+{
+	ENTER("sock %p, arg %p", sock, arg);
+	struct socket_srio_priv *priv = (struct socket_srio_priv *)sock;
+	char                    *ptr;
+
+	if ( (priv->mbox = strtoul(arg, &ptr, 0)) > 3 )
+	{
+		LOG_ERROR("%s: mbox number must be 0..3\n", priv->sock.name);
+		RETURN_ERRNO_VALUE(EINVAL, "%d", -1);
+	}
+	LOG_DEBUG("%s: SRIO mbox set to %u\n", priv->sock.name, priv->mbox);
+
+	if ( *ptr != ',' )
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	
+	priv->addr = strtol(ptr + 1, NULL, 0);
+	LOG_DEBUG("%s: SRIO addr set to %d\n", priv->sock.name, priv->addr);
+
+	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
 
 
@@ -101,6 +129,7 @@ static int socket_srio_config (const char *section, const char *tag, const char 
 	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
 	      section, tag, val, file, line, data);
 	struct socket_srio_priv *priv = (struct socket_srio_priv *)data;
+	int                      ret;
 
 	if ( !tag || !val )
 		RETURN_ERRNO_VALUE(0, "%d", 0);
@@ -117,19 +146,15 @@ static int socket_srio_config (const char *section, const char *tag, const char 
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
-	if ( !strcmp(tag, "mbox") )
+	if ( !strcmp(tag, "addr") )
 	{
-		if ( (priv->mbox = strtoul(val, NULL, 0)) > 3 )
-		{
-			LOG_ERROR("%s[%d]: %s: mbox number must be 0..3\n", file, line, 
-			          priv->sock.name);
-			RETURN_ERRNO_VALUE(EINVAL, "%d", -1);
-		}
-		RETURN_ERRNO_VALUE(0, "%d", 0);
+		errno = 0;
+		ret = socket_srio_cmdline(&priv->sock, val);
+		RETURN_VALUE("%d", ret);
 	}
 
 	errno = 0;
-	int ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
+	ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
 	RETURN_VALUE("%d", ret);
 }
 
@@ -259,7 +284,7 @@ static struct mbuf *socket_srio_read (struct socket *sock)
 		RETURN_ERRNO_VALUE(EFAULT, "%p", NULL);
 	struct socket_srio_priv *priv = (struct socket_srio_priv *)sock;
 
-	struct mbuf *mbuf = mbuf_alloc(CONTROL_SRIO_BUFF_SIZE, 0);
+	struct mbuf *mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0);
 	int          len;
 
 	// Receive into failsafe buffer if mbuf_alloc failed
@@ -272,6 +297,7 @@ static struct mbuf *socket_srio_read (struct socket *sock)
 		len = read(priv->desc, priv->buffer, sizeof(priv->buffer));
 		RETURN_ERRNO_VALUE(0, "%p", NULL);
 	}
+	mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 
 	// read and error handling
 	if ( (len = mbuf_read(mbuf, priv->desc, CONTROL_SRIO_BUFF_SIZE)) < 0 )
@@ -340,6 +366,7 @@ static int socket_srio_write (struct socket *sock)
 		RETURN_ERRNO_VALUE(EFAULT, "%d", -1);
 
 	struct socket_srio_priv *priv = (struct socket_srio_priv *)sock;
+	int                      ret;
 
 	if ( priv->desc < 0 )
 	{
@@ -353,6 +380,8 @@ static int socket_srio_write (struct socket *sock)
 		LOG_WARN("%s: wfds set, but empty queue?\n", socket_name(sock));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
+	LOG_DEBUG("Raw message before SRIO header prepend:\n");
+	mbuf_dump(mbuf);
 
 	// mbufs must be allocated with enough headroom to construct header
 	struct sd_mesg *mesg;
@@ -372,9 +401,14 @@ static int socket_srio_write (struct socket *sock)
 	mesg->size = mbuf_get_avail(mbuf);
 
 	// write in one shot 
-	if ( mbuf_write(mbuf, priv->desc, mesg->size) < mesg->size )
+	LOG_DEBUG("Raw message after SRIO header prepend:\n");
+	mbuf_dump(mbuf);
+	mbuf_cur_set_beg(mbuf);
+	if ( (ret = mbuf_write(mbuf, priv->desc, mesg->size)) < mesg->size )
 		LOG_ERROR("%s: write %zu bytes failed: %s: dropped\n", socket_name(sock),
 				  mesg->size, strerror(errno));
+	else
+		LOG_DEBUG("%s: wrote %d bytes OK\n", socket_name(sock), ret);
 
 	mbuf_deref(mbuf);
 	RETURN_ERRNO_VALUE(0, "%d", 0);
@@ -422,6 +456,7 @@ static struct socket_ops socket_srio_ops =
 {
 	alloc_fn:      socket_srio_alloc,
 	config_fn:     socket_srio_config,
+	cmdline_fn:    socket_srio_cmdline,
 	check_fn:      socket_srio_check,
 	fd_set_fn:     socket_srio_fd_set,
 	fd_is_set_fn:  socket_srio_fd_is_set,

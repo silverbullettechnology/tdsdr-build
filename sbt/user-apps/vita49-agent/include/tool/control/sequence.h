@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef SRC_TOOL_CONTROL_SEQUENCE_H
-#define SRC_TOOL_CONTROL_SEQUENCE_H
+#ifndef INCLUDE_TOOL_CONTROL_SEQUENCE_H
+#define INCLUDE_TOOL_CONTROL_SEQUENCE_H
 
 
 typedef int (* sequence_fn) (int argc, char **argv);
@@ -43,5 +43,5 @@ struct sequence_map *sequence_find (const char *name);
 void sequence_list (int level);
 
 
-#endif // SRC_TOOL_CONTROL_SEQUENCE_H
+#endif // INCLUDE_TOOL_CONTROL_SEQUENCE_H
 

@@ -27,7 +27,6 @@
 #include <common/resource.h>
 
 
-#define DEF_RESOURCE_CONFIG_PATH "./resource.conf"
 extern char *resource_config_path;
 
 extern struct growlist  resource_list;

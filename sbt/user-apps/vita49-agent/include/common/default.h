@@ -21,7 +21,14 @@
 #define INCLUDE_COMMON_DEFAULT_H
 
 
-#define DEF_CONFIG "/etc/vita49-agent/daemon.conf"
+/* Currently sized for a maximum-length SRIO type 11 (message) packet with sd_user header
+ * size reserved */
+#define DEFAULT_MBUF_SIZE  5120
+#define DEFAULT_MBUF_HEAD   256
+
+
+#define DEF_CONFIG   "/etc/vita49-agent/daemon.conf"
+#define DEF_RESOURCE "/etc/vita49-agent/resource.conf"
 
 
 #endif /* INCLUDE_COMMON_DEFAULT_H */

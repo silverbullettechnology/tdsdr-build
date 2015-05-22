@@ -39,6 +39,7 @@
 #include <daemon/control.h>
 #include <daemon/message.h>
 
+#include <common/default.h>
 #include <common/control/srio.h>
 
 
@@ -329,12 +330,13 @@ static int control_srio_read (struct control *ctrl, fd_set *rfds)
 			mbuf_deref(mbuf);
 			RETURN_ERRNO_VALUE(0, "%d", -1);
 		}
-		mbuf_dump(mbuf);
 
 		// done header validation, move beg up to pass into daemon
 		mbuf_beg_adj(mbuf, HEAD_SIZE);
+		mbuf_cur_set_beg(mbuf);
 		LOG_DEBUG("%s: Letter %d from 0x%04x, %d bytes payload:\n", control_name(ctrl),
 		          mesg->mesg.mbox.letter, mesg->src_addr, mbuf_get_avail(mbuf));
+		mbuf_dump(mbuf);
 
 		user->socket = mesg->src_addr;
 		if ( mqueue_enqueue(&ctrl->recv, mbuf) < 0 )
@@ -370,17 +372,47 @@ static int control_srio_write (struct control *ctrl, fd_set *wfds)
 		LOG_WARN("%s: wfds set, but empty queue?\n", control_name(ctrl));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
-	struct message *user = mbuf_user(mbuf);
+
+	// write in one shot 
+	mbuf_cur_set_beg(mbuf);
+	if ( mbuf_write(mbuf, priv->desc, DEFAULT_MBUF_SIZE) < 0 )
+		LOG_ERROR("%s: write failed: %s: dropped\n", control_name(ctrl), strerror(errno));
+
+	mbuf_deref(mbuf);
+	RETURN_ERRNO_VALUE(0, "%d", 0);
+}
+
+
+/** enqueue a message for transmit
+ *
+ *  \note Since the message may be submitted to multiple controls, individual controls may
+ *        not modify the passed message; if the control needs to modify the message it
+ *        should use mbuf_clone() to make a local copy.
+ *
+ *  \param ctrl Instance to send message via
+ *  \param mbuf Message buffer to send
+ *
+ *  \return 0 on success, <0 on failure
+ */
+int control_srio_enqueue (struct control *ctrl, struct mbuf *mbuf)
+{
+	ENTER("ctrl %p, mbuf %p", ctrl, mbuf);
+	if ( !ctrl || !mbuf )
+		RETURN_ERRNO_VALUE(EFAULT, "%d", -1);
+
+	struct control_srio_priv *priv = (struct control_srio_priv *)ctrl;
+	struct message           *user = mbuf_user(mbuf);
 
 	// mbufs must be allocated with enough headroom to construct header
 	struct sd_mesg *mesg;
-	if ( mbuf_beg_adj(mbuf, 0 - HEAD_SIZE) < 0 || !(mesg = mbuf_beg_ptr(mbuf)) )
+	if ( mbuf_beg_adj(mbuf, 0 - HEAD_SIZE) < 0 )
 	{
 		LOG_WARN("%s: mbuf doesn't have %u bytes headroom, drop\n",
 		         control_name(ctrl), HEAD_SIZE);
 		mbuf_deref(mbuf);
 		RETURN_ERRNO_VALUE(ENOMEM, "%d", 0);
 	}
+	mesg = mbuf_beg_ptr(mbuf);
 
 	// Construct the header: type 11, dest from socket 
 	mesg->type = 11;
@@ -389,14 +421,12 @@ static int control_srio_write (struct control *ctrl, fd_set *wfds)
 	mbuf_cur_set_beg(mbuf);
 	mesg->size = mbuf_get_avail(mbuf);
 
-	// write in one shot 
-	if ( mbuf_write(mbuf, priv->desc, mesg->size) < mesg->size )
-		LOG_ERROR("%s: write %zu bytes failed: %s: dropped\n", control_name(ctrl),
-				  mesg->size, strerror(errno));
-
-	mbuf_deref(mbuf);
+mbuf_dump(mbuf);
+	mqueue_enqueue(&priv->queue, mbuf);
 	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
+
+
 
 
 /** Close files/devices associated with this instance.  Return 0 on success. */
@@ -445,6 +475,7 @@ static struct control_ops control_srio_ops =
 	fd_is_set_fn:  control_srio_fd_is_set,
 	read_fn:       control_srio_read,
 	write_fn:      control_srio_write,
+	enqueue_fn:    control_srio_enqueue,
 	close_fn:      control_srio_close,
 	free_fn:       control_srio_free,
 };

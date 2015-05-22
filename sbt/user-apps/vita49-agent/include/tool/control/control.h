@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef SRC_TOOL_CONTROL_CONTROL_H
-#define SRC_TOOL_CONTROL_CONTROL_H
+#ifndef INCLUDE_TOOL_CONTROL_CONTROL_H
+#define INCLUDE_TOOL_CONTROL_CONTROL_H
 
 
 // main.c
@@ -32,4 +32,4 @@ extern char *opt_sock_path;
 extern struct config_context config_context;
 
 
-#endif // SRC_TOOL_CONTROL_CONTROL_H
+#endif // INCLUDE_TOOL_CONTROL_CONTROL_H

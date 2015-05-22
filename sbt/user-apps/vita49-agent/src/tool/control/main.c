@@ -59,7 +59,7 @@ char *opt_config    = DEF_CONFIG;
 long  opt_reps      = 1;
 long  opt_pause     = 0;
 
-char *opt_sock_type = "unix";
+char *opt_sock_type = "srio";
 char *opt_sock_addr = NULL;
 
 char *default_argv[] = { "list", NULL };
@@ -197,6 +197,7 @@ int main (int argc, char **argv)
 				else
 					opt_sock_addr = NULL;
 				opt_sock_type = optarg;
+				LOG_DEBUG("-s set type '%s', addr '%s'\n", opt_sock_type, opt_sock_addr);
 				break;
 
 			default:
@@ -207,6 +208,23 @@ int main (int argc, char **argv)
 	{
 		LOG_ERROR("Socket type '%s' unknown.\n", opt_sock_type);
 		usage();
+	}
+
+	// Command-line overrides config file
+	if ( opt_sock_addr )
+	{
+		LOG_DEBUG("Configure sock with addr '%s'\n", opt_sock_addr);
+		if ( socket_cmdline(sock, opt_sock_addr) )
+		{
+			LOG_ERROR("Bad command-line address: %s", opt_sock_addr);
+			return 1;
+		}
+		LOG_DEBUG("Configured sock with addr '%s'\n", opt_sock_addr);
+	}
+	else if ( socket_config_inst(sock, opt_config) )
+	{
+		LOG_ERROR("Failed to read config file: %s", strerror(errno));
+		return 1;
 	}
 
 	// remaining arguments form the command
@@ -230,14 +248,6 @@ int main (int argc, char **argv)
 		return 1;
 	}
 	LOG_INFO("Command '%s' matched: %s\n", map->name, map->desc);
-
-
-	// read config file
-	if ( config_parse(&config_context, opt_config) )
-	{
-		LOG_ERROR("Failed to read config file: %s", strerror(errno));
-		return 1;
-	}
 
 	// open connection to daemon
 	if ( socket_check(sock) < 0 )
@@ -408,7 +418,7 @@ int main (int argc, char **argv)
 #endif
 
 	socket_close(sock);
-	sock = NULL;
+	socket_free(sock);
 
 	return ret;
 }

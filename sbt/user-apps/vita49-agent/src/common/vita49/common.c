@@ -101,7 +101,8 @@ int v49_common_parse (struct v49_common *v49, struct mbuf *mbuf)
 	if ( ! (v49->hdr & V49_HDR_HAS_CID) )
 		FAIL(V49_ERR_HEADER_CID);
 
-	if ( ((v49->hdr & 0x0000FFFF) << 2) != len ) // TBD: may change this to allow for trailer?
+	LOG_DEBUG("hdr len %u, pkt len %d\n", ((v49->hdr & 0x0000FFFF) << 2), len);
+	if ( ((v49->hdr & 0x0000FFFF) << 2) > len )
 		FAIL(V49_ERR_HEADER_SIZE);
 
 	// Stream ID

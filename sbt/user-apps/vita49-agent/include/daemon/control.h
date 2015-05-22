@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_CONTROL_CONTROL_H
-#define INCLUDE_CONTROL_CONTROL_H
+#ifndef INCLUDE_DAEMON_CONTROL_H
+#define INCLUDE_DAEMON_CONTROL_H
 #include <sys/select.h>
 
 #include <lib/growlist.h>
@@ -364,5 +364,5 @@ static inline const char *control_name (struct control *ctrl)
 }
 
 
-#endif /* INCLUDE_CONTROL_CONTROL_H */
+#endif /* INCLUDE_DAEMON_CONTROL_H */
 /* Ends */

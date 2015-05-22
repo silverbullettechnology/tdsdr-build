@@ -20,6 +20,7 @@
 #include <lib/log.h>
 #include <lib/mbuf.h>
 
+#include <common/default.h>
 #include <common/control/local.h>
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>
@@ -95,11 +96,12 @@ static int sequence_disco (int argc, char **argv)
 
 	ENTER("argc %d, argv [%s,...]", argc, argv[0]);
 
-	if ( !(mbuf = mbuf_alloc(CONTROL_LOCAL_BUFF_SIZE, 0)) )
+	if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0)) )
 	{
 		LOG_ERROR("mbuf_alloc() failed: %s\n", strerror(errno));
 		RETURN_VALUE("%d", -1);
 	}
+	mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 
 	uuid_random(&disco_req.command.cid);
 	LOG_DEBUG("Disco: CID %s\n", uuid_to_str(&disco_req.command.cid));

@@ -35,6 +35,10 @@
  *  initialize any of the fields in the ancestor socket; socket_alloc() does that. */
 typedef struct socket * (* socket_alloc_fn) (void);
 
+/** Command-line configuration of a socket, usually instead of a config-file parse,
+ *  usually the address of the remote peer.   Return nonzero if the passed argument is
+ *  invalid. */
+typedef int (* socket_cmdline_fn) (struct socket *sock, const char *arg);
 
 /** Check status of a socket, (re)open/spawn if necessary.  Return <0 on fatal error, if
  *  application should stop.  Otherwise should implement rate limiting internally and try
@@ -87,7 +91,8 @@ typedef void (* socket_free_fn) (struct socket *sock);
 struct socket_ops
 {
 	socket_alloc_fn       alloc_fn;
-	config_func_t          config_fn;
+	config_func_t         config_fn;
+	socket_cmdline_fn     cmdline_fn;
 	socket_check_fn       check_fn;
 	socket_fd_set_fn      fd_set_fn;
 	socket_fd_is_set_fn   fd_is_set_fn;
@@ -163,6 +168,25 @@ int socket_config_inst (struct socket *sock, const char *path);
  */
 int socket_config_common (const char *section, const char *tag, const char *val,
                           const char *file, int line, struct socket *sock);
+
+
+/** Command-line config of a socket
+ *
+ *  \param sock Instance to be checked
+ *  \param arg  Command-line argument
+ *
+ *  \return 0 on success, <0 on failure
+ */
+static inline int socket_cmdline (struct socket *sock, const char *arg)
+{
+	if ( !sock )
+		return -1;
+
+	if ( !sock->class->ops->cmdline_fn )
+		return 0;
+
+	return sock->class->ops->cmdline_fn(sock, arg);
+}
 
 
 /** Check the instance post-configuration
