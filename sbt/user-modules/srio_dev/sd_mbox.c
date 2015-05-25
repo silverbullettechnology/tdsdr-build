@@ -199,7 +199,7 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 	// which applies to last/only fragment since we fragment at 256 bytes.  find the
 	// smallest valid length, zero-pad, and adjust the HELLO word in the descriptor
 	if ( left < 256 )
-		for ( len = 8; len < 256; len <<= 1 )
+		for ( len = 8; len < 512; len <<= 1 )
 			if ( left < len )
 			{
 				ptr = &desc[num - 1]->virt[SD_HEAD_SIZE];
