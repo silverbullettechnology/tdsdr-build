@@ -79,6 +79,13 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_RID_LIST);
 			break;
 
+		case V49_CMD_REQ_ENUM:
+			rsp_v49.command.role     = V49_CMD_ROLE_RESULT;
+			rsp_v49.command.result   = V49_CMD_RES_SUCCESS;
+			rsp_v49.command.res_info = &resource_list;
+			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_RES_INFO);
+			break;
+
 		default:
 			LOG_ERROR("Command not (yet) handled: %s\n",
 			          v49_command_request(req_v49->command.request));

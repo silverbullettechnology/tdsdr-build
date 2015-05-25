@@ -146,7 +146,7 @@ CONTROL_OBJS := \
 	tool/control/main.o
 
 CONTROL_OBJS += tool/control/sequence/disco.o
-#CONTROL_OBJS += tool/control/sequence/enum.o
+CONTROL_OBJS += tool/control/sequence/enum.o
 
 CONTROL_LIBS := \
 	-lrt \
