@@ -42,6 +42,7 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
                                   struct worker *worker)
 {
 	struct v49_common  rsp_v49;
+	struct growlist    list = GROWLIST_INIT;
 	struct mbuf       *mbuf;
 	int                ret;
 
@@ -75,14 +76,50 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 		case V49_CMD_REQ_DISCO:
 			rsp_v49.command.role     = V49_CMD_ROLE_RESULT;
 			rsp_v49.command.result   = V49_CMD_RES_SUCCESS;
-			rsp_v49.command.rid_list = &resource_list;
+			if ( req_v49->command.rid_list )
+			{
+				ret = growlist_intersect(&list, &resource_list,
+				                         req_v49->command.rid_list, uuid_cmp);
+				if ( ret < 0 )
+					LOG_ERROR("growlist_intersect() failed\n");
+				rsp_v49.command.rid_list = &list;
+
+				uuid_t *rid;
+				LOG_DEBUG("Resource list %d, filter list %d entries: result list %d entries:\n",
+				          growlist_used(&resource_list),
+				          growlist_used(req_v49->command.rid_list),
+				          growlist_used(&list));
+				growlist_reset(&list);
+				while ( (rid = growlist_next(&list)) )
+					LOG_DEBUG("  %s\n", uuid_to_str(rid));
+			}
+			else
+				rsp_v49.command.rid_list = &resource_list;
 			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_RID_LIST);
 			break;
 
 		case V49_CMD_REQ_ENUM:
 			rsp_v49.command.role     = V49_CMD_ROLE_RESULT;
 			rsp_v49.command.result   = V49_CMD_RES_SUCCESS;
-			rsp_v49.command.res_info = &resource_list;
+			if ( req_v49->command.rid_list )
+			{
+				ret = growlist_intersect(&list, &resource_list,
+				                         req_v49->command.rid_list, uuid_cmp);
+				if ( ret < 0 )
+					LOG_ERROR("growlist_intersect() failed\n");
+				rsp_v49.command.res_info = &list;
+
+				uuid_t *rid;
+				LOG_DEBUG("Resource list %d, filter list %d entries: result list %d entries:\n",
+				          growlist_used(&resource_list),
+				          growlist_used(req_v49->command.rid_list),
+				          growlist_used(&list));
+				growlist_reset(&list);
+				while ( (rid = growlist_next(&list)) )
+					LOG_DEBUG("  %s\n", uuid_to_str(rid));
+			}
+			else
+				rsp_v49.command.res_info = &resource_list;
 			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_RES_INFO);
 			break;
 
@@ -100,10 +137,12 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 	{
 		LOG_ERROR("v49_format: %s\n", v49_return_desc(ret));
 		mbuf_deref(mbuf);
+		growlist_done(&list, NULL, NULL);
 		RETURN_ERRNO(0);
 	}
 
 	daemon_northbound(mbuf);
+	growlist_done(&list, NULL, NULL);
 	RETURN_ERRNO(0);
 }
 

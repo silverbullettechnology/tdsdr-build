@@ -308,5 +308,21 @@ static inline void *growlist_contains (struct growlist *list, void *node)
 void *growlist_next (struct growlist *list);
 
 
+/** Compare two lists with a function, appending matches to a result list
+ *
+ *  Note: this function does NOT affect the cursor of the left and right lists, local
+ *  copies are used.
+ *
+ *  \param result List to append matching
+ *  \param source List to iterate over and find nodes in
+ *  \param filter List to iterate over and use for searching source
+ *  \param comp   Compare function
+ *
+ *  \return 0 on success, <0 on error
+ */
+int growlist_intersect (struct growlist *result, struct growlist *source,
+                        struct growlist *filter, gen_comp_fn      comp);
+
+
 #endif /* INCLUDE_LIB_GROWLIST_H */
 /* Ends */

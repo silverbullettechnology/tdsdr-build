@@ -549,6 +549,46 @@ void *growlist_next (struct growlist *list)
 }
 
 
+/** Compare two lists with a function, appending matches to a result list
+ *
+ *  Note: this function does NOT affect the cursor of the source and filter lists, local
+ *  copies are used.
+ *
+ *  \param result List to append matching
+ *  \param source List to iterate over and find nodes in
+ *  \param filter List to iterate over and use for searching source
+ *  \param comp   Compare function
+ *
+ *  \return Number of nodes added to result on success, <0 on error
+ */
+int growlist_intersect (struct growlist *result, struct growlist *source,
+                        struct growlist *filter, gen_comp_fn      comp)
+{
+	ENTER("result %p, source %p, filter %p, comp %p\n", result, source, filter, comp);
+	if ( !result || !source || !filter || !comp )
+		RETURN_ERRNO_VALUE(EFAULT, "%d", -1);
+
+	struct growlist  fl = *filter;
+	struct growlist  sl = *source;
+	void            *fn;
+	void            *sn;
+	int              c = 0;
+
+	growlist_reset(&fl);
+	while ( (fn = growlist_next(&fl)) )
+	{
+		growlist_reset(&sl);
+		while ( (sn = growlist_search(&sl, comp, fn)) )
+			if ( growlist_append(result, sn) < 0 )
+				RETURN_VALUE("%d", -1);
+			else
+				c++;
+	}
+
+	RETURN_ERRNO_VALUE(0, "%d", c);
+}
+
+
 #ifdef UNIT_TEST
 #include <stdio.h>
 void dump_list (struct growlist *list)
