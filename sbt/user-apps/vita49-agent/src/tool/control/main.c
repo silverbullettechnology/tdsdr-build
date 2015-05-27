@@ -214,7 +214,7 @@ int main (int argc, char **argv)
 	if ( opt_sock_addr )
 	{
 		LOG_DEBUG("Configure sock with addr '%s'\n", opt_sock_addr);
-		if ( socket_cmdline(sock, opt_sock_addr) )
+		if ( socket_cmdline(sock, "addr", opt_sock_addr) )
 		{
 			LOG_ERROR("Bad command-line address: %s", opt_sock_addr);
 			return 1;

@@ -99,24 +99,39 @@ static struct socket *socket_srio_alloc (void)
 /** Command-line configuration of a socket, usually instead of a config-file parse,
  *  usually the address of the remote peer.   Return nonzero if the passed argument is
  *  invalid. */
-static int socket_srio_cmdline (struct socket *sock, const char *arg)
+static int socket_srio_cmdline (struct socket *sock, const char *tag, const char *val)
 {
-	ENTER("sock %p, arg %p", sock, arg);
+	ENTER("sock %p, tag %s, val %s", sock, tag, val);
 	struct socket_srio_priv *priv = (struct socket_srio_priv *)sock;
 	char                    *ptr;
 
-	if ( (priv->mbox = strtoul(arg, &ptr, 0)) > 3 )
+	if ( !strcmp(tag, "dev") )
 	{
-		LOG_ERROR("%s: mbox number must be 0..3\n", priv->sock.name);
-		RETURN_ERRNO_VALUE(EINVAL, "%d", -1);
-	}
-	LOG_DEBUG("%s: SRIO mbox set to %u\n", priv->sock.name, priv->mbox);
-
-	if ( *ptr != ',' )
+		free(priv->path);
+		if ( !(priv->path = strdup(val)) )
+		{
+			LOG_ERROR("%s: failed to strdup() dev node path: %s\n",
+			          priv->sock.name, strerror(errno));
+			RETURN_VALUE("%d", -1);
+		}
 		RETURN_ERRNO_VALUE(0, "%d", 0);
-	
-	priv->addr = strtol(ptr + 1, NULL, 0);
-	LOG_DEBUG("%s: SRIO addr set to %d\n", priv->sock.name, priv->addr);
+	}
+
+	if ( !strcmp(tag, "addr") )
+	{
+		if ( (priv->mbox = strtoul(val, &ptr, 0)) > 3 )
+		{
+			LOG_ERROR("%s: mbox number must be 0..3\n", priv->sock.name);
+			RETURN_ERRNO_VALUE(EINVAL, "%d", -1);
+		}
+		LOG_DEBUG("%s: SRIO mbox set to %u\n", priv->sock.name, priv->mbox);
+
+		if ( *ptr == ',' )
+		{
+			priv->addr = strtol(ptr + 1, NULL, 0);
+			LOG_DEBUG("%s: SRIO addr set to %d\n", priv->sock.name, priv->addr);
+		}
+	}
 
 	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
@@ -134,27 +149,8 @@ static int socket_srio_config (const char *section, const char *tag, const char 
 	if ( !tag || !val )
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 
-	if ( !strcmp(tag, "dev") )
-	{
-		free(priv->path);
-		if ( !(priv->path = strdup(val)) )
-		{
-			LOG_ERROR("%s[%d]: %s: failed to strdup() dev node path: %s\n", file, line, 
-			          priv->sock.name, strerror(errno));
-			RETURN_VALUE("%d", -1);
-		}
-		RETURN_ERRNO_VALUE(0, "%d", 0);
-	}
-
-	if ( !strcmp(tag, "addr") )
-	{
-		errno = 0;
-		ret = socket_srio_cmdline(&priv->sock, val);
-		RETURN_VALUE("%d", ret);
-	}
-
 	errno = 0;
-	ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
+	ret = socket_srio_cmdline(&priv->sock, tag, val);
 	RETURN_VALUE("%d", ret);
 }
 

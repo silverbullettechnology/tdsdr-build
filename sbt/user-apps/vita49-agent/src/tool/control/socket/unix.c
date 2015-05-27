@@ -75,18 +75,21 @@ static struct socket *socket_unix_alloc (void)
 /** Command-line configuration of a socket, usually instead of a config-file parse,
  *  usually the address of the remote peer.   Return nonzero if the passed argument is
  *  invalid. */
-static int socket_unix_cmdline (struct socket *sock, const char *arg)
+static int socket_unix_cmdline (struct socket *sock, const char *tag, const char *val)
 {
-	ENTER("sock %p, arg %p", sock, arg);
+	ENTER("sock %p, tag %s, val %s", sock, tag, val);
 	struct socket_unix_priv *priv = (struct socket_unix_priv *)sock;
 
-	free(priv->path);
-	errno = 0;
-	if ( !(priv->path = strdup(arg)) )
+	if ( !strcmp(tag, "socket") || !strcmp(tag, "addr") )
 	{
-		LOG_ERROR("%s: failed to strdup() socket path: %s\n", 
-		          priv->sock.name, strerror(errno));
-		RETURN_VALUE("%d", -1);
+		free(priv->path);
+		errno = 0;
+		if ( !(priv->path = strdup(val)) )
+		{
+			LOG_ERROR("%s: failed to strdup() socket path: %s\n", 
+			          priv->sock.name, strerror(errno));
+			RETURN_VALUE("%d", -1);
+		}
 	}
 
 	RETURN_ERRNO_VALUE(0, "%d", 0);
@@ -106,13 +109,7 @@ static int socket_unix_config (const char *section, const char *tag, const char 
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 
 	errno = 0;
-	if ( !strcmp(tag, "socket") )
-	{
-		ret = socket_unix_cmdline(&priv->sock, val);
-		RETURN_VALUE("%d", ret);
-	}
-
-	ret = socket_config_common(section, tag, val, file, line, (struct socket *)data);
+	ret = socket_unix_cmdline(&priv->sock, tag, val);
 	RETURN_VALUE("%d", ret);
 }
 
