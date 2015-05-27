@@ -423,6 +423,43 @@ int set_fd_bits (int fd, int fl_clr, int fl_set, int fd_clr, int fd_set)
 }
 
 
+/** sprintf() a string into a big enough dynamically-allocated buffer
+ *
+ *  \note  this makes two passes through vsnprintf(), first to calculate the size
+ *         required, second to actually format the string into the buffer.
+ *  \note  the buffer returned is allocated with malloc(), the caller must free() it.
+ *
+ *  \param  fmt  Format string for vsnprintf()
+ *  \param  ...  Variable-length argument list
+ *
+ *  \return Formatted string pointer on success, NULL on failure
+ */
+char *str_dup_sprintf (const char *fmt, ...)
+{
+	va_list  ap;
+	char    *ret;
+	char     buf[4];
+	int      len;
+
+	va_start(ap, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	if ( len < 0 )
+		return NULL;
+
+	len++;
+	if ( (ret = malloc(len)) )
+	{
+		va_start(ap, fmt);
+		len = vsnprintf(ret, len, fmt, ap);
+		va_end(ap);
+	}
+
+	return ret;
+}
+
+
 
 #ifdef UNIT_TEST
 int main (int argc, char **argv)

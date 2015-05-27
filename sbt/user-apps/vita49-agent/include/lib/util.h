@@ -104,5 +104,19 @@ int proc_write (const char *path, const char *fmt, ...);
 int set_fd_bits (int fd, int fl_clr, int fl_set, int fd_clr, int fd_set);
 
 
+/** sprintf() a string into a big enough dynamically-allocated buffer
+ *
+ *  \note  this makes two passes through vsnprintf(), first to calculate the size
+ *         required, second to actually format the string into the buffer.
+ *  \note  the buffer returned is allocated with malloc(), the caller must free() it.
+ *
+ *  \param  fmt  Format string for vsnprintf()
+ *  \param  ...  Variable-length argument list
+ *
+ *  \return Formatted string pointer on success, NULL on failure
+ */
+char *str_dup_sprintf (const char *fmt, ...);
+
+
 #endif /* INCLUDE_LIB_UTIL_H */
 /* Ends */
