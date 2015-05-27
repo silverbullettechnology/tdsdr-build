@@ -30,7 +30,7 @@
 #include <common/vita49/context.h>
 
 
-LOG_MODULE_STATIC("vita49_context", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_context", LOG_LEVEL_INFO);
 
 
 /** Reset a context struct 

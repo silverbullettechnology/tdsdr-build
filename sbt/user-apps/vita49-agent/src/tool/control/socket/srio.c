@@ -43,7 +43,7 @@
 #include <tool/control/socket.h>
 
 
-LOG_MODULE_STATIC("socket_srio", LOG_LEVEL_WARN);
+LOG_MODULE_STATIC("socket_srio", LOG_LEVEL_INFO);
 
 
 #define CLIENTS_MAX 8
@@ -423,7 +423,7 @@ static void socket_srio_close (struct socket *sock)
 	while ( (mbuf = mqueue_dequeue(&priv->sock.queue)) )
 		mbuf_deref(mbuf);
 
-	LOG_INFO("%s: close device\n", sock->name);
+	LOG_DEBUG("%s: close device\n", sock->name);
 	close(priv->desc);
 	priv->desc = -1;
 

@@ -35,6 +35,9 @@
 #define V49_ERR_LIST_SIZE      (V49_RET_COMMAND | 0x0002)
 #define V49_ERR_TSTAMP_INT     (V49_RET_COMMAND | 0x0003)
 
+// SID value reserved for manager messages
+#define V49_CMD_RSVD_SID       0
+
 
 typedef enum
 {
@@ -49,8 +52,11 @@ v49_command_role_t;
 
 typedef enum
 {
-	V49_CMD_RES_SUCCESS = 0x00,  // 
-	V49_CMD_RES_UNSPEC  = 0x01,  // 
+	V49_CMD_RES_SUCCESS = 0x00,  // Success
+	V49_CMD_RES_UNSPEC  = 0x01,  // Unspecified reason
+	V49_CMD_RES_INVAL   = 0x02,  // Invalid argument/parameter
+	V49_CMD_RES_NOENT   = 0x03,  // Requested ID not found
+	V49_CMD_RES_ALLOC   = 0x04,  // Alloc (usually memory) failed
 
 	V49_CMD_RES_MAX
 }

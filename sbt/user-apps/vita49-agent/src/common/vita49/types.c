@@ -25,6 +25,6 @@
 #include <common/vita49/types.h>
 
 
-LOG_MODULE_STATIC("vita49_context", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_types", LOG_LEVEL_INFO);
 
 

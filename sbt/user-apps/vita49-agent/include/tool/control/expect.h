@@ -47,6 +47,20 @@ struct expect_map
 int expect_send (struct mbuf *mbuf);
 
 
+/** Common parsing used in various sequences' expect functions
+ *
+ *  \param  rsp   Pointer to v49 response buffer, to parse into
+ *  \param  mbuf  Message buffer received from the daemon
+ *  \param  req   Pointer to v49 request we sent (optional)
+ *  \param  data  Context pointer
+ *
+ *  \return  >0 for a match (return value of the matching function), <0 if a function
+ *           indicated a fatal error, 0 if no function indicated a match.
+ */
+int expect_common (struct v49_common *rsp,       struct mbuf *mbuf, 
+                   const struct v49_common *req, void *data);
+
+
 /** Test a received mbuf against an expect map
  *
  *  \note This is used internally by expect_loop() and exposed for unusual cases.

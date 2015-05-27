@@ -42,7 +42,7 @@
 #include <tool/control/control.h>
 
 
-LOG_MODULE_STATIC("control_config", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_config", LOG_LEVEL_INFO);
 
 
 static int config (const char *section, const char *tag, const char *val,

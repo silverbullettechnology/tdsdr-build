@@ -20,6 +20,7 @@
 #include <lib/log.h>
 #include <lib/mbuf.h>
 #include <lib/mqueue.h>
+#include <lib/util.h>
 
 #include <common/default.h>
 #include <common/control/local.h>
@@ -38,13 +39,18 @@ LOG_MODULE_IMPORT(daemon_manager_module_level);
 #define module_level daemon_manager_module_level
 
 
+static unsigned sid_assign;
+
+
 void daemon_manager_command_recv (struct v49_common *req_v49, struct message *req_user,
                                   struct worker *worker)
 {
-	struct v49_common  rsp_v49;
-	struct growlist    list = GROWLIST_INIT;
-	struct mbuf       *mbuf;
-	int                ret;
+	struct v49_common     rsp_v49;
+	struct resource_info *res;
+	struct growlist       list = GROWLIST_INIT;
+	struct mbuf          *mbuf;
+	uuid_t               *rid;
+	int                   ret;
 
 	ENTER("req_v49 %p, worker %p", req_v49, worker);
 
@@ -68,7 +74,6 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 		LOG_DEBUG("Proxy CID from req to rsp: %s\n", uuid_to_str(&req_v49->command.cid));
 		rsp_v49.command.indicator |= 1 << V49_CMD_IND_BIT_CID;
 		memcpy(&rsp_v49.command.cid, &req_v49->command.cid, sizeof(uuid_t));
-		LOG_DEBUG("rsp: %s\n", uuid_to_str(&rsp_v49.command.cid));
 	}
 
 	switch ( req_v49->command.request )
@@ -84,7 +89,6 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 					LOG_ERROR("growlist_intersect() failed\n");
 				rsp_v49.command.rid_list = &list;
 
-				uuid_t *rid;
 				LOG_DEBUG("Resource list %d, filter list %d entries: result list %d entries:\n",
 				          growlist_used(&resource_list),
 				          growlist_used(req_v49->command.rid_list),
@@ -109,7 +113,6 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 					LOG_ERROR("growlist_intersect() failed\n");
 				rsp_v49.command.res_info = &list;
 
-				uuid_t *rid;
 				LOG_DEBUG("Resource list %d, filter list %d entries: result list %d entries:\n",
 				          growlist_used(&resource_list),
 				          growlist_used(req_v49->command.rid_list),
@@ -121,6 +124,74 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 			else
 				rsp_v49.command.res_info = &resource_list;
 			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_RES_INFO);
+			break;
+
+		case V49_CMD_REQ_ACCESS:
+			// duplicate request: return a duplicate sid_assign
+			if ( worker )
+			{
+				LOG_WARN("ACCESS: dup req for worker %s: re-assign SID %u\n",
+				         worker_name(worker), worker->sid);
+				rsp_v49.command.role       = V49_CMD_ROLE_RESULT;
+				rsp_v49.command.result     = V49_CMD_RES_SUCCESS;
+				rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_SID_ASSIGN);
+				rsp_v49.command.sid_assign = worker->sid;
+				break;
+			}
+
+			// client must specify exactly one RID
+			if ( !req_v49->command.rid_list ||
+			     growlist_used(req_v49->command.rid_list) != 1 )
+			{
+				LOG_ERROR("ACCESS: client must specify exactly 1 RID\n");
+				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+				rsp_v49.command.result = V49_CMD_RES_INVAL;
+				break;
+			}
+			growlist_reset(req_v49->command.rid_list);
+			rid = growlist_next(req_v49->command.rid_list);
+			LOG_DEBUG("ACCESS: req for RID %s\n", uuid_to_str(rid));
+
+			// check requested RID exists
+			growlist_reset(&resource_list);
+			if ( !(res = growlist_search(&resource_list, uuid_cmp, rid)) )
+			{
+				LOG_ERROR("ACCESS: client RID %s not found: %s\n",
+				          uuid_to_str(rid), strerror(errno));
+				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+				rsp_v49.command.result = V49_CMD_RES_NOENT;
+				break;
+			}
+			LOG_DEBUG("ACCESS: req for RID %s:\n", uuid_to_str(rid));
+			resource_dump(LOG_LEVEL_DEBUG, "Resource", res);
+
+			// can't assign the reserved value; may need a smaller max here
+			if ( sid_assign == V49_CMD_RSVD_SID )
+				sid_assign++;
+
+			// create the new worker struct
+			if ( !(worker = worker_alloc(DEF_WORKER_CLASS, sid_assign++)) )
+			{
+				LOG_ERROR("worker_alloc() failed: %s\n", strerror(errno));
+				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+				rsp_v49.command.result = V49_CMD_RES_ALLOC;
+				break;
+			}
+
+			worker->name = str_dup_sprintf("SID:%u", worker->sid);
+			worker->res  = res;
+			memcpy(&worker->rid, rid, sizeof(worker->rid));
+			if ( req_v49->command.indicator & (1 << V49_CMD_IND_BIT_CID) )
+				memcpy(&worker->cid, &req_v49->command.cid, sizeof(worker->cid));
+			else
+				memset(&worker->cid, 0, sizeof(worker->cid));
+
+			// return success and assign SID
+			rsp_v49.command.role       = V49_CMD_ROLE_RESULT;
+			rsp_v49.command.result     = V49_CMD_RES_SUCCESS;
+			rsp_v49.command.indicator |= (1 << V49_CMD_IND_BIT_SID_ASSIGN);
+			rsp_v49.command.sid_assign = worker->sid;
+			LOG_DEBUG("ACCESS: granted: RID %s SID %u\n", uuid_to_str(rid), worker->sid);
 			break;
 
 		default:

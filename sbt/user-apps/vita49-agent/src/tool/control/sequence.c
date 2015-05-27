@@ -24,7 +24,7 @@
 #include <tool/control/sequence.h>
 
 
-LOG_MODULE_STATIC("control_sequence", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_sequence", LOG_LEVEL_INFO);
 
 
 /** Linker-generated symbols for the map */
@@ -46,6 +46,7 @@ void sequence_list (int level)
 {
 	struct sequence_map *map;
 	int                  len = 0;
+
 	for ( map = &__start_sequence_map; map != &__stop_sequence_map; map++ )
 		if ( strlen(map->name) > len )
 			len = strlen(map->name);

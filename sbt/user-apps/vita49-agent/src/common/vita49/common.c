@@ -32,7 +32,7 @@
 #include <common/vita49/control.h>
 
 
-LOG_MODULE_STATIC("vita49_common", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_common", LOG_LEVEL_INFO);
 
 
 /** Reset a command struct 

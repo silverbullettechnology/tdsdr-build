@@ -32,7 +32,7 @@
 #include <common/vita49/command.h>
 
 
-LOG_MODULE_STATIC("vita49_command", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_command", LOG_LEVEL_INFO);
 
 
 /******* *******/
@@ -259,7 +259,8 @@ LOG_DEBUG("%s: start avail %d\n", __func__, mbuf_get_avail(mbuf));
 				FAIL(V49_ERR_MALLOC);
 			}
 
-			resource_dump(LOG_LEVEL_DEBUG, "  res ", res);
+			if ( module_level >= LOG_LEVEL_DEBUG )
+				resource_dump(LOG_LEVEL_DEBUG, "  res ", res);
 		}
 	}
 
@@ -400,7 +401,8 @@ int v49_command_format (struct v49_common *v49, struct mbuf *mbuf)
 			growlist_reset(cmd->res_info);
 			while ( (res = growlist_next(cmd->res_info)) )
 			{
-				resource_dump(LOG_LEVEL_DEBUG, "  res ", res);
+				if ( module_level >= LOG_LEVEL_DEBUG )
+					resource_dump(LOG_LEVEL_DEBUG, "  res ", res);
 
 				// Resource Identifier
 				if ( mbuf_set_mem(mbuf, &res->uuid, sizeof(res->uuid)) != sizeof(res->uuid) )
@@ -480,6 +482,9 @@ const char *v49_command_result (int result)
 	{
 		case V49_CMD_RES_SUCCESS: return "SUCCESS";
 		case V49_CMD_RES_UNSPEC:  return "UNSPEC";
+		case V49_CMD_RES_INVAL:   return "INVAL";
+		case V49_CMD_RES_NOENT:   return "NOENT"; 
+		case V49_CMD_RES_ALLOC:   return "ALLOC"; 
 	}
 
 	static char  buff[32];

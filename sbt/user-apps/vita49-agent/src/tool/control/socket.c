@@ -24,7 +24,7 @@
 #include <tool/control/socket.h>
 
 
-LOG_MODULE_STATIC("socket", LOG_LEVEL_WARN);
+LOG_MODULE_STATIC("socket", LOG_LEVEL_INFO);
 
 
 struct socket *sock = NULL;

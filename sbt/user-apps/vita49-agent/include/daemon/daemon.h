@@ -22,6 +22,9 @@
 #include <lib/mbuf.h>
 
 
+extern char *daemon_opt_config;
+
+
 /** Shut down the daemon per received stop command
  *
  *  \param mesg Message to be processed

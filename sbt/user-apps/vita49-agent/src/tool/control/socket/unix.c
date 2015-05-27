@@ -33,7 +33,7 @@
 #include <tool/control/socket.h>
 
 
-LOG_MODULE_STATIC("socket_unix", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("socket_unix", LOG_LEVEL_INFO);
 
 
 struct socket_unix_priv
@@ -249,7 +249,7 @@ static struct mbuf *socket_unix_read (struct socket *sock)
 	errno = 0;
 	if ( (ret = mbuf_read(mbuf, priv->desc, CONTROL_LOCAL_BUFF_SIZE)) < 1 )
 	{
-		LOG_INFO("server closed connection: %d: %s\n", ret, strerror(errno));
+		LOG_DEBUG("server closed connection: %d: %s\n", ret, strerror(errno));
 		mbuf_deref(mbuf);
 		RETURN_VALUE("%p", NULL);
 	}

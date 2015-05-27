@@ -18,15 +18,19 @@
  *  vim:ts=4:noexpandtab
  */
 #include <sys/select.h>
+#include <limits.h>
 
 #include <lib/log.h>
 #include <lib/mbuf.h>
 #include <lib/mqueue.h>
 #include <lib/child.h>
-#include <daemon/worker.h>
-#include <daemon/message.h>
+#include <lib/packlist.h>
 
 #include <common/default.h>
+
+#include <daemon/worker.h>
+#include <daemon/message.h>
+#include <daemon/daemon.h>
 
 
 LOG_MODULE_STATIC("worker_child", LOG_LEVEL_WARN);
@@ -40,10 +44,47 @@ struct worker_child_priv
 {
 	struct worker  worker;
 	struct child   child;
+	char          *filename;
 };
 
 
-static struct worker *worker_child_alloc (void)
+static char **worker_child_argv (struct worker_child_priv *priv)
+{
+	ENTER("priv %p", priv);
+
+	if ( !priv || !priv->filename )
+		RETURN_ERRNO_VALUE(EFAULT, "%p", NULL);
+
+	struct packlist  pack;
+	char             exec[128];
+	char             conf[128];
+	char             sid[16];
+	char           **argv = packlist_alloc(&pack);
+
+	snprintf(exec, sizeof(exec), "%s/%s", worker_exec_path, priv->filename);
+	snprintf(conf, sizeof(conf), "-c%s",  daemon_opt_config);
+	snprintf(sid,  sizeof(sid),  "%u",    priv->worker.sid);
+
+	memset (&pack, 0, sizeof(pack));
+	packlist_size(&pack, exec, -1);
+	packlist_size(&pack, conf, -1);
+	packlist_size(&pack, sid,  -1);
+	packlist_size(&pack, NULL,  0);
+
+	errno = 0;
+	if ( !(argv = packlist_alloc(&pack)) )
+		RETURN_VALUE("%p", NULL);
+
+	packlist_data(&pack, exec, -1);
+	packlist_data(&pack, conf, -1);
+	packlist_data(&pack, sid,  -1);
+	packlist_data(&pack, NULL,  0);
+
+	RETURN_ERRNO_VALUE(0, "%p", argv);
+}
+
+
+static struct worker *worker_child_alloc (unsigned sid)
 {
 	ENTER("");
 	struct worker_child_priv *priv = malloc(sizeof(struct worker_child_priv));
@@ -55,10 +96,33 @@ static struct worker *worker_child_alloc (void)
 	priv->child.read  = -1;
 	priv->child.pid   = -1;
 
-	// temporary
-	priv->child.argv = child_argv("bin/test-stub", NULL);
+	priv->worker.sid = sid;
+	priv->filename = strdup(DEF_WORKER_FILENAME);
+	priv->child.argv = worker_child_argv(priv);
 
 	RETURN_ERRNO_VALUE(0, "%p", (struct worker *)priv);
+}
+
+/** Command-line configuration of a worker, usually instead of a config-file parse.
+ *  Return nonzero if the passed argument is invalid. */
+static int worker_child_cmdline (struct worker *worker, const char *tag, const char *val)
+{
+	ENTER("worker %p, tag %s, val %s", worker, tag, val);
+	struct worker_child_priv *priv = (struct worker_child_priv *)worker;
+
+	if ( !strcmp(tag, "filename") )
+	{
+		if ( !priv->filename || !strcmp(priv->filename, val) )
+		{
+			free(priv->filename);
+			priv->filename = strdup(val);
+			free(priv->child.argv);
+			priv->child.argv = worker_child_argv(priv);
+		}
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
 
 static int worker_child_config (const char *section, const char *tag, const char *val,
@@ -66,9 +130,14 @@ static int worker_child_config (const char *section, const char *tag, const char
 {
 	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
 	      section, tag, val, file, line, data);
+	struct worker *worker = (struct worker *)data;
+	int            ret;
+
+	if ( !tag || !val )
+		RETURN_ERRNO_VALUE(0, "%d", 0);
 
 	errno = 0;
-	int ret = worker_config_common(section, tag, val, file, line, (struct worker *)data);
+	ret = worker_child_cmdline(worker, tag, val);
 	RETURN_VALUE("%d", ret);
 }
 

@@ -30,7 +30,7 @@
 #include <common/vita49/control.h>
 
 
-LOG_MODULE_STATIC("vita49_control", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_control", LOG_LEVEL_INFO);
 
 
 struct v49_control *v49_control_parse (struct mbuf *mbuf)

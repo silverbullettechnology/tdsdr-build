@@ -103,26 +103,17 @@ void daemon_southbound (struct mbuf *mbuf)
 	}
 
 	// search workers next by SID, for context and command
-	struct worker *worker;
-	growlist_reset(&worker_list);
-	while ( (worker = growlist_next(&worker_list)) )
-		if ( v49.sid == worker->sid )
-		{
-			LOG_DEBUG("%s: Message matched by SID\n", worker_name(worker));
-			break;
-#if 0
-			if ( user->control )
+	struct worker *worker = NULL;
+	if ( v49.sid != V49_CMD_RSVD_SID )
+	{
+		growlist_reset(&worker_list);
+		while ( (worker = growlist_next(&worker_list)) )
+			if ( v49.sid == worker->sid )
 			{
-				if ( control_connect(user->control, user->socket, worker) )
-					LOG_WARN("%s: failed to connect socket %s.%d: %s\n",
-					         worker_name(worker), control_name(user->control),
-					         user->socket, strerror(errno));
-				else
-					LOG_DEBUG("%s: connected socket %s.%d\n", worker_name(worker),
-					         control_name(user->control), user->socket);
+				LOG_DEBUG("%s: Message matched by SID\n", worker_name(worker));
+				break;
 			}
-#endif
-		}
+	}
 
 	// command request messages handled in daemon layer; pass the worker for the manager
 	// to manipulate, or NULL if not matched
@@ -132,7 +123,6 @@ void daemon_southbound (struct mbuf *mbuf)
 			case V49_CMD_REQ_DISCO:   // Discovery / Advertisement
 			case V49_CMD_REQ_ENUM:    // Enumeration
 			case V49_CMD_REQ_ACCESS:  // Access
-			case V49_CMD_REQ_RELEASE: // Release
 				daemon_manager_command_recv(&v49, mbuf_user(mbuf), worker);
 				RETURN_ERRNO(0);
 

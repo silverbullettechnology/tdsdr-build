@@ -50,12 +50,12 @@
 #include <tool/control/sequence.h>
 
 
-LOG_MODULE_STATIC("control_main", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_main", LOG_LEVEL_INFO);
 
 
 char *argv0;
 char *opt_log       = NULL;
-char *opt_config    = DEF_CONFIG;
+char *opt_config    = DEF_CONFIG_PATH;
 long  opt_reps      = 1;
 long  opt_pause     = 0;
 
@@ -123,7 +123,7 @@ static void usage (void)
 	        "       -s srio\n"
 	        "       -s srio:3\n"
 	        "       -s srio:3,12\n",
-	        argv0, strlen(argv0), " ", DEF_CONFIG);
+	        argv0, strlen(argv0), " ", DEF_CONFIG_PATH);
 	        
 	exit (1);
 }
@@ -247,7 +247,7 @@ int main (int argc, char **argv)
 		sequence_list(LOG_LEVEL_ERROR);
 		return 1;
 	}
-	LOG_INFO("Command '%s' matched: %s\n", map->name, map->desc);
+	LOG_DEBUG("Command '%s' matched: %s\n", map->name, map->desc);
 
 	// open connection to daemon
 	if ( socket_check(sock) < 0 )

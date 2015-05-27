@@ -41,7 +41,7 @@ LOG_MODULE_STATIC("worker", LOG_LEVEL_DEBUG);
 
 char           *argv0 = NULL;
 char           *worker_opt_log     = NULL;
-char           *worker_opt_config  = DEF_CONFIG;
+char           *worker_opt_config  = DEF_CONFIG_PATH;
 char           *worker_opt_section = NULL;
 struct timeval  worker_opt_tv_min  = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  worker_opt_tv_max  = { .tv_sec = 1, .tv_usec = 0 };
@@ -110,12 +110,13 @@ static void signal_alarm (int signum)
 
 static void usage (void)
 {
-	printf ("Usage: %s [-f] [-d lvl] [-l log] [-c config]\n\n"
+	printf ("Usage: %s [-f] [-d lvl] [-l log] [-c config] SID\n\n"
 	        "Where:\n"
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
-	        "-c config     Specify a different config file (default %s)\n",
-	        argv0, DEF_CONFIG);
+	        "-c config     Specify a different config file (default %s)\n"
+			"SID           Specifies the numeric Stream-ID assigned to this worker\n",
+	        argv0, DEF_CONFIG_PATH);
 	        
 	exit (1);
 }

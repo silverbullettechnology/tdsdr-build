@@ -28,7 +28,7 @@
 LOG_MODULE_STATIC("worker_dummy", LOG_LEVEL_WARN);
 
 
-static struct worker *worker_dummy_alloc (void)
+static struct worker *worker_dummy_alloc (unsigned sid)
 {
 	ENTER("");
 	struct worker *worker = malloc(sizeof(struct worker));
@@ -36,6 +36,7 @@ static struct worker *worker_dummy_alloc (void)
 		RETURN_VALUE("%p", NULL);
 
 	memset (worker, 0, sizeof(struct worker));
+	worker->sid = sid;
 
 	RETURN_ERRNO_VALUE(0, "%p", worker);
 }

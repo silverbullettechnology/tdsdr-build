@@ -21,6 +21,7 @@
 #include <lib/mbuf.h>
 
 #include <common/default.h>
+#include <common/resource.h>
 #include <common/control/local.h>
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>
@@ -29,14 +30,14 @@
 #include <tool/control/expect.h>
 
 
-LOG_MODULE_STATIC("control_sequence_enum", LOG_LEVEL_TRACE);
+LOG_MODULE_STATIC("control_sequence_enum", LOG_LEVEL_INFO);
 
 
 struct growlist  enum_rid_list = GROWLIST_INIT;
 
 static struct v49_common enum_req = 
 {
-	.sid  = 0, // TODO: symbol for reserved sid
+	.sid  = V49_CMD_RSVD_SID,
 	.type = V49_TYPE_COMMAND,
 	.command = 
 	{
@@ -49,38 +50,33 @@ static struct v49_common enum_req =
 
 static int enum_expect (struct mbuf *mbuf, void *data)
 {
-	static struct v49_common  v49;
-	int                       ret;
+	struct v49_common     rsp;
+	struct resource_info *res;
+	int                   ret;
 
 	ENTER("mbuf %p, data %p", mbuf, data);
 
-	v49_reset(&v49);
-	if ( (ret = v49_parse(&v49, mbuf)) < 0 )
+	if ( (ret = expect_common(&rsp, mbuf, &enum_req, data)) < 1 )
+		RETURN_VALUE("%d", ret);
+
+	if ( module_level >= LOG_LEVEL_DEBUG )
+		v49_dump(LOG_LEVEL_DEBUG, &rsp);
+
+	if ( !(rsp.command.indicator & (1 << V49_CMD_IND_BIT_RES_INFO)) ||
+	     !rsp.command.res_info )
 	{
-		LOG_ERROR("Parse error: %s\n", strerror(errno));
-		RETURN_VALUE("%d", -1);
+		LOG_ERROR("Successful DISCO req needs a Resource list returned\n");
+		RETURN_ERRNO_VALUE(0, "%d", -1);
 	}
 
-	if ( V49_RET_ERROR(ret) )
-	{
-		LOG_ERROR("Parse/validation fail: %s\n", v49_return_desc(ret));
-		RETURN_ERRNO_VALUE(0, "%d", 0);
-	}
+	growlist_reset(rsp.command.res_info);
+	LOG_INFO("DISCO returned %d Resources:\n", growlist_used(rsp.command.res_info));
+	while ( (res = growlist_next(rsp.command.res_info)) )
+		resource_dump(LOG_LEVEL_INFO, "  ", res);
 
-	if ( v49.type != V49_TYPE_COMMAND )
-		RETURN_ERRNO_VALUE(0, "%d", 0);
+	growlist_done(rsp.command.rid_list, gen_free, NULL);
+	free(rsp.command.rid_list);
 
-	if ( v49.command.role    != V49_CMD_ROLE_RESULT ) RETURN_ERRNO_VALUE(0, "%d", 0);
-	if ( v49.command.request != V49_CMD_REQ_ENUM    ) RETURN_ERRNO_VALUE(0, "%d", 0);
-	if ( v49.command.result  != V49_CMD_RES_SUCCESS ) RETURN_ERRNO_VALUE(0, "%d", 0);
-	if ( uuid_cmp(&v49.command.cid, &enum_req.command.cid) )
-	{
-		LOG_DEBUG("req cid %s\n", uuid_to_str(&enum_req.command.cid));
-		LOG_DEBUG("rsp cid %s\n", uuid_to_str(&v49.command.cid));
-		RETURN_ERRNO_VALUE(0, "%d", 0);
-	}
-
-	v49_dump(LOG_LEVEL_INFO, &v49);
 	RETURN_ERRNO_VALUE(0, "%d", 1);
 }
 

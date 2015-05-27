@@ -28,7 +28,7 @@
 #include <tool/control/expect.h>
 
 
-LOG_MODULE_STATIC("control_expect", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_expect", LOG_LEVEL_INFO);
 
 
 /** Enqueue an mbuf to send to the daemon
@@ -179,6 +179,86 @@ int expect_loop (struct expect_map *map, clocks_t timeout)
 	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
 
+
+/** Common parsing used in various sequences' expect functions
+ *
+ *  \param  rsp   Pointer to v49 response buffer, to parse into
+ *  \param  mbuf  Message buffer received from the daemon
+ *  \param  req   Pointer to v49 request we sent (optional)
+ *  \param  data  Context pointer
+ *
+ *  \return  >0 for a match (return value of the matching function), <0 if a function
+ *           indicated a fatal error, 0 if no function indicated a match.
+ */
+int expect_common (struct v49_common *rsp,       struct mbuf *mbuf, 
+                   const struct v49_common *req, void *data)
+{
+	ENTER("rsp %p, mbuf %p, req %p, data %p\n", rsp, mbuf, req, data);
+	int ret;
+
+	v49_reset(rsp);
+	if ( (ret = v49_parse(rsp, mbuf)) < 0 )
+	{
+		LOG_ERROR("Parse error: %s\n", strerror(errno));
+		RETURN_VALUE("%d", ret);
+	}
+
+	if ( V49_RET_ERROR(ret) )
+	{
+		LOG_ERROR("Parse/validation fail: %s\n", v49_return_desc(ret));
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( rsp->type != V49_TYPE_COMMAND )
+	{
+		LOG_DEBUG("Expected COMMAND, got %s\n", v49_type(rsp->type));
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( rsp->command.role != V49_CMD_ROLE_RESULT )
+	{
+		LOG_DEBUG("Expected RESULT, got %s\n", v49_command_role(rsp->command.role));
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( rsp->command.request != req->command.request )
+	{
+		LOG_DEBUG("Comamnd value mismatch:\n");
+		LOG_DEBUG("  req request %s\n", v49_command_request(req->command.request));
+		LOG_DEBUG("  rsp request %s\n", v49_command_request(rsp->command.request));
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( (req->command.indicator & (1 << V49_CMD_IND_BIT_CID)) &&
+	     (rsp->command.indicator & (1 << V49_CMD_IND_BIT_CID)) )
+	{
+		if ( uuid_cmp(&rsp->command.cid, &req->command.cid) )
+		{
+			LOG_DEBUG("CID value mismatch:\n");
+			LOG_DEBUG("  req CID %s\n", uuid_to_str(&req->command.cid));
+			LOG_DEBUG("  rsp CID %s\n", uuid_to_str(&rsp->command.cid));
+			RETURN_ERRNO_VALUE(0, "%d", 0);
+		}
+	}
+	else if ( (req->command.indicator & (1 << V49_CMD_IND_BIT_CID)) !=
+	          (rsp->command.indicator & (1 << V49_CMD_IND_BIT_CID)) )
+	{
+		LOG_DEBUG("CID presence mismatch: req %c, rsp %c\n",
+		          req->command.indicator & (1 << V49_CMD_IND_BIT_CID) ? 'Y' : 'N',
+		          rsp->command.indicator & (1 << V49_CMD_IND_BIT_CID) ? 'Y' : 'N');
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( rsp->command.result != V49_CMD_RES_SUCCESS )
+	{
+		LOG_ERROR("%s req failed: %s\n",
+		          v49_command_request(rsp->command.result),
+		          v49_command_result(rsp->command.result));
+		RETURN_ERRNO_VALUE(0, "%d", -1);
+	}
+
+	RETURN_ERRNO_VALUE(0, "%d", 1);
+}
 
 
 

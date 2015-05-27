@@ -67,6 +67,13 @@ static int daemon_config_paths (const char *section, const char *tag, const char
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
+	if ( !strcmp(tag, "worker") )
+	{
+		free(worker_exec_path);
+		worker_exec_path = strdup(val);
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
 
 	RETURN_ERRNO_VALUE(ENOENT, "%d", -1);
 }
@@ -127,7 +134,7 @@ static int daemon_config_section (const char *section, const char *tag, const ch
 			else if ( ss->name && ss->worker )
 			{
 				// note: worker_alloc adds the worker to its worker_list internally
-				struct worker *worker = worker_alloc(ss->worker);
+				struct worker *worker = worker_alloc(ss->worker, 0);
 				if ( !worker )
 				{
 					LOG_ERROR("%s[%d]: Failed to allocate worker %s: %s\n", file, line,
@@ -192,7 +199,8 @@ int daemon_config (const char *path)
 	ENTER("path %s", path);
 
 	// setting default values for items which can be changed with libconfig 
-	resource_config_path = strdup(DEF_RESOURCE);
+	resource_config_path = strdup(DEF_RESOURCE_CONFIG_PATH);
+	worker_exec_path     = strdup(DEF_WORKER_EXEC_PATH);
 
 	static struct config_section_map cm[] =
 	{

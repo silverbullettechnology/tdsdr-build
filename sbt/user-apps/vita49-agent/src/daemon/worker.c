@@ -28,6 +28,9 @@
 LOG_MODULE_STATIC("worker", LOG_LEVEL_WARN);
 
 
+char *worker_exec_path;
+
+
 /** List of all workers allocated with worker_alloc */
 struct growlist worker_list = GROWLIST_INIT;
 
@@ -60,7 +63,7 @@ const struct worker_class *worker_class_search (const char *name)
  *
  *  \return Allocated worker pointer, or NULL on failure
  */
-struct worker *worker_alloc (const char *name)
+struct worker *worker_alloc (const char *name, unsigned sid)
 {
 	ENTER("name %s", name);
 
@@ -72,12 +75,20 @@ struct worker *worker_alloc (const char *name)
 		RETURN_ERRNO_VALUE(ENOSYS, "%p", NULL);
 
 	errno = 0;
-	struct worker *di = dc->ops->alloc_fn();
+	struct worker *di = dc->ops->alloc_fn(sid);
 	if ( !di )
 		RETURN_VALUE("%p", NULL);
 
 	di->class = dc;
-	growlist_append(&worker_list, di);
+	if ( growlist_append(&worker_list, di) < 0 )
+	{
+		int err = errno;
+		if ( dc->ops->free_fn )
+			dc->ops->free_fn(di);
+		else
+			free(di);
+		RETURN_ERRNO_VALUE(err, "%p", NULL);
+	}
 
 	mqueue_init(&di->send, 0);
 	mqueue_init(&di->recv, 0);

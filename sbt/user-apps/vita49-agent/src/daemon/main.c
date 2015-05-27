@@ -43,7 +43,7 @@
 char           *argv0;
 int             daemon_opt_daemon = 1;
 char           *daemon_opt_log    = NULL;
-char           *daemon_opt_config = DEF_CONFIG;
+char           *daemon_opt_config = DEF_CONFIG_PATH;
 struct timeval  daemon_opt_tv_min = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  daemon_opt_tv_max = { .tv_sec = 1, .tv_usec = 0 };
 int             daemon_opt_timer_limit = 5;
@@ -164,7 +164,7 @@ static void usage (void)
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
 	        "-c config     Specify a different config file (default %s)\n",
-	        argv0, DEF_CONFIG);
+	        argv0, DEF_CONFIG_PATH);
 	        
 	exit (1);
 }
