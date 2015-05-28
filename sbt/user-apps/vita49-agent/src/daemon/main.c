@@ -330,7 +330,7 @@ int main (int argc, char **argv)
 		}
 
 	// mark timer
-	mark_timer_period = s_to_clocks(5);
+	mark_timer_period = s_to_clocks(60);
 	timer_attach (&mark_timer, mark_timer_period, mark_timer_cb, NULL);
 
 	/* Standard set of vars to support select */
@@ -531,6 +531,21 @@ int main (int argc, char **argv)
 					LOG_DEBUG("all workers stopped, exit main loop\n");
 				}
 				break;
+
+			case ML_RUNNING:
+				growlist_reset(&worker_list);
+				while ( (worker = growlist_next(&worker_list) ) )
+					switch ( (state = worker_state_get(worker)) )
+					{
+						case WS_ZOMBIE:
+							LOG_DEBUG("%s: Reap zombie worker\n", worker_name(worker));
+							worker_free(worker);
+							break;
+
+						default:
+							LOG_DEBUG("%s: state %s, ignore...\n", worker_name(worker),
+							          worker_state_desc(state));
+					}
 
 			default:
 				LOG_TRACE("main loop continues\n");

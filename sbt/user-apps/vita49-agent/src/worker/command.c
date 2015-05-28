@@ -21,10 +21,13 @@
 #include <lib/mbuf.h>
 #include <lib/mqueue.h>
 
+#include <common/default.h>
 #include <common/vita49/types.h>
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>
 
+#include <worker/worker.h>
+#include <worker/message.h>
 #include <worker/command.h>
 
 
@@ -33,14 +36,62 @@ LOG_MODULE_STATIC("worker_command", LOG_LEVEL_DEBUG);
 
 /** Receive a command packet from a client
  *
- *  \param  mbuf  Message buffer containing VITA-49 context packet
- *
- *  \return 0 on success, <0 on fatal error
+ *  \param  v49  Parsed command structure
  */
-int worker_command_recv (struct mbuf *mbuf)
+void worker_command_recv (struct v49_common *req_v49)
 {
-	ENTER("mbuf %p", mbuf);
+	struct v49_common     rsp_v49;
+	struct mbuf          *mbuf;
+	int                   ret;
 
-	RETURN_ERRNO_VALUE(ENOSYS, "%d", 0);
+	ENTER("req_v49 %p", req_v49);
+
+	v49_dump(LOG_LEVEL_DEBUG, req_v49);
+
+	if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0)) )
+	{
+		LOG_ERROR("mbuf_alloc() failed: %s\n", strerror(errno));
+		RETURN;
+	}
+
+	v49_reset(&rsp_v49);
+	rsp_v49.type = V49_TYPE_COMMAND;
+	rsp_v49.command.request = req_v49->command.request;
+
+	if ( req_v49->command.indicator & (1 << V49_CMD_IND_BIT_CID) )
+	{
+		LOG_DEBUG("Proxy CID from req to rsp: %s\n", uuid_to_str(&req_v49->command.cid));
+		rsp_v49.command.indicator |= 1 << V49_CMD_IND_BIT_CID;
+		memcpy(&rsp_v49.command.cid, &req_v49->command.cid, sizeof(uuid_t));
+	}
+
+	switch ( req_v49->command.request )
+	{
+		case V49_CMD_REQ_RELEASE:
+			rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+			rsp_v49.command.result = V49_CMD_RES_SUCCESS;
+			worker_shutdown();
+			break;
+
+
+		default:
+			LOG_ERROR("Command not (yet) handled: %s\n",
+			          v49_command_request(req_v49->command.request));
+			mbuf_deref(mbuf);
+			RETURN_ERRNO(EBADMSG);
+	}
+
+	LOG_DEBUG("%s: format reply:\n", __func__);
+	v49_dump(LOG_LEVEL_DEBUG, &rsp_v49);
+
+	if ( (ret = v49_format(&rsp_v49, mbuf, NULL)) != V49_OK_COMPLETE )
+	{
+		LOG_ERROR("v49_format: %s\n", v49_return_desc(ret));
+		mbuf_deref(mbuf);
+		RETURN_ERRNO(0);
+	}
+
+	worker_northbound(mbuf);
+	RETURN_ERRNO(0);
 }
 

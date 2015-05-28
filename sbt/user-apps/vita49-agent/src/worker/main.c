@@ -26,14 +26,13 @@
 #include <lib/log.h>
 #include <lib/util.h>
 #include <lib/timer.h>
-#include <lib/growlist.h>
-#include <lib/packlist.h>
+#include <lib/mbuf.h>
+#include <lib/mqueue.h>
 
 #include <common/default.h>
 
 #include <worker/config.h>
-#include <worker/command.h>
-#include <worker/context.h>
+#include <worker/message.h>
 
 
 LOG_MODULE_STATIC("worker", LOG_LEVEL_DEBUG);
@@ -46,23 +45,22 @@ char           *worker_opt_section = NULL;
 struct timeval  worker_opt_tv_min  = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  worker_opt_tv_max  = { .tv_sec = 1, .tv_usec = 0 };
 int             worker_opt_timer   = 5;
+unsigned        worker_sid;
 
 
 /** control for main loop for orderly shutdown */
 typedef enum
 {
 	ML_STOPPED,
-	ML_WAITING,
 	ML_STOPPING,
 	ML_RUNNING
 }
 main_loop_t;
 static main_loop_t main_loop = ML_RUNNING;
-void worker_shutdown (struct mbuf *mbuf)
+void worker_shutdown (void)
 {
-	LOG_ERROR ("Orderly shutdown command received\n");
+	LOG_INFO("Orderly shutdown command received\n");
 	main_loop = ML_STOPPING;
-	mbuf_deref(mbuf);
 }
 
 
@@ -179,10 +177,9 @@ int main (int argc, char **argv)
 				usage();
 		}
 	
-	if ( optind >= argc )
+	if ( optind >= argc || !(worker_sid = strtoul(argv[optind], NULL, 0)) )
 		usage();
-	worker_opt_section = argv[optind];
-	LOG_DEBUG("Section: '%s'\n", worker_opt_section);
+	LOG_DEBUG("Section: %u\n", worker_sid);
 
     // Global config first, and learn names of the module instances
 	if ( worker_config(worker_opt_config, worker_opt_section) )
@@ -213,20 +210,23 @@ int main (int argc, char **argv)
 
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
-//	struct mbuf    *mbuf;
+	struct mbuf    *mbuf;
 //	clocks_t        timer_due;
 	fd_set          rfds;
 	fd_set          wfds;
 	int             nfds;
 	int             sel;
-//	int             ret;
+	int             ret;
+	char            buff[256];
 
 	/* Primary select/poll loop, with dispatch following */
 	while ( main_loop > ML_STOPPED )
 	{
 		FD_ZERO(&rfds);
 		FD_ZERO(&wfds);
-		nfds = -1;
+		FD_SET(0, &rfds);
+		FD_SET(1, &wfds);
+		nfds = 1;
 
 		// initial timeout calculated from timer head: a long fixed select() timeout when
 		// idle makes short timers jittery, while a short select() timeout with long
@@ -257,7 +257,49 @@ int main (int argc, char **argv)
 			sel = 0;
 		}
 
+		// read southbound traffic
+		if ( FD_ISSET(0, &rfds) )
+		{
+			if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0)) )
+			{
+				LOG_ERROR("mbuf_alloc() failed: %s\n", strerror(errno));
+				while ( read(0, buff, sizeof(buff)) > 0 ) ;
+				main_loop = ML_STOPPING;
+			}
 
+			if ( (ret = mbuf_read(mbuf, 0, DEFAULT_MBUF_SIZE)) < 0 )
+			{
+				LOG_ERROR("mbuf_read() failed: %s\n", strerror(errno));
+				main_loop = ML_STOPPING;
+			}
+
+			if ( ret )
+				worker_southbound(mbuf);
+			else
+				LOG_DEBUG("Ignore zero-length read\n");
+		}
+
+		// send northbound traffic
+		if ( FD_ISSET(1, &wfds) )
+		{
+			// send queued, if nothing queued but shutting down, we're finished
+			if ( (mbuf = mqueue_dequeue(&message_queue)) )
+			{
+				mbuf_cur_set_beg(mbuf);
+				if ( (ret = mbuf_write(mbuf, 1, DEFAULT_MBUF_SIZE)) < 0 )
+				{
+					LOG_ERROR("mbuf_write() failed: %s\n", strerror(errno));
+					main_loop = ML_STOPPING;
+				}
+				else
+					mbuf_deref(mbuf);
+			}
+			else if ( main_loop == ML_STOPPING )
+			{
+				LOG_INFO("TX queue empty while stopping, stop\n");
+				main_loop = ML_STOPPED;
+			}
+		}
 
 		// service timers last
 		timer_check (worker_opt_timer);
@@ -269,6 +311,6 @@ int main (int argc, char **argv)
 	}
 
 	LOG_ERROR("Shutting down\n");
-
+	return 0;
 }
 

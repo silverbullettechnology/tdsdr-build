@@ -199,12 +199,16 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 			{
 				if ( !priv->child.ret && !(worker->flags & WF_RESTART_CLEAN) )
 				{
-					LOG_DEBUG("%s: waiting for manual (re)START\n", worker->name);
+					LOG_DEBUG("%s: waiting for manual (re)START after clean exit\n",
+					          worker->name);
+					worker->state = WS_ZOMBIE;
 					RETURN_ERRNO_VALUE(0, "%d", worker->state);
 				}
-				if ( priv->child.ret && !(worker->flags & WF_RESTART_CLEAN) )
+				if ( priv->child.ret && !(worker->flags & WF_RESTART_ERROR) )
 				{
-					LOG_DEBUG("%s: waiting for manual (re)START\n", worker->name);
+					LOG_DEBUG("%s: waiting for manual (re)START after error exit (%d)\n",
+					          worker->name, priv->child.ret);
+					worker->state = WS_ZOMBIE;
 					RETURN_ERRNO_VALUE(0, "%d", worker->state);
 				}
 			}
@@ -305,6 +309,10 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 			worker->state = WS_START;
 			break;
 
+		case WS_ZOMBIE:
+			LOG_DEBUG("%s: zombie, waiting...\n", worker->name);
+			RETURN_ERRNO_VALUE(0, "%d", worker->state);
+
 		default:
 			LOG_DEBUG("Weird state %d (%s)\n", worker->state,
 			          worker_state_desc(worker->state));
@@ -386,7 +394,9 @@ static int worker_child_read (struct worker *worker, fd_set *rfds)
 	}
 	mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 	user = mbuf_user(mbuf);
-	user->worker = worker;
+	user->worker  = worker;
+	user->control = worker->control;
+	user->socket  = worker->socket;
 
 	// error handling
 	if ( (len = mbuf_read(mbuf, priv->child.read, 4096)) < 0 )

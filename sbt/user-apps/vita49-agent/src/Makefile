@@ -84,6 +84,7 @@ WORKER_OBJS += \
 	worker/config.o  \
 	worker/command.o \
 	worker/context.o \
+	worker/message.o \
 	worker/main.o
 
 # Common application code used in worker
@@ -148,6 +149,7 @@ CONTROL_OBJS := \
 CONTROL_OBJS += tool/control/sequence/disco.o
 CONTROL_OBJS += tool/control/sequence/enum.o
 CONTROL_OBJS += tool/control/sequence/access.o
+CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
 	-lrt \

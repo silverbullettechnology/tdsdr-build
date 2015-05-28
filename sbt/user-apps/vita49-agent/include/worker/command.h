@@ -19,16 +19,16 @@
  */
 #ifndef INCLUDE_WORKER_COMMAND_H
 #define INCLUDE_WORKER_COMMAND_H
-#include <lib/mbuf.h>
+
+#include <common/vita49/types.h>
+#include <common/vita49/common.h>
 
 
 /** Receive a command packet from a client
  *
- *  \param  mbuf  Message buffer containing VITA-49 context packet
- *
- *  \return 0 on success, <0 on fatal error
+ *  \param  req_v49  Parsed command structure
  */
-int worker_command_recv (struct mbuf *mbuf);
+void worker_command_recv (struct v49_common *req_v49);
 
 
 #endif // INCLUDE_WORKER_COMMAND_H

@@ -126,6 +126,10 @@ void daemon_southbound (struct mbuf *mbuf)
 				daemon_manager_command_recv(&v49, mbuf_user(mbuf), worker);
 				RETURN_ERRNO(0);
 
+			case V49_CMD_REQ_RELEASE:  // Release falls through to worker deliver
+				daemon_manager_command_recv(&v49, mbuf_user(mbuf), worker);
+				break;
+
 			default:
 				break;
 		}
@@ -134,6 +138,8 @@ void daemon_southbound (struct mbuf *mbuf)
 	if ( worker )
 	{
 		LOG_DEBUG("%s: Dispatch southbound\n", worker_name(worker));
+		mbuf_cur_set_beg(mbuf);
+		mbuf_dump(mbuf);
 		worker_enqueue(worker, mbuf);
 		RETURN_ERRNO(0);
 	}

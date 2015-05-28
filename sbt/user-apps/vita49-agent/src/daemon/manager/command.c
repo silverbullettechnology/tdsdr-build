@@ -178,8 +178,10 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 				break;
 			}
 
-			worker->name = str_dup_sprintf("SID:%u", worker->sid);
-			worker->res  = res;
+			worker->control = req_user->control;
+			worker->socket  = req_user->socket;
+			worker->name    = str_dup_sprintf("SID:%u", worker->sid);
+			worker->res     = res;
 			memcpy(&worker->rid, rid, sizeof(worker->rid));
 			if ( req_v49->command.indicator & (1 << V49_CMD_IND_BIT_CID) )
 				memcpy(&worker->cid, &req_v49->command.cid, sizeof(worker->cid));
@@ -193,6 +195,24 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 			rsp_v49.command.sid_assign = worker->sid;
 			LOG_DEBUG("ACCESS: granted: RID %s SID %u\n", uuid_to_str(rid), worker->sid);
 			break;
+
+
+		// side-effect: mark the worker as shutting down, so we don't respawn it
+		case V49_CMD_REQ_RELEASE:
+			if ( !worker )
+			{
+				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+				rsp_v49.command.result = V49_CMD_RES_NOENT;
+				LOG_ERROR("RELEASE: message for nonexistent worker?\n");
+				break;
+			}
+
+			LOG_DEBUG("RELEASE: expecting a shutdown, disable restart\n");
+			worker->flags &= ~(WF_RESTART_CLEAN|WF_RESTART_ERROR);
+			mbuf_deref(mbuf);
+			growlist_done(&list, NULL, NULL);
+			RETURN_ERRNO(0);
+
 
 		default:
 			LOG_ERROR("Command not (yet) handled: %s\n",

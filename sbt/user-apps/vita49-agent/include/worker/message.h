@@ -1,4 +1,4 @@
-/** Worker context message handling
+/** Worker message routing
  *
  *  \author    Morgan Hughes <morgan.hughes@silver-bullet-tech.com>
  *  \version   v0.0
@@ -17,20 +17,23 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_WORKER_CONTEXT_H
-#define INCLUDE_WORKER_CONTEXT_H
-
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
-
-
-/** Receive a context packet for config purposes
- *
- *  \param  v49  Parsed context packet
- *
- *  \return 0 on success, <0 on fatal error
- */
-int worker_context_recv (struct v49_common *v49);
+#ifndef INCLUDE_WORKER_MESSAGE_H
+#define INCLUDE_WORKER_MESSAGE_H
+#include <lib/mbuf.h>
+#include <lib/mqueue.h>
 
 
-#endif // INCLUDE_WORKER_CONTEXT_H
+
+extern struct mqueue message_queue;
+
+
+static inline void worker_northbound (struct mbuf *mbuf)
+{
+	mqueue_enqueue(&message_queue, mbuf);
+}
+
+
+void worker_southbound (struct mbuf *mbuf);
+
+
+#endif // INCLUDE_WORKER_MESSAGE_H

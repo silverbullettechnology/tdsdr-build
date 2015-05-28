@@ -175,8 +175,9 @@ int expect_loop (struct expect_map *map, clocks_t timeout)
 			LOG_DEBUG("sock NOT in wfds or send_queue empty\n");
 	}
 	while ( timeout > get_clocks() );
+	LOG_ERROR("Timeout while waiting for response\n");
 
-	RETURN_ERRNO_VALUE(0, "%d", 0);
+	RETURN_ERRNO_VALUE(0, "%d", 1);
 }
 
 

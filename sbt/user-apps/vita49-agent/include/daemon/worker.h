@@ -47,6 +47,7 @@ typedef enum
 	WS_NORMAL,  /** Worker is running, goes to _STOP or _ERROR                       */
 	WS_STOP,    /** Worker is stopping (can _set manually), goes to _READY           */
 	WS_LIMIT,   /** Worker is waiting for rate-limited timer, goes to _READY         */
+	WS_ZOMBIE,  /** Worker has exited, waiting for de-allocation                     */
 	WS_MAX      /** For sizing arrays, never returned                                */
 }
 worker_state_t;
@@ -160,6 +161,8 @@ struct worker
 {
 	const char                 *name;
 	const struct worker_class  *class;
+	struct control             *control;
+	int                         socket;
 	unsigned                    sid;
 	unsigned long               flags;
 	worker_state_t              state;
