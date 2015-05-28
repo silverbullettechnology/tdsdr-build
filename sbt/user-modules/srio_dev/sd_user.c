@@ -16,6 +16,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/miscdevice.h>
@@ -455,6 +456,8 @@ static int sd_user_open (struct inode *i, struct file *f)
 //sd_user_mbox_count();
 //sd_user_dbell_count();
 //sd_user_swrite_count();
+
+	__module_get(THIS_MODULE);
 
 	return 0;
 }
@@ -896,6 +899,8 @@ static int sd_user_release (struct inode *i, struct file *f)
 	sd_user_mbox_count();
 	sd_user_dbell_count();
 	sd_user_swrite_count();
+
+	module_put(THIS_MODULE);
 
 	return 0;
 }
