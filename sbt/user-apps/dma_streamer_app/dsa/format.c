@@ -31,10 +31,10 @@
 #include <dma_streamer_mod.h>
 #endif
 
-#include "dsa_format.h"
-#include "dsa_channel.h"
+#include "dsa/format.h"
+#include "dsa/channel.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("format", LOG_LEVEL_INFO);
 
 
@@ -570,6 +570,12 @@ static int fmt_iqw_write (FILE *fp, void *buff, size_t size, int chan)
 	return 0;
 }
 
+static int fmt_nul_write (FILE *fp, void *buff, size_t size, int chan)
+{
+	fputc('\r', stderr);
+	return 0;
+}
+
 
 static struct format format_list[] =
 {
@@ -580,6 +586,7 @@ static struct format format_list[] =
 	{ "dec",   "",  fmt_dec_size,   fmt_dec_read,   fmt_dec_write   },
 	{ "iqw",   "",  fmt_iqw_size,   fmt_iqw_read,   fmt_iqw_write   },
 	{ "bit",   "",  NULL,           NULL,           fmt_bit_write  },
+	{ "nul",   "",  NULL,           NULL,           fmt_nul_write  },
 	{ NULL }
 };
 
@@ -629,7 +636,7 @@ void dsa_format_list(FILE *fp)
 }
 
 #ifdef UNIT_TEST
-#include "dsa_common.h"
+#include "common/common.h"
 
 char *argv0;
 char *opt_in_file    = NULL;

@@ -20,6 +20,13 @@ UCLINUX_BUILD_USER = 1
 -include $(ROOTDIR)/$(CONFIG_LINUXDIR)/.config
 -include $(ROOTDIR)/config.arch
 
+# Allow user to specify location of xparameters.h et al
+ifneq ($(CONFIG_USER_MODULES_FIFO_DEV_BSP),)
+	BOARD_DIR := $(CONFIG_USER_MODULES_FIFO_DEV_BSP)
+else
+	BOARD_DIR := $(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)
+endif
+
 # We need NOPEDANTIC, else KBUILD complains
 KBUILD_NOPEDANTIC=1
 
@@ -48,12 +55,13 @@ $(error Your PetaLinux kernel is not configured for loadable modules - please fi
 endif
 
 LOCALPWD=$(shell pwd)
-obj-m += dsm.o
+obj-m += fifo_dev.o
 
-dsm-y := dsm_main.o dsm_chan.o dsm_thread.o dsm_xfer.o
+fifo_dev-y := fd_main.o fd_xparameters.o
 
-
-#CFLAGS_dsm_main.o += -DDEBUG
+#CFLAGS_fd_main.o += -DDEBUG
+CFLAGS_fd_xparameters.o += -I $(BOARD_DIR)
+#CFLAGS_fd_xparameters.o += -DDEBUG
 
 all:  modules
 
@@ -71,8 +79,8 @@ modules:
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))
 	$(MAKE) -C $(KSRC) M=$(LOCALPWD) INSTALL_MOD_PATH=${ROMFSDIR} modules_install
 	mkdir -p $(ROMFSDIR)/etc/init.d $(ROMFSDIR)/etc/rcS.d
-	install -m755 dsm.sh $(ROMFSDIR)/etc/init.d
-	ln -sf ../init.d/dsm.sh $(ROMFSDIR)/etc/rcS.d/S20dsm.sh
+	install -m755 fifo_dev.sh $(ROMFSDIR)/etc/init.d
+	ln -sf ../init.d/fifo_dev.sh $(ROMFSDIR)/etc/rcS.d/S20fifo_dev.sh
 
 .PHONY: romfs image
 

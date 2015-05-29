@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/select.h>
@@ -26,9 +27,6 @@
 #include <ctype.h>
 #include <limits.h>
 #include <errno.h>
-
-#include "log.h"
-LOG_MODULE_STATIC("common", LOG_LEVEL_INFO);
 
 
 void stop (const char *fmt, ...)
@@ -46,10 +44,7 @@ void stop (const char *fmt, ...)
 	if ( err && p < e )
 		p += snprintf(p, e - p, ": %s", strerror(err));
 
-	if ( p < e )
-		p += snprintf(p, e - p, "\n");
-
-	LOG_FOCUS("%s", buff);
+	puts(buff);
 	exit(1);
 }
 
@@ -91,14 +86,26 @@ size_t size_dec (const char *str)
 	return ret;
 }
 
-uint64_t dsnk_sum (void *buff, size_t size)
+uint64_t dsnk_sum (void *buff, size_t size, int dsxx)
 {
 	uint64_t *end = (uint64_t *)(buff + size);
 	uint64_t *ptr = (uint64_t *)buff;
 	uint64_t  sum = 0;
+	int       cry;
 
 	while ( ptr < end )
+	{
+		// some PL versions rotate the sum before each words is added
+		if ( dsxx )
+		{
+			cry   = sum & 0x0000000000000001;
+			sum >>= 1;
+			sum  &= 0x7FFFFFFFFFFFFFFF;
+			if ( cry )
+				sum |= 0x8000000000000000;
+		}
 		sum += *ptr++;
+	}
 
 	return sum;
 }

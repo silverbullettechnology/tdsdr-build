@@ -1,5 +1,5 @@
-/** \file      dsm_xparameters.c
- *  \brief     Definitions used in main module and dsm_xparameters.c
+/** \file      fd_xparameters.c
+ *  \brief     Definitions used in main module and fd_xparameters.c
  *
  *  \copyright Copyright 2013,2014 Silver Bullet Technologies
  *
@@ -15,21 +15,23 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _DSM_XPARAMETERS_H_
-#define _DSM_XPARAMETERS_H_
+#ifndef _INCLUDE_FD_XPARAMETERS_H
+#define _INCLUDE_FD_XPARAMETERS_H
 #include <linux/kernel.h>
 
 
-struct dsm_dsrc_regs
+struct fd_dsrc_regs
 {
 	uint32_t  ctrl;  // DSRC_CTRL W
 	uint32_t  stat;  // DSRC_STAT R
 	uint32_t  bytes; // DSRC_BYTES RW
 	uint32_t  sent;  // DSRC_BYTES_SENT R
 	uint32_t  type;  // DSRC_DATA_TYPE RW
+	uint32_t  reps;  // DSRC_REPS RW
+	uint32_t  rsent;  // DSRC_REPS_SENT R
 };
 
-struct dsm_dsnk_regs
+struct fd_dsnk_regs
 {
 	uint32_t  ctrl;  // DSNK_CTRL W
 	uint32_t  stat;  // DSNK_STAT R
@@ -38,34 +40,38 @@ struct dsm_dsnk_regs
 	uint32_t  sum_l; // DSNK_CHKSUM_L R
 };
 
-struct dsm_lvds_regs
+struct fd_lvds_regs
 {
 	uint32_t  ctrl;    // ADI_LVDS_CTRL RW
 	uint32_t  tx_cnt;  // ADI_LVDS_TX_CNT RW
 	uint32_t  rx_cnt;  // ADI_LVDS_RX_CNT RW
 	uint32_t  tx_low;  // LAST_TX_LOW R
 	uint32_t  tx_hi;   // LAST_TX_HI R
-	uint32_t  cs_rst;  // CHKSUM_RST W (DSM_IOCG_CLK_CNT R)
+	uint32_t  cs_rst;  // CHKSUM_RST W (FD_IOCG_CLK_CNT R)
 	uint32_t  cs_low;  // CHKSUM_LOW R
 	uint32_t  cs_hi;   // CHKSUM_HI R
 };
 
 
-extern struct dsm_dsrc_regs __iomem *dsm_dsrc_regs;
-extern struct dsm_dsnk_regs __iomem *dsm_dsnk_regs;
-extern struct dsm_lvds_regs __iomem *dsm_adi1_old_regs;
-extern struct dsm_lvds_regs __iomem *dsm_adi2_old_regs;
+extern struct fd_dsrc_regs __iomem *fd_dsrc0_regs;
+extern struct fd_dsnk_regs __iomem *fd_dsnk0_regs;
+extern struct fd_dsrc_regs __iomem *fd_dsrc1_regs;
+extern struct fd_dsnk_regs __iomem *fd_dsnk1_regs;
+extern struct fd_lvds_regs __iomem *fd_adi1_old_regs;
+extern struct fd_lvds_regs __iomem *fd_adi2_old_regs;
 
-extern u32 __iomem *dsm_adi1_new_regs;
-extern u32 __iomem *dsm_adi2_new_regs;
+extern u32 __iomem *fd_adi1_new_regs;
+extern u32 __iomem *fd_adi2_new_regs;
 
-extern u32 __iomem *dsm_rx_fifo1_cnt;
-extern u32 __iomem *dsm_rx_fifo2_cnt;
-extern u32 __iomem *dsm_tx_fifo1_cnt;
-extern u32 __iomem *dsm_tx_fifo2_cnt;
+extern u32 __iomem *fd_rx_fifo1_cnt;
+extern u32 __iomem *fd_rx_fifo2_cnt;
+extern u32 __iomem *fd_tx_fifo1_cnt;
+extern u32 __iomem *fd_tx_fifo2_cnt;
 
-int dsm_xparameters_init (void);
-void dsm_xparameters_exit (void);
+extern void __iomem *fd_pmon_regs;
+
+int fd_xparameters_init (void);
+void fd_xparameters_exit (void);
 
 
 // calculating the offset of a register in the new ADI controls - constrain offs to
@@ -80,4 +86,4 @@ void dsm_xparameters_exit (void);
 #define REG_READ(addr)        (ioread32(addr))
 
 
-#endif // _DSM_XPARAMETERS_H_
+#endif // _INCLUDE_FD_XPARAMETERS_H

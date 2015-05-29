@@ -1,5 +1,6 @@
-/** \file      dsa_ioctl.h
- *  \brief     interface declarations for common FIFO / DSM controls
+/** \file      xil_assert.h
+ *  \brief     Compatibility shim for Xilinx driver code
+ *
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,17 +16,12 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_H_
-#define _INCLUDE_DSA_IOCTL_H_
+#ifndef _XIL_ASSERT_H_
+#define _XIL_ASSERT_H_
+#include <stdio.h>
+#include <assert.h>
 
-#include <dma_streamer_mod.h>
+#define Xil_AssertNonvoid(cond) assert(cond)
+#define Xil_AssertVoid(cond)    assert(cond)
 
-int dsa_ioctl_map (struct dsm_user_buffs *buffs);
-int dsa_ioctl_unmap (void);
-int dsa_ioctl_target_list (unsigned long *mask);
-int dsa_ioctl_set_timeout (unsigned long timeout);
-int dsa_ioctl_trigger (void);
-int dsa_ioctl_get_stats (struct dsm_user_stats *sb);
-
-
-#endif // _INCLUDE_DSA_IOCTL_H_
+#endif // _XIL_ASSERT_H_

@@ -21,8 +21,8 @@
 #include <stdint.h>
 #include <limits.h>
 
-#include "dsa_format.h"
-#include "dsa_sample.h"
+#include "dsa/format.h"
+#include "dsa/sample.h"
 
 
 #define DC_DEV_AD1  0x01
@@ -78,7 +78,7 @@ void dsa_channel_event_dump (struct dsa_channel_event *evt);
 int dsa_channel_load (struct dsa_channel_event *evt, int lsh);
 int dsa_channel_save (struct dsa_channel_event *evt);
 
-void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps);
+void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps, int dsxx);
 void dsa_format_list(FILE *fp);
 
 // calculates the DMA timeout for the largest allocated buffer at the given sample 

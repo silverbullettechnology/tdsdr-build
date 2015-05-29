@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_adi_old.h
+/** \file      fifo/adi_old.h
  *  \brief     interface declarations for legacy ADI FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,21 +15,22 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_IOCTL_ADI_OLD_H_
-#define _INCLUDE_DSA_IOCTL_ADI_OLD_H_
+#ifndef _INCLUDE_FIFO_ADI_OLD_H_
+#define _INCLUDE_FIFO_ADI_OLD_H_
 
-#include <dma_streamer_mod.h>
-
-
-int dsa_ioctl_adi_old_set_ctrl     (int dev, unsigned long reg);
-int dsa_ioctl_adi_old_get_ctrl     (int dev, unsigned long *reg);
-int dsa_ioctl_adi_old_set_tx_cnt   (int dev, unsigned long len, unsigned long reps);
-int dsa_ioctl_adi_old_get_tx_cnt   (int dev, unsigned long *reg);
-int dsa_ioctl_adi_old_set_rx_cnt   (int dev, unsigned long len, unsigned long reps);
-int dsa_ioctl_adi_old_get_rx_cnt   (int dev, unsigned long *reg);
-int dsa_ioctl_adi_old_get_sum      (int dev, unsigned long *sum);
-int dsa_ioctl_adi_old_get_last     (int dev, unsigned long *last);
-int dsa_ioctl_adi_old_get_fifo_cnt (struct dsm_fifo_counts *fb);
+#include <fd_main.h>
 
 
-#endif // _INCLUDE_DSA_IOCTL_ADI_OLD_H_
+int fifo_adi_old_set_ctrl     (int dev, unsigned long reg);
+int fifo_adi_old_get_ctrl     (int dev, unsigned long *reg);
+int fifo_adi_old_set_tx_cnt   (int dev, unsigned long len, unsigned long reps);
+int fifo_adi_old_get_tx_cnt   (int dev, unsigned long *reg);
+int fifo_adi_old_set_rx_cnt   (int dev, unsigned long len, unsigned long reps);
+int fifo_adi_old_get_rx_cnt   (int dev, unsigned long *reg);
+int fifo_adi_old_get_sum      (int dev, unsigned long *sum);
+int fifo_adi_old_get_last     (int dev, unsigned long *last);
+int fifo_adi_old_get_fifo_cnt (struct fd_fifo_counts *fb);
+int fifo_adi_old_chksum_reset (int dev);
+
+
+#endif // _INCLUDE_FIFO_ADI_OLD_H_

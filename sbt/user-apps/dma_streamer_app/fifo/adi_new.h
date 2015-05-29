@@ -1,4 +1,4 @@
-/** \file      dsa_ioctl_adi_new.h
+/** \file      fifo/adi_new.h
  *  \brief     interface declarations for new ADI DAC/ADC controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -46,8 +46,8 @@
  *           OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *           OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _INCLUDE_DSA_IOCTL_ADI_NEW_H_
-#define _INCLUDE_DSA_IOCTL_ADI_NEW_H_
+#ifndef _INCLUDE_FIFO_ADI_NEW_H_
+#define _INCLUDE_FIFO_ADI_NEW_H_
 
 
 #define ADI_NEW_RX 0
@@ -183,11 +183,8 @@ enum {
 #define ADI_NEW_TX_TO_DDS_INCR(x)               (((x) >> 0) & 0xFFFF)
 
 
-int dsa_ioctl_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
-int dsa_ioctl_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
-
-int dsa_ioctl_adi_new_stop  (void);
-int dsa_ioctl_adi_new_start (void);
+int fifo_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
+int fifo_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
 
 
-#endif // _INCLUDE_DSA_IOCTL_ADI_NEW_H_
+#endif // _INCLUDE_FIFO_ADI_NEW_H_

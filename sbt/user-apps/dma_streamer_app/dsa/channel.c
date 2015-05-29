@@ -19,19 +19,19 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <sys/mman.h>
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
 
 #include <ad9361.h>
 
-#include "dsa_main.h"
-#include "dsa_sample.h"
-#include "dsa_channel.h"
-#include "dsa_common.h"
+#include "dsa/main.h"
+#include "dsa/sample.h"
+#include "dsa/channel.h"
+#include "dsm/dsm.h"
+#include "common/common.h"
 
-#include "log.h"
+#include "common/log.h"
 LOG_MODULE_STATIC("channel", LOG_LEVEL_INFO);
 
 
@@ -68,7 +68,14 @@ int dsa_channel_ident (const char *argv0)
 	// if the string starts with "AD" in any case it's parsed, otherwise it's passed over
 	errno = 0;
 	if ( tolower(argv0[0]) != 'a' || tolower(argv0[1]) != 'd' )
-		return 0;
+	{
+		// allow DS for data source/sink module instead, but not mixed with AD ident
+		if ( tolower(argv0[0]) != 'd' || tolower(argv0[1]) != 's' )
+			return 0;
+		dsa_dsxx = 1;
+	}
+	else if ( dsa_dsxx )
+		return -1;
 
 	// skip punctation
 	while ( *ptr && !isalnum(*ptr) )
@@ -171,10 +178,7 @@ static struct dsa_channel_xfer **evt_to_xfer (struct dsa_channel_event *evt, int
 
 static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 {
-	size_t  size = len * sizeof(struct dsa_sample_pair);
-	void   *buff;
-	long    page;
-
+	long  page;
 
 	// need page size for posix_memalign()
 	if ( (page = sysconf(_SC_PAGESIZE)) < 0 )
@@ -190,33 +194,21 @@ static int realloc_buffer (struct dsa_channel_xfer *xfer, size_t len)
 		return 0;
 	}
 
-	// free old buffer
-	if ( (buff = xfer->smp) )
-	{
-		size = xfer->len * sizeof(struct dsa_sample_pair);
-		munlock(buff, size);
-		free(buff);
-	}
-	xfer->smp = NULL;
+	// free old buffer with reusable dsm_user_free() function
+	if ( xfer->smp )
+		dsm_user_free(xfer->smp, xfer->len);
+
+	// allocate with reusable dsm_user_alloc() function
 	xfer->len = 0;
-
-	if ( posix_memalign(&buff, page, size) )
+	if ( !(xfer->smp = dsm_user_alloc(len)) )
 	{
-		LOG_ERROR("Failed to posix_memalign() %zu bytes aligned to %lu: %s\n",
-		          size, page, strerror(errno));
+		LOG_ERROR("Failed to dsm_user_alloc() %zu samples aligned to %lu: %s\n",
+		          len, page, strerror(errno));
 		return -1;
 	}
-
-	if ( mlock(buff, size) )
-	{
-		LOG_ERROR("Failed to mlock() %zu bytes: %s\n", size, strerror(errno));
-		free(buff);
-		return -1;
-	}
+	xfer->len = len;
 
 	LOG_DEBUG("Buffer allocated successfully\n");
-	xfer->smp = buff;
-	xfer->len = len;
 	return len;
 }
 
@@ -252,14 +244,14 @@ int dsa_channel_buffer (struct dsa_channel_event *evt, int ident, size_t len, in
 
 					// use memset to paint both channels at once
 					if ( (ident & (DC_CHAN_1|DC_CHAN_2)) == (DC_CHAN_1|DC_CHAN_2) )
-						memset(samp, 0x00, len * sizeof(struct dsa_sample_pair));
+						memset(samp, 0xFE, len * sizeof(struct dsa_sample_pair));
 
 					// use for loop to paint only channel 1
 					else if ( ident & DC_CHAN_1 )
 						while ( left-- )
 						{
-							samp->ch[0].i = 0;
-							samp->ch[0].q = 0;
+							samp->ch[0].i = 0xFD;
+							samp->ch[0].q = 0xFD;
 							samp++;
 						}
 
@@ -267,8 +259,8 @@ int dsa_channel_buffer (struct dsa_channel_event *evt, int ident, size_t len, in
 					else
 						while ( left-- )
 						{
-							samp->ch[1].i = 0;
-							samp->ch[1].q = 0;
+							samp->ch[1].i = 0xFC;
+							samp->ch[1].q = 0xFC;
 							samp++;
 						}
 				}
@@ -446,14 +438,8 @@ void dsa_channel_cleanup (struct dsa_channel_event *evt)
 
 			if ( *xfer )
 			{
-				size_t  size = (*xfer)->len * sizeof(struct dsa_sample_pair);
-				void   *buff = (*xfer)->smp;
-
-				if ( buff )
-				{
-					munlock(buff, size);
-					free(buff);
-				}
+				if ( (*xfer)->smp )
+					dsm_user_free( (*xfer)->smp, (*xfer)->len );
 
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					for ( dir2 = DC_DIR_TX; dir2 <= DC_DIR_RX; dir2 <<= 1 )
@@ -727,7 +713,7 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 }
 
 
-void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps)
+void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps, int dsxx)
 {
 	struct dsa_channel_xfer **xfer;
 	unsigned long long        exp;
@@ -740,7 +726,8 @@ void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps)
 			if ( (*xfer)->smp && (*xfer)->len )
 			{
 				exp = dsnk_sum((*xfer)->smp,
-				               (*xfer)->len * sizeof(struct dsa_sample_pair));
+				               (*xfer)->len * sizeof(struct dsa_sample_pair),
+				               dsxx);
 				(*xfer)->exp = 0;
 				for ( rep = 0; rep < reps; rep++ )
 					(*xfer)->exp += exp;
@@ -1009,18 +996,18 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			switch ( need )
 			{
 				case 0x40:	// CH1 only  - T1R1, no swap
-					ret |= DSM_LVDS_CTRL_TX_ENB;
-					ret |= DSM_LVDS_CTRL_T1R1;
+					ret |= FD_LVDS_CTRL_TX_ENB;
+					ret |= FD_LVDS_CTRL_T1R1;
 					break;
 
 				case 0x80:	// CH2 only  - T1R1, swap
-					ret |= DSM_LVDS_CTRL_TX_ENB;
-					ret |= DSM_LVDS_CTRL_T1R1;
-					ret |= DSM_LVDS_CTRL_TX_SWP;
+					ret |= FD_LVDS_CTRL_TX_ENB;
+					ret |= FD_LVDS_CTRL_T1R1;
+					ret |= FD_LVDS_CTRL_TX_SWP;
 					break;
 
 				case 0xC0:	// CH1 + CH2 - T2R2, both
-					ret |= DSM_LVDS_CTRL_TX_ENB;
+					ret |= FD_LVDS_CTRL_TX_ENB;
 					break;
 			}
 
@@ -1028,16 +1015,16 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			switch ( need )
 			{
 				case 0x40:	// CH1 only  - T1R1, no swap
-					ret |= DSM_NEW_CTRL_TX1;
+					ret |= FD_NEW_CTRL_TX1;
 					break;
 
 				case 0x80:	// CH2 only  - T1R1, swap
-					ret |= DSM_NEW_CTRL_TX2;
+					ret |= FD_NEW_CTRL_TX2;
 					break;
 
 				case 0xC0:	// CH1 + CH2 - T2R2, both
-					ret |= DSM_NEW_CTRL_TX1;
-					ret |= DSM_NEW_CTRL_TX2;
+					ret |= FD_NEW_CTRL_TX1;
+					ret |= FD_NEW_CTRL_TX2;
 					break;
 			}
 	}
@@ -1060,18 +1047,18 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			switch ( need )
 			{
 				case 0x40:	// CH1 only  - T1R1, no swap
-					ret |= DSM_LVDS_CTRL_RX_ENB;
-					ret |= DSM_LVDS_CTRL_T1R1;
+					ret |= FD_LVDS_CTRL_RX_ENB;
+					ret |= FD_LVDS_CTRL_T1R1;
 					break;
 
 				case 0x80:	// CH2 only  - T1R1, swap
-					ret |= DSM_LVDS_CTRL_RX_ENB;
-					ret |= DSM_LVDS_CTRL_T1R1;
-					ret |= DSM_LVDS_CTRL_RX_SWP;
+					ret |= FD_LVDS_CTRL_RX_ENB;
+					ret |= FD_LVDS_CTRL_T1R1;
+					ret |= FD_LVDS_CTRL_RX_SWP;
 					break;
 
 				case 0xC0:	// CH1 + CH2 - T2R2, both
-					ret |= DSM_LVDS_CTRL_RX_ENB;
+					ret |= FD_LVDS_CTRL_RX_ENB;
 					break;
 			}
 
@@ -1079,16 +1066,16 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			switch ( need )
 			{
 				case 0x40:	// CH1 only  - T1R1
-					ret |= DSM_NEW_CTRL_RX1;
+					ret |= FD_NEW_CTRL_RX1;
 					break;
 
 				case 0x80:	// CH2 only  - T1R1
-					ret |= DSM_NEW_CTRL_RX2;
+					ret |= FD_NEW_CTRL_RX2;
 					break;
 
 				case 0xC0:	// CH1 + CH2 - T2R2
-					ret |= DSM_NEW_CTRL_RX1;
-					ret |= DSM_NEW_CTRL_RX2;
+					ret |= FD_NEW_CTRL_RX1;
+					ret |= FD_NEW_CTRL_RX2;
 					break;
 			}
 	}
@@ -1096,19 +1083,19 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 	if ( old )
 	{
 		LOG_DEBUG("dsa_channel_ctrl: old: %lx: { %s%s%s%s%s}\n", ret,
-		          ret & DSM_LVDS_CTRL_TX_ENB ? "TX_ENB " : "",
-		          ret & DSM_LVDS_CTRL_RX_ENB ? "RX_ENB " : "",
-		          ret & DSM_LVDS_CTRL_T1R1   ? "T1R1 "   : "",
-		          ret & DSM_LVDS_CTRL_TX_SWP ? "TX_SWP " : "",
-		          ret & DSM_LVDS_CTRL_RX_SWP ? "RX_SWP " : "");
+		          ret & FD_LVDS_CTRL_TX_ENB ? "TX_ENB " : "",
+		          ret & FD_LVDS_CTRL_RX_ENB ? "RX_ENB " : "",
+		          ret & FD_LVDS_CTRL_T1R1   ? "T1R1 "   : "",
+		          ret & FD_LVDS_CTRL_TX_SWP ? "TX_SWP " : "",
+		          ret & FD_LVDS_CTRL_RX_SWP ? "RX_SWP " : "");
 	}
 	else
 	{
 		LOG_DEBUG("dsa_channel_ctrl: new: %lx: { %s%s%s%s}\n", ret,
-		          ret & DSM_NEW_CTRL_RX1 ? "RX1 " : "",
-		          ret & DSM_NEW_CTRL_RX2 ? "RX2 " : "",
-		          ret & DSM_NEW_CTRL_TX1 ? "TX1 " : "",
-		          ret & DSM_NEW_CTRL_TX2 ? "TX2 " : "");
+		          ret & FD_NEW_CTRL_RX1 ? "RX1 " : "",
+		          ret & FD_NEW_CTRL_RX2 ? "RX2 " : "",
+		          ret & FD_NEW_CTRL_TX1 ? "TX1 " : "",
+		          ret & FD_NEW_CTRL_TX2 ? "TX2 " : "");
 	}
 
 	return ret;
