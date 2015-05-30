@@ -16,6 +16,8 @@
  * vim:ts=4:noexpandtab
  */
 #include <linux/kernel.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/io.h>
@@ -24,6 +26,7 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
+#include <linux/of.h>
 
 #include "fd_main.h"
 #include "fd_xparameters.h"
@@ -35,6 +38,24 @@
 
 static spinlock_t  fd_lock;
 static int         fd_users;
+
+
+struct fd_dsrc_regs __iomem *fd_dsrc0_regs = NULL;
+struct fd_dsnk_regs __iomem *fd_dsnk0_regs = NULL;
+struct fd_dsrc_regs __iomem *fd_dsrc1_regs = NULL;
+struct fd_dsnk_regs __iomem *fd_dsnk1_regs = NULL;
+struct fd_lvds_regs __iomem *fd_adi1_old_regs = NULL;
+struct fd_lvds_regs __iomem *fd_adi2_old_regs = NULL;
+
+u32 __iomem *fd_adi1_new_regs = NULL;
+u32 __iomem *fd_adi2_new_regs = NULL;
+
+u32 __iomem *fd_rx_fifo1_cnt = NULL;
+u32 __iomem *fd_rx_fifo2_cnt = NULL;
+u32 __iomem *fd_tx_fifo1_cnt = NULL;
+u32 __iomem *fd_tx_fifo2_cnt = NULL;
+
+void __iomem *fd_pmon_regs = NULL;
 
 
 /******** Userspace interface ********/
@@ -836,37 +857,109 @@ static struct file_operations fops =
 
 static struct miscdevice mdev = { MISC_DYNAMIC_MINOR, FD_DRIVER_NODE, &fops };
 
-static int __init fifo_dev_init(void)
+
+
+static int fd_remove (struct platform_device *pdev)
 {
-	int ret = 0;
+	misc_deregister(&mdev);
 
-	if ( (ret = fd_xparameters_init()) )
-		return ret;
+	return 0;
+}
 
-	if ( misc_register(&mdev) < 0 )
+static void __iomem *fd_iomap (struct platform_device *pdev, char *name)
+{
+	struct resource *res;
+	void __iomem    *ret;
+
+	if ( !(res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name)) )
+		return NULL;
+
+	ret = devm_ioremap_resource(&pdev->dev, res);
+	if ( IS_ERR(ret) )
+	{
+		dev_err(&pdev->dev, "%s: resource %s ioremap fail, skip\n", __func__, name);
+		return NULL;
+	}
+
+	pr_info("%s: %s -> start %08x -> mapped %p\n", dev_name(&pdev->dev),
+	        name, res->start, ret);
+	return ret;
+}
+
+
+static int fd_probe (struct platform_device *pdev)
+{
+	int  ret;
+
+	fd_dsrc0_regs    = fd_iomap(pdev, "dsrc0");
+	fd_dsnk0_regs    = fd_iomap(pdev, "dsnk0");
+	fd_dsrc1_regs    = fd_iomap(pdev, "dsrc1");
+	fd_dsnk1_regs    = fd_iomap(pdev, "dsnk1");
+	fd_adi1_old_regs = fd_iomap(pdev, "adi1-old");
+	fd_adi2_old_regs = fd_iomap(pdev, "adi2-old");
+	fd_adi1_new_regs = fd_iomap(pdev, "adi1-new");
+	fd_adi2_new_regs = fd_iomap(pdev, "adi2-new");
+	fd_rx_fifo1_cnt  = fd_iomap(pdev, "rx-fifo1");
+	fd_rx_fifo2_cnt  = fd_iomap(pdev, "rx-fifo2");
+	fd_tx_fifo1_cnt  = fd_iomap(pdev, "tx-fifo1");
+	fd_tx_fifo2_cnt  = fd_iomap(pdev, "tx-fifo2");
+	fd_pmon_regs     = fd_iomap(pdev, "pmon");
+
+	if ( (ret = misc_register(&mdev)) < 0 )
 	{
 		pr_err("misc_register() failed\n");
 		ret = -EIO;
-		goto error2;
+		goto fail;
 	}
 
 	pr_info("registered successfully\n");
 	return 0;
 
-error2:
-	fd_xparameters_exit();
+fail:
+	if ( fd_dsrc0_regs    )  devm_iounmap(&pdev->dev, fd_dsrc0_regs);
+	if ( fd_dsnk0_regs    )  devm_iounmap(&pdev->dev, fd_dsnk0_regs);
+	if ( fd_dsrc1_regs    )  devm_iounmap(&pdev->dev, fd_dsrc1_regs);
+	if ( fd_dsnk1_regs    )  devm_iounmap(&pdev->dev, fd_dsnk1_regs);
+	if ( fd_adi1_old_regs )  devm_iounmap(&pdev->dev, fd_adi1_old_regs);
+	if ( fd_adi2_old_regs )  devm_iounmap(&pdev->dev, fd_adi2_old_regs);
+	if ( fd_adi1_new_regs )  devm_iounmap(&pdev->dev, fd_adi1_new_regs);
+	if ( fd_adi2_new_regs )  devm_iounmap(&pdev->dev, fd_adi2_new_regs);
+	if ( fd_rx_fifo1_cnt  )  devm_iounmap(&pdev->dev, fd_rx_fifo1_cnt);
+	if ( fd_rx_fifo2_cnt  )  devm_iounmap(&pdev->dev, fd_rx_fifo2_cnt);
+	if ( fd_tx_fifo1_cnt  )  devm_iounmap(&pdev->dev, fd_tx_fifo1_cnt);
+	if ( fd_tx_fifo2_cnt  )  devm_iounmap(&pdev->dev, fd_tx_fifo2_cnt);
+	if ( fd_pmon_regs     )  devm_iounmap(&pdev->dev, fd_pmon_regs);
+
 	return ret;
 }
 
-static void __exit fifo_dev_exit(void)
+
+static const struct of_device_id fd_ids[] = {
+	{ .compatible = "sbt,fifo_dev" },
+	{}
+};
+
+static struct platform_driver fd_driver = {
+	.driver = {
+		.name = "fifo_dev",
+		.owner = THIS_MODULE,
+		.of_match_table = fd_ids,
+	},
+	.probe  = fd_probe,
+	.remove = fd_remove,
+};
+
+static int __init fd_init (void)
 {
-	misc_deregister(&mdev);
-
-	fd_xparameters_exit();
+	return platform_driver_register(&fd_driver);
 }
+module_init(fd_init);
 
-module_init(fifo_dev_init);
-module_exit(fifo_dev_exit);
+static void __exit fd_exit (void)
+{
+	platform_driver_unregister(&fd_driver);
+}
+module_exit(fd_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Morgan Hughes <morgan.hughes@silver-bullet-tech.com>");

@@ -20,13 +20,6 @@ UCLINUX_BUILD_USER = 1
 -include $(ROOTDIR)/$(CONFIG_LINUXDIR)/.config
 -include $(ROOTDIR)/config.arch
 
-# Allow user to specify location of xparameters.h et al
-ifneq ($(CONFIG_USER_MODULES_FIFO_DEV_BSP),)
-	BOARD_DIR := $(CONFIG_USER_MODULES_FIFO_DEV_BSP)
-else
-	BOARD_DIR := $(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)
-endif
-
 # We need NOPEDANTIC, else KBUILD complains
 KBUILD_NOPEDANTIC=1
 
@@ -57,11 +50,10 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += fifo_dev.o
 
-fifo_dev-y := fd_main.o fd_xparameters.o
+fifo_dev-y := fd_main.o
 
-#CFLAGS_fd_main.o += -DDEBUG
-CFLAGS_fd_xparameters.o += -I $(BOARD_DIR)
-#CFLAGS_fd_xparameters.o += -DDEBUG
+CFLAGS_fd_main.o += -Werror
+CFLAGS_fd_main.o += -DDEBUG
 
 all:  modules
 
@@ -79,6 +71,7 @@ modules:
 install: $(addprefix $(DIR),$(subst .o,.ko,$(obj-m)))
 	$(MAKE) -C $(KSRC) M=$(LOCALPWD) INSTALL_MOD_PATH=${ROMFSDIR} modules_install
 	mkdir -p $(ROMFSDIR)/etc/init.d $(ROMFSDIR)/etc/rcS.d
+	rm -f $(ROMFSDIR)/etc/rcS.d/S20fifo_dev.sh
 	install -m755 fifo_dev.sh $(ROMFSDIR)/etc/init.d
 	ln -sf ../init.d/fifo_dev.sh $(ROMFSDIR)/etc/rcS.d/S20fifo_dev.sh
 

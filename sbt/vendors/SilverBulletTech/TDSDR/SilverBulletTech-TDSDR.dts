@@ -198,6 +198,17 @@
 			sbt,shadow-flags = <0x0700>;
 		};
 
+		fifo_dev {
+			compatible = "sbt,fifo_dev";
+
+			reg = <
+				0x79000000 0x00010000  /* ADI1 new regs */
+				0x79020000 0x00010000  /* ADI2 new regs */
+			>;
+			reg-names = "adi1-new", "adi2-new";
+		};
+
+
 		leds_4bits: gpio@41200000 {
 			#gpio-cells = <2>;
 			compatible = "xlnx,axi-gpio-1.01.b", "xlnx,xps-gpio-1.00.a";
