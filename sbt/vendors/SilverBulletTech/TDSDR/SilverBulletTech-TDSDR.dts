@@ -166,13 +166,13 @@
 				0x80100000 0x00001000  /* Initiator FIFO Data */
 				0x80200000 0x00001000  /* Target FIFO Regs */
 				0x80300000 0x00001000  /* Target FIFO Data */
-				0x42000000 0x00001000  /* Misc SYS_REG */
-				0x81000000 0x00010000  /* DRP regs */
 				0x80400000 0x00001000  /* Shadow FIFO Regs */
 				0x80500000 0x00001000  /* Shadow FIFO Data */
+				0x81000000 0x00010000  /* DRP regs */
+				0x42000000 0x00001000  /* Misc SYS_REG */
 			>;
 			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
-			            "sys-regs", "drp-regs", "shadow-regs", "shadow-data";
+			            "shadow-regs", "shadow-data", "drp-regs", "sys-regs";
 
 			interrupts       = < 0 52 4  0 53 4  0 55 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
@@ -198,8 +198,8 @@
 			sbt,shadow-flags = <0x0700>;
 		};
 
-		fifo_dev {
-			compatible = "sbt,fifo_dev";
+		fifo-dev {
+			compatible = "sbt,fifo-dev";
 
 			reg = <
 				0x79000000 0x00010000  /* ADI1 new regs */

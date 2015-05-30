@@ -29,7 +29,7 @@
 #include <linux/of.h>
 
 #include "fd_main.h"
-#include "fd_xparameters.h"
+#include "fd_regs.h"
 
 
 #define pr_trace(fmt,...) do{ }while(0)
@@ -40,22 +40,22 @@ static spinlock_t  fd_lock;
 static int         fd_users;
 
 
-struct fd_dsrc_regs __iomem *fd_dsrc0_regs = NULL;
-struct fd_dsnk_regs __iomem *fd_dsnk0_regs = NULL;
-struct fd_dsrc_regs __iomem *fd_dsrc1_regs = NULL;
-struct fd_dsnk_regs __iomem *fd_dsnk1_regs = NULL;
-struct fd_lvds_regs __iomem *fd_adi1_old_regs = NULL;
-struct fd_lvds_regs __iomem *fd_adi2_old_regs = NULL;
+static struct fd_dsrc_regs __iomem *fd_dsrc0_regs = NULL;
+static struct fd_dsnk_regs __iomem *fd_dsnk0_regs = NULL;
+static struct fd_dsrc_regs __iomem *fd_dsrc1_regs = NULL;
+static struct fd_dsnk_regs __iomem *fd_dsnk1_regs = NULL;
+static struct fd_lvds_regs __iomem *fd_adi1_old_regs = NULL;
+static struct fd_lvds_regs __iomem *fd_adi2_old_regs = NULL;
 
-u32 __iomem *fd_adi1_new_regs = NULL;
-u32 __iomem *fd_adi2_new_regs = NULL;
+static u32 __iomem *fd_adi1_new_regs = NULL;
+static u32 __iomem *fd_adi2_new_regs = NULL;
 
-u32 __iomem *fd_rx_fifo1_cnt = NULL;
-u32 __iomem *fd_rx_fifo2_cnt = NULL;
-u32 __iomem *fd_tx_fifo1_cnt = NULL;
-u32 __iomem *fd_tx_fifo2_cnt = NULL;
+static u32 __iomem *fd_rx_fifo1_cnt = NULL;
+static u32 __iomem *fd_rx_fifo2_cnt = NULL;
+static u32 __iomem *fd_tx_fifo1_cnt = NULL;
+static u32 __iomem *fd_tx_fifo2_cnt = NULL;
 
-void __iomem *fd_pmon_regs = NULL;
+static void __iomem *fd_pmon_regs = NULL;
 
 
 /******** Userspace interface ********/
@@ -935,13 +935,13 @@ fail:
 
 
 static const struct of_device_id fd_ids[] = {
-	{ .compatible = "sbt,fifo_dev" },
+	{ .compatible = "sbt,fifo-dev" },
 	{}
 };
 
 static struct platform_driver fd_driver = {
 	.driver = {
-		.name = "fifo_dev",
+		.name = "fifo-dev",
 		.owner = THIS_MODULE,
 		.of_match_table = fd_ids,
 	},

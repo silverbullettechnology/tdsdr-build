@@ -1,5 +1,5 @@
-/** \file      fd_xparameters.c
- *  \brief     Definitions used in main module and fd_xparameters.c
+/** \file      fd_regs.c
+ *  \brief     Register definitions
  *
  *  \copyright Copyright 2013,2014 Silver Bullet Technologies
  *
@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_FD_XPARAMETERS_H
-#define _INCLUDE_FD_XPARAMETERS_H
+#ifndef _INCLUDE_FD_REGS_H
+#define _INCLUDE_FD_REGS_H
 #include <linux/kernel.h>
 
 
@@ -53,27 +53,6 @@ struct fd_lvds_regs
 };
 
 
-extern struct fd_dsrc_regs __iomem *fd_dsrc0_regs;
-extern struct fd_dsnk_regs __iomem *fd_dsnk0_regs;
-extern struct fd_dsrc_regs __iomem *fd_dsrc1_regs;
-extern struct fd_dsnk_regs __iomem *fd_dsnk1_regs;
-extern struct fd_lvds_regs __iomem *fd_adi1_old_regs;
-extern struct fd_lvds_regs __iomem *fd_adi2_old_regs;
-
-extern u32 __iomem *fd_adi1_new_regs;
-extern u32 __iomem *fd_adi2_new_regs;
-
-extern u32 __iomem *fd_rx_fifo1_cnt;
-extern u32 __iomem *fd_rx_fifo2_cnt;
-extern u32 __iomem *fd_tx_fifo1_cnt;
-extern u32 __iomem *fd_tx_fifo2_cnt;
-
-extern void __iomem *fd_pmon_regs;
-
-int fd_xparameters_init (void);
-void fd_xparameters_exit (void);
-
-
 // calculating the offset of a register in the new ADI controls - constrain offs to
 // within the 0x4000-byte address space for each dir, and enforce 32-bit alignment
 #define ADI_NEW_RT_ADDR(base, offs, tx) \
@@ -86,4 +65,4 @@ void fd_xparameters_exit (void);
 #define REG_READ(addr)        (ioread32(addr))
 
 
-#endif // _INCLUDE_FD_XPARAMETERS_H
+#endif // _INCLUDE_FD_REGS_H
