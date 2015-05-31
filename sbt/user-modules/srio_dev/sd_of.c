@@ -230,6 +230,10 @@ pr_debug("  pef     : 0x%08x\n", REG_READ(sd->maint + 0x10));
 		goto maint;
 	}
 
+	// Temporary: by default enable the DMA path - this should be moved into pipe_dev
+	sd_regs_set_dest_adc_sw(sd, 0, 1);
+	sd_regs_set_dest_adc_sw(sd, 1, 1);
+
 	sd->drp_regs = devm_ioremap_resource(sd->dev, drp_regs);
 	if ( IS_ERR(sd->drp_regs) )
 	{

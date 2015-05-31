@@ -64,5 +64,13 @@ struct fd_lvds_regs
 #define REG_WRITE(addr, val)  do{ iowrite32(val, addr); }while(0)
 #define REG_READ(addr)        (ioread32(addr))
 
+#define REG_RMW(addr, clr, set) \
+	do{ \
+		uint32_t reg = ioread32(addr); \
+		reg &= ~(clr); \
+		reg |= (set); \
+		iowrite32(reg, (addr)); \
+	}while(0)
+
 
 #endif // _INCLUDE_FD_REGS_H

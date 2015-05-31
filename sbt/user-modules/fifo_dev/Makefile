@@ -52,8 +52,8 @@ obj-m += fifo_dev.o
 
 fifo_dev-y := fd_main.o
 
-CFLAGS_fd_main.o += -Werror
-CFLAGS_fd_main.o += -DDEBUG
+EXTRA_CFLAGS += -DDEBUG
+EXTRA_CFLAGS += -Werror
 
 all:  modules
 

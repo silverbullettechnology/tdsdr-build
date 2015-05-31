@@ -168,6 +168,8 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 uint16_t sd_regs_get_devid (struct srio_dev *sd);
 void     sd_regs_set_devid (struct srio_dev *sd, uint16_t id);
 
+unsigned sd_regs_get_dest_adc_sw (struct srio_dev *sd, unsigned ch);
+void     sd_regs_set_dest_adc_sw (struct srio_dev *sd, unsigned ch, unsigned val);
 
 /* DRP registers (SBT Implementation) */
 

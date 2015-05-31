@@ -200,6 +200,31 @@ void sd_regs_set_devid (struct srio_dev *sd, uint16_t id)
 }
 
 
+unsigned sd_regs_get_dest_adc_sw (struct srio_dev *sd, unsigned ch)
+{
+	switch ( ch )
+	{
+		case 0: return (REG_READ(&sd->sys_regs->dest) & SD_SR_DEST_ADC_SW_DEST0_M) >> SD_SR_DEST_ADC_SW_DEST0_S;
+		case 1: return (REG_READ(&sd->sys_regs->dest) & SD_SR_DEST_ADC_SW_DEST1_M) >> SD_SR_DEST_ADC_SW_DEST1_S;
+	}
+	return 0;
+}
+
+void sd_regs_set_dest_adc_sw (struct srio_dev *sd, unsigned ch, unsigned val)
+{
+	switch ( ch )
+	{
+		case 0:
+			REG_RMW(&sd->sys_regs->dest, SD_SR_DEST_ADC_SW_DEST0_M, (val << SD_SR_DEST_ADC_SW_DEST0_S) & SD_SR_DEST_ADC_SW_DEST0_M);
+			return;
+
+		case 1:
+			REG_RMW(&sd->sys_regs->dest, SD_SR_DEST_ADC_SW_DEST1_M, (val << SD_SR_DEST_ADC_SW_DEST1_S) & SD_SR_DEST_ADC_SW_DEST1_M);
+			return;
+	}
+}
+
+
 #define SD_DRP_RX_CM_CTRL      0x044
 #define SD_DRP_RX_CM_SEL_M    0x0030
 #define SD_DRP_RX_CM_SEL_S         4
