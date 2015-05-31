@@ -97,6 +97,7 @@
 
 		/* New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git */
 		dmac_0_rx: dma@7c400000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
@@ -112,6 +113,7 @@
 			};
 		};
 		dma_0_tx: dma@7c420000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
@@ -127,6 +129,7 @@
 			};
 		};
 		dmac_1_rx: dma@7c440000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
@@ -142,6 +145,7 @@
 			};
 		};
 		dma_1_tx: dma@7c460000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
@@ -157,7 +161,53 @@
 			};
 		};
 
-		srio {
+		axi_dma_0: axi-dma@52100000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 59 4 0 58 4 >;
+			reg = < 0x52100000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52100030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 59 4 >; // IRQ 91
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+			dma-channel@52100000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 58 4 >; // IRQ 90
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+		} ;
+
+		axi_dma_1: axi-dma@52300000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 59 4 0 58 4 >;
+			reg = < 0x52300000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52300030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 57 4 >; // IRQ 89
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+			dma-channel@52300000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 56 4 >; // IRQ 88
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+		};
+
+		srio-dev {
 			compatible = "sbt,srio-dev";
 
 			reg = <
@@ -208,6 +258,46 @@
 			reg-names = "adi1-new", "adi2-new";
 		};
 
+		pipe-dev {
+			compatible = "sbt,pipe-dev";
+
+			reg = <
+				0x52000000 0x00001000  /* adi2axis_0            */
+				0x52200000 0x00001000  /* adi2axis_1            */
+				0x53000000 0x00001000  /* vita49_clk            */
+				0x53100000 0x00001000  /* axis_vita49_pack_0    */
+				0x53200000 0x00001000  /* axis_vita49_pack_1    */
+				0x53300000 0x00001000  /* axis_vita49_unpack_0  */
+				0x53400000 0x00001000  /* axis_vita49_unpack_1  */
+				0x53500000 0x00001000  /* vita49_assem_0        */
+				0x53600000 0x00001000  /* vita49_assem_1        */
+				0x53700000 0x00001000  /* vita49_trig_adc_0     */
+				0x53800000 0x00001000  /* vita49_trig_adc_1     */
+				0x53900000 0x00001000  /* vita49_trig_dac_0     */
+				0x53A00000 0x00001000  /* vita49_trig_dac_1     */
+				0x54000000 0x00001000  /* srio_swrite_pack_0    */
+				0x54100000 0x00001000  /* srio_swrite_pack_1    */
+				0x54200000 0x00001000  /* srio_swrite_unpack_0  */
+			>;
+
+			reg-names =
+				"adi2axis-0",
+				"adi2axis-1",
+				"vita49-clk",
+				"vita49-pack-0",
+				"vita49-pack-1",
+				"vita49-unpack-0",
+				"vita49-unpack-1",
+				"vita49-assem-0",
+				"vita49-assem-1",
+				"vita49-trig-adc-0",
+				"vita49-trig-adc-1",
+				"vita49-trig-dac-0",
+				"vita49-trig-dac-1",
+				"swrite-pack-0",
+				"swrite-pack-1",
+				"swrite-unpack";
+		};
 
 		leds_4bits: gpio@41200000 {
 			#gpio-cells = <2>;
