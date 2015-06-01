@@ -19,12 +19,14 @@
 #define _INCLUDE_DSA_MAIN_H_
 #include <dma_streamer_mod.h>
 #include <fd_main.h>
+#include <pd_main.h>
 #include "dsa/channel.h"
 
 #define DEF_SIZE         1048576
 #define DEF_REPS         1
 #define DEF_DSM_DEVICE   "/dev/" DSM_DRIVER_NODE
 #define DEF_FIFO_DEVICE  "/dev/" FD_DRIVER_NODE
+#define DEF_PIPE_DEVICE  "/dev/" PD_DRIVER_NODE
 #define DEF_FORMAT       "iqw"
 
 #define VOL_QUIET    0
@@ -33,6 +35,7 @@
 
 extern const char *dsa_argv0;
 extern int         dsa_adi_new;
+extern int         dsa_pipe_dev;
 extern int         dsa_dsxx;
 
 extern size_t      dsa_opt_len;

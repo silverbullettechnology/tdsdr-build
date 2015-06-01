@@ -76,6 +76,7 @@ static long pd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct pd_vita49_unpack  unpack;
 	struct pd_vita49_ts      ts;
+	struct pd_access         access;
 	unsigned long            reg;
 	unsigned                 dev = cmd & 1;
 
@@ -85,6 +86,14 @@ static long pd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch ( cmd )
 	{
+		/* Access control IOCTLs */
+		case PD_IOCG_ACCESS_AVAIL:
+			return copy_to_user((void *)arg, &access, sizeof(access));
+
+		case PD_IOCS_ACCESS_REQUEST: /* TODO: implement */
+		case PD_IOCS_ACCESS_RELEASE:
+			return 0;
+
 		/* ADI2AXIS IOCTLs */
 		case PD_IOCS_ADI2AXIS_0_CTRL:
 		case PD_IOCS_ADI2AXIS_1_CTRL:
@@ -788,6 +797,7 @@ static int pd_probe (struct platform_device *pdev)
 	for ( dev = 0; dev < 2; dev++ )
 	{
 		// reset blocks in the PL
+		REG_WRITE(&adi2axis[dev]->ctrl,        PD_ADI2AXIS_CTRL_RESET);
 		REG_WRITE(&vita49_pack[dev]->ctrl,     PD_VITA49_PACK_CTRL_RESET);
 		REG_WRITE(&vita49_unpack[dev]->ctrl,   PD_VITA49_UNPACK_CTRL_RESET);
 		REG_WRITE(&vita49_trig_dac[dev]->ctrl, PD_VITA49_TRIG_CTRL_RESET);
@@ -809,6 +819,8 @@ static int pd_probe (struct platform_device *pdev)
 		REG_WRITE(&vita49_trig_dac[dev]->ctrl, PD_VITA49_TRIG_CTRL_PASSTHRU);
 		REG_WRITE(&vita49_trig_adc[dev]->ctrl, PD_VITA49_TRIG_CTRL_PASSTHRU);
 		REG_WRITE(&vita49_assem[dev]->cmd,     PD_VITA49_ASSEM_CMD_PASSTHRU);
+		REG_WRITE(&adi2axis[dev]->ctrl,        PD_ADI2AXIS_CTRL_LEGACY);
+		REG_WRITE(&adi2axis[dev]->bytes,       8 << 20); // 8MB / 1MS
 	}
 
 	pr_info("registered successfully\n");

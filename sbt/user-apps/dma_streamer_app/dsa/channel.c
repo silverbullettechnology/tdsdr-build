@@ -24,11 +24,13 @@
 #include <assert.h>
 
 #include <ad9361.h>
+#include <pd_main.h>
 
 #include "dsa/main.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
 #include "dsm/dsm.h"
+#include "pipe/access.h"
 #include "common/common.h"
 
 #include "common/log.h"
@@ -736,6 +738,37 @@ void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps, int dsxx)
 			}
 
 	LOG_DEBUG("dsa_channel_calc_exp() done\n");
+}
+
+
+int dsa_channel_access_request (int ident, unsigned long priority)
+{
+	unsigned long  bits = 0;
+	int            ret;
+
+	if ( (ident & (DC_DIR_TX|DC_DEV_AD1)) == (DC_DIR_TX|DC_DEV_AD1) )
+		bits |= PD_ACCESS_AD1_TX;
+
+	if ( (ident & (DC_DIR_TX|DC_DEV_AD2)) == (DC_DIR_TX|DC_DEV_AD2) )
+		bits |= PD_ACCESS_AD2_TX;
+
+	if ( (ident & (DC_DIR_RX|DC_DEV_AD1)) == (DC_DIR_RX|DC_DEV_AD1) )
+		bits |= PD_ACCESS_AD1_RX;
+
+	if ( (ident & (DC_DIR_RX|DC_DEV_AD2)) == (DC_DIR_RX|DC_DEV_AD2) )
+		bits |= PD_ACCESS_AD2_RX;
+
+	if ( (ret = pipe_access_request(bits, priority)) )
+	{
+		LOG_ERROR("Access request for %s (priority %08lx) denied: %s\n",
+		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
+				  priority, strerror(errno));
+		return ret;
+	}
+
+	LOG_ERROR("Access granted to %s\n",
+	          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)));
+	return 0;
 }
 
 

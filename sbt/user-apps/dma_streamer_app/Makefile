@@ -15,12 +15,24 @@ APP_OBJS := \
 	fifo/dsxx.o \
 	fifo/dev.o \
 	fifo/pmon.o \
+	pipe/dev.o \
+	pipe/access.o \
+	pipe/adi2axis.o \
+	pipe/vita49_clk.o \
+	pipe/vita49_pack.o \
+	pipe/vita49_unpack.o \
+	pipe/vita49_assem.o \
+	pipe/vita49_trig_adc.o \
+	pipe/vita49_trig_dac.o \
+	pipe/swrite_pack.o \
+	pipe/swrite_unpack.o \
 	pmon/pmon.a
 
 CFLAGS   += -I$(CURDIR)
 CFLAGS   += -I$(CURDIR)/pmon
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 CFLAGS   += -I$(PETALINUX)/software/user-modules/fifo_dev
+CFLAGS   += -I$(PETALINUX)/software/user-modules/pipe_dev
 else
 APP      := dsa_format
 endif

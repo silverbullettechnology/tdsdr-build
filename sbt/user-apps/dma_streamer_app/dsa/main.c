@@ -28,6 +28,7 @@
 #include "dsa/main.h"
 #include "dsm/dsm.h"
 #include "fifo/dev.h"
+#include "pipe/dev.h"
 #include "dsa/command.h"
 #include "common/common.h"
 
@@ -38,12 +39,14 @@ LOG_MODULE_STATIC("main", LOG_LEVEL_INFO);
 
 const char *dsa_argv0;
 int         dsa_adi_new = 0;
+int         dsa_pipe_dev = 0;
 int         dsa_dsxx = 0;
 
 size_t      dsa_opt_len      = 1000000; // 1MS default
 unsigned    dsa_opt_timeout  = 0; // auto-calculated now
 const char *dsa_opt_dsm_dev  = DEF_DSM_DEVICE;
 const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
+const char *dsa_opt_pipe_dev = DEF_PIPE_DEVICE;
 long        dsa_opt_adjust   = 0;
 size_t      dsa_total_words  = 0;
 
@@ -63,6 +66,7 @@ void dsa_main_dev_close (void)
 {
 	dsm_close();
 	fifo_dev_close();
+	pipe_dev_close();
 }
 
 
@@ -131,6 +135,15 @@ int dsa_main_dev_reopen (void)
 		dsa_main_dev_close();
 		return -1;
 	}
+
+	if ( pipe_dev_reopen(dsa_opt_pipe_dev) )
+	{
+		LOG_DEBUG("open(%s): %s\n", dsa_opt_pipe_dev, strerror(errno));
+		LOG_INFO("No pipe-dev, assuming local-only DSM stack (ie SDRDC)\n");
+		dsa_pipe_dev = 0;
+	}
+	else
+		dsa_pipe_dev = 1;
 
 	LOG_DEBUG("Supported targets: %s\n", fifo_dev_target_desc(fifo_dev_target_mask));
 	if ( !fifo_dev_target_mask )

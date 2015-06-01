@@ -85,6 +85,11 @@ void dsa_format_list(FILE *fp);
 // rate (currently 4MSPS), with a +25% margin.
 unsigned long dsa_channel_timeout (struct dsa_channel_event *evt);
 
+// checks requests user's requested device/dir config against the pipe-dev.  priority is a
+// 16-bit fixed-point number, the default is 0x00010000 (1.00).  returns 0 on success, the
+// caller should use pipe_access_release() to release the device when done
+int dsa_channel_access_request (int ident, unsigned long priority);
+
 // checks user's requested channel config against setup of the AD9361 chips, returns
 // number of buffers which mismatch, or 0 if all allocated buffers/channels are supported.
 int dsa_channel_check_active (int ident);

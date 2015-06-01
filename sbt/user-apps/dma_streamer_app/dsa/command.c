@@ -30,6 +30,15 @@
 #include "fifo/adi_new.h"
 #include "fifo/dsxx.h"
 #include "fifo/pmon.h"
+#include "pipe/adi2axis.h"
+#include "pipe/swrite_pack.h"
+#include "pipe/swrite_unpack.h"
+#include "pipe/vita49_assem.h"
+#include "pipe/vita49_clk.h"
+#include "pipe/vita49_pack.h"
+#include "pipe/vita49_trig_adc.h"
+#include "pipe/vita49_trig_dac.h"
+#include "pipe/vita49_unpack.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
 #include "common/common.h"
@@ -221,10 +230,19 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 	}
 	LOG_DEBUG("  argv[0] '%s' -> %s\n", argv[0], dsa_channel_desc(ident));
 
+	// check for access to stack
+	if ( dsa_adi_new && dsa_pipe_dev )
+	{
+		if ( (ret = dsa_channel_access_request(ident, 0x00010000)) )
+			return ret;
+	}
+
 	// check the requested buffer mask is supported by the active channels in the
 	// ADI9361(s)
 	if ( (ret = dsa_channel_check_active(ident)) )
 		return ret;
+
+	// TODO: reserve required channels in pipe-dev if open
 
 	// sxx < 0 means to use the ident flags instead, when used on the command-line
 	// sxx = 0 means no setup of a source/sink allowed, for dmaBuffer
@@ -639,6 +657,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	// New FIFO controls: Reset only
 	if ( dsa_adi_new )
+	{
 		for ( dev = 0; dev < 2; dev++ ) 
 		{ 
 			// RX side
@@ -652,6 +671,33 @@ for ( ret = 0; ret <= argc; ret++ )
 			                        ADI_NEW_RX_RSTN);
 		} 
 	
+		// Local mode: switch ADI/VITA49 sample pipeline to passthru mode and switch from
+		// SRIO to local DMA.
+		if ( dsa_pipe_dev )
+			for ( dev = 0; dev < 2; dev++ )
+				if ( dsa_evt.rx[dev] )
+				{
+					// reset blocks in the PL
+					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_RESET);
+					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_RESET);
+					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
+					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
+					pipe_vita49_assem_set_cmd(dev,     PD_VITA49_ASSEM_CMD_RESET);
+
+					// enable passthru
+					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_PASSTHRU);
+					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
+					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
+					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
+					pipe_vita49_assem_set_cmd(dev,     PD_VITA49_ASSEM_CMD_PASSTHRU);
+
+					// reset, set length, and enable passthru
+					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
+					pipe_adi2axis_set_bytes(dev, dsa_evt.rx[dev]->len * DSM_BUS_WIDTH);
+					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_LEGACY);
+			}
+	}
+
 	// Data source/sink module
 	else if ( dsa_dsxx )
 		for ( dev = 0; dev < 2; dev++ )
@@ -861,6 +907,11 @@ for ( ret = 0; ret <= argc; ret++ )
 			dsm_cyclic_stop(~0);
 			break;
 	}
+
+	if ( dsa_adi_new && dsa_pipe_dev )
+		for ( dev = 0; dev < 2; dev++ )
+			if ( dsa_evt.rx[dev] )
+				pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
 
 	if ( pmon )
 	{
