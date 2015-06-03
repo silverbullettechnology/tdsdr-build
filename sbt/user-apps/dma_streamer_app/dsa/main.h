@@ -28,6 +28,7 @@
 #define DEF_FIFO_DEVICE  "/dev/" FD_DRIVER_NODE
 #define DEF_PIPE_DEVICE  "/dev/" PD_DRIVER_NODE
 #define DEF_FORMAT       "iqw"
+#define DEF_PRIORITY     0x00010000
 
 #define VOL_QUIET    0
 #define VOL_NORMAL   1
@@ -42,8 +43,8 @@ extern size_t      dsa_opt_len;
 extern unsigned    dsa_opt_timeout;
 extern const char *dsa_opt_dsm_dev;
 extern const char *dsa_opt_fifo_dev;
-extern long        dsa_opt_adjust;
 extern size_t      dsa_total_words;
+extern long        dsa_opt_priority;
 
 extern char  env_data_path[];
 

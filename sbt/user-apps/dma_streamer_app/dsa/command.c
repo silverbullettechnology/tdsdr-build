@@ -30,7 +30,9 @@
 #include "fifo/adi_new.h"
 #include "fifo/dsxx.h"
 #include "fifo/pmon.h"
+#include "pipe/access.h"
 #include "pipe/adi2axis.h"
+#include "pipe/routing_reg.h"
 #include "pipe/swrite_pack.h"
 #include "pipe/swrite_unpack.h"
 #include "pipe/vita49_assem.h"
@@ -52,7 +54,7 @@ LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
 void dsa_command_options_usage (void)
 {
 	printf("\nGlobal options: [-qv] [-D mod:lvl] [-s bytes[K|M]] [-S samples[K|M]]\n"
-	       "                [-f format] [-t timeout] [-n node] [-N node]\n"
+	       "                [-f format] [-t timeout] [-p priority]\n"
 	       "Where:\n"
 	       "-q          Quiet messages: warnings and errors only\n"
 	       "-v          Verbose messages: enable debugging\n"
@@ -61,15 +63,14 @@ void dsa_command_options_usage (void)
 	       "-S samples  Set buffer size in samples, add K/M for kilo-samples/mega-samples\n"
 	       "-f format   Set data format for sample data\n"
 	       "-t timeout  Set timeout in jiffies\n"
-	       "-n node     Device node for DMA module\n"
-	       "-N node     Device node for FIFO module\n\n");
+	       "-p priority Priority for pipe-dev access request\n\n");
 }
 
 int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:n:N:D:A:")) > -1 )
+	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:D:A:p:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -114,9 +115,6 @@ int dsa_command_options (int argc, char **argv)
 				LOG_INFO("DMA timeout set to %u jiffies\n", dsa_opt_timeout);
 				break;
 
-			case 'n': dsa_opt_dsm_dev  = optarg; break;
-			case 'N': dsa_opt_fifo_dev = optarg; break;
-
 			case 'f':
 				if ( !(dsa_opt_format = format_find(optarg)) )
 				{
@@ -135,12 +133,28 @@ int dsa_command_options (int argc, char **argv)
 				log_set_module_level(optarg, opt);
 				break;
 
-			case 'A':
-				errno = 0;
-				dsa_opt_adjust = strtol(optarg, NULL, 0);
-				if ( errno )
-					return -1;
-				LOG_INFO("DMA adjust set to %ld words\n", dsa_opt_adjust);
+			// priority may be a 32-bit unsigned, or a decimal fixed-point
+			case 'p':
+				dsa_opt_priority = strtoul(optarg, &ptr, 0);
+				if ( *ptr && *ptr == '.' )
+				{
+					ptr++;
+					char *end;
+					uint64_t  frac = strtoull(ptr, &end, 0);
+					if ( (end - ptr) > 5 )
+						return -1;
+					frac <<= 16;
+					frac /= pow10_32(end - ptr);
+					if ( frac & ~0xFFFF )
+						LOG_WARN("optarg '%s' -> int %lu, frac '%s' -> %08llx?\n",
+						         optarg, dsa_opt_priority, ptr, frac);
+
+					dsa_opt_priority <<= 16;
+					dsa_opt_priority  |= (frac & 0xFFFF);
+				}
+				LOG_DEBUG("optarg '%s' -> prio %08lx -> %lu.%04lu\n",
+				          optarg, dsa_opt_priority, dsa_opt_priority >> 16,
+				          ((dsa_opt_priority & 0xFFFF) * 10000) >> 16);
 				break;
 
 			case '?':
@@ -233,7 +247,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 	// check for access to stack
 	if ( dsa_adi_new && dsa_pipe_dev )
 	{
-		if ( (ret = dsa_channel_access_request(ident, 0x00010000)) )
+		if ( (ret = dsa_channel_access_request(ident, dsa_opt_priority)) )
 			return ret;
 	}
 
@@ -523,6 +537,7 @@ int dsa_command_trigger (int argc, char **argv)
 	unsigned long       last[2];
 	unsigned long       reps     = 1;
 	unsigned long       timeout;
+	unsigned long       reg;
 	trigger_t           trig = TRIG_ONCE;
 	int                 fifo     = 0;
 	int                 stats    = 1;
@@ -659,42 +674,63 @@ for ( ret = 0; ret <= argc; ret++ )
 	if ( dsa_adi_new )
 	{
 		for ( dev = 0; dev < 2; dev++ ) 
-		{ 
+		{
 			// RX side
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
-			                        ADI_NEW_RX_RSTN);
+			if ( dsa_evt.rx[dev] )
+			{
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_RSTN,
+				                        ADI_NEW_RX_RSTN);
+			}
 
 			// TX side
-			fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
-			fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
-			                        ADI_NEW_RX_RSTN);
+			if ( dsa_evt.tx[dev] )
+			{
+				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN, 0);
+				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_RX_REG_RSTN,
+				                        ADI_NEW_RX_RSTN);
+			}
 		} 
 	
 		// Local mode: switch ADI/VITA49 sample pipeline to passthru mode and switch from
 		// SRIO to local DMA.
 		if ( dsa_pipe_dev )
 			for ( dev = 0; dev < 2; dev++ )
+			{
 				if ( dsa_evt.rx[dev] )
 				{
 					// reset blocks in the PL
 					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_RESET);
-					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_RESET);
-					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
 					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
-					pipe_vita49_assem_set_cmd(dev,     PD_VITA49_ASSEM_CMD_RESET);
 
 					// enable passthru
 					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_PASSTHRU);
-					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
-					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
 					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
-					pipe_vita49_assem_set_cmd(dev,     PD_VITA49_ASSEM_CMD_PASSTHRU);
 
 					// reset, set length, and enable passthru
 					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
 					pipe_adi2axis_set_bytes(dev, dsa_evt.rx[dev]->len * DSM_BUS_WIDTH);
 					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_LEGACY);
+
+					// Set adc_sw_dest switch to 0 for device
+					pipe_routing_reg_get_adc_sw_dest(&reg);
+					if ( reg & (1 << dev) )
+					{
+						reg &= ~(1 << dev);
+						pipe_routing_reg_set_adc_sw_dest(reg);
+					}
+				}
+
+				if ( dsa_evt.tx[dev] )
+				{
+					// reset blocks in the PL
+					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_RESET);
+					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
+
+					// enable passthru
+					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
+					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
+				}
 			}
 	}
 
@@ -732,22 +768,24 @@ for ( ret = 0; ret <= argc; ret++ )
 	if ( dsa_adi_new )
 		for ( dev = 0; dev < 2; dev++ ) 
 		{ 
-			unsigned long  reg;
+			// RX side
+			if ( dsa_evt.rx[dev] )
+			{
+				// RX channel 1 parameters - minimal setup for now
+				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
 
-			// RX channel 1 parameters - minimal setup for now
-			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
+				// RX channel 2 parameters - minimal setup for now
+				reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
 
-			// RX channel 2 parameters - minimal setup for now
-			reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
-
-			// Always using T2R2 for now - discard the extra samples
-			fifo_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
-			reg &= ~ADI_NEW_RX_R1_MODE;
-			fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
+				// Always using T2R2 for now - discard the extra samples
+				fifo_adi_new_read(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
+				reg &= ~ADI_NEW_RX_R1_MODE;
+				fifo_adi_new_write(dev, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
+			}
 
 			// TX channel parameters - Always using T2R2
 			if ( dsa_evt.tx[dev] )
@@ -771,7 +809,7 @@ for ( ret = 0; ret <= argc; ret++ )
 			// number of bytes the source should generate
 			if ( dsa_evt.rx[dev] )
 			{
-				unsigned long len = dsa_evt.rx[dev]->len - dsa_opt_adjust;
+				unsigned long len = dsa_evt.rx[dev]->len;
 				fifo_dsrc_set_bytes(dev, len * DSM_BUS_WIDTH);
 				fifo_dsrc_set_reps(dev, reps);
 			}
@@ -909,9 +947,14 @@ for ( ret = 0; ret <= argc; ret++ )
 	}
 
 	if ( dsa_adi_new && dsa_pipe_dev )
+	{
 		for ( dev = 0; dev < 2; dev++ )
 			if ( dsa_evt.rx[dev] )
 				pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
+
+		if ( (ret = pipe_access_release(~0)) )
+			LOG_ERROR("Access release for denied: %s\n", strerror(errno));
+	}
 
 	if ( pmon )
 	{
@@ -968,8 +1011,6 @@ for ( ret = 0; ret <= argc; ret++ )
 	if ( dsa_dsxx )
 		for ( dev = 0; dev < 2; dev++ )
 		{
-			unsigned long reg;
-
 			if ( dsa_evt.rx[dev] )
 			{
 				fifo_dsrc_get_stat(dev, &reg);	

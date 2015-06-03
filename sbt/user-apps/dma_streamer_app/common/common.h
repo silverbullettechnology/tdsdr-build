@@ -51,4 +51,9 @@ int terminal_pause (void);
 char *path_match (char *dst, size_t max, const char *search, const char *leaf);
 
 
+/** Return a power of 10^e
+ */
+unsigned long pow10_32 (unsigned e);
+
+
 #endif // _INCLUDE_DSA_COMMON_H_

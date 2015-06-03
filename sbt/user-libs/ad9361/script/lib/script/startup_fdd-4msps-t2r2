@@ -26,7 +26,7 @@ set_in_voltage_sampling_frequency  4000000
 get_in_voltage_sampling_frequency
 
 # Set AD1 to sleep mode to conserve power
-set_ensm_mode 0
+set_ensm_mode 5
 
 # Enable FIR filters
 device ad2
@@ -42,5 +42,5 @@ set_in_voltage_sampling_frequency  4000000
 get_in_voltage_sampling_frequency
 
 # Set AD2 to sleep mode to conserve power
-set_ensm_mode 0
+set_ensm_mode 5
 

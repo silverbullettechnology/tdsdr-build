@@ -52,7 +52,7 @@ obj-m += pipe_dev.o
 
 pipe_dev-y := pd_main.o
 
-EXTRA_CFLAGS += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
 EXTRA_CFLAGS += -Werror
 
 all:  modules

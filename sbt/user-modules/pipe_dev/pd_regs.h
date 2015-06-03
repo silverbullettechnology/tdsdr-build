@@ -124,8 +124,8 @@ struct pd_vita49_unpack_regs
  */
 struct pd_vita49_assem_regs
 {
-	uint32_t cmd;          /* 0x00 RW bitmap of PD_VITA49_ASSEM_CMD_ENABLE   */
-	uint32_t hdr_err_cnt;  /* 0x04 RW counts number of packet header errors  */
+	uint32_t cmd;          /* 0x00 RW bitmap of PD_VITA49_ASSEM_CMD_*       */
+	uint32_t hdr_err_cnt;  /* 0x04 RW counts number of packet header errors */
 };
 
 /* VITA49_TRIGGER - This block pauses the incoming AXI-S data stream until the programmed
@@ -163,7 +163,18 @@ struct pd_swrite_unpack_regs
 };
 
 
-#define REG_WRITE(addr, val)  do{ iowrite32(val, addr); }while(0)
+/* ROUTING_REG */
+struct pd_routing_reg
+{
+	uint32_t  adc_sw_dest;  /* 0x0  RW  bitmap of PD_ROUTING_REG_* */
+};
+
+
+#define REG_WRITE(addr, val) \
+	do{ \
+		pr_debug("REG_WRITE(%p, %08lx)\n", addr, (unsigned long)val); \
+		iowrite32(val, addr); \
+	}while(0)
 #define REG_READ(addr)        (ioread32(addr))
 
 #define REG_RMW(addr, clr, set) \

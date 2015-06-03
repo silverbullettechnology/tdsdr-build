@@ -66,6 +66,10 @@
 #define PD_SWRITE_UNPACK_CTRL_START  0x00000001  /* start module       */
 #define PD_SWRITE_UNPACK_CTRL_RESET  0x00000002  /* reset module        */
 
+/* ROUTING_REG bits */
+#define PD_ROUTING_REG_ADC_SW_DEST_0  0x00000001  /* route to SRIO */
+#define PD_ROUTING_REG_ADC_SW_DEST_1  0x00000002  /* route to SRIO */
+
 /* Access control bits */
 #define PD_ACCESS_AD1_RX  0x00000001  /* RX path on AD1 */
 #define PD_ACCESS_AD2_RX  0x00000002  /* RX path on AD2 */
@@ -222,6 +226,10 @@ struct pd_vita49_unpack
 #define  PD_IOCS_SWRITE_UNPACK_ADDR_1  _IOW(PD_IOCTL_MAGIC, 153, unsigned long)
 #define  PD_IOCG_SWRITE_UNPACK_ADDR_0  _IOR(PD_IOCTL_MAGIC, 154, unsigned long *)
 #define  PD_IOCG_SWRITE_UNPACK_ADDR_1  _IOR(PD_IOCTL_MAGIC, 155, unsigned long *)
+
+/* ROUTING_REG IOCTLs */
+#define  PD_IOCS_ROUTING_REG_ADC_SW_DEST  _IOW(PD_IOCTL_MAGIC, 160, unsigned long)
+#define  PD_IOCG_ROUTING_REG_ADC_SW_DEST  _IOR(PD_IOCTL_MAGIC, 161, unsigned long *)
 
 
 #endif /* _INCLUDE_PD_MAIN_H */

@@ -197,13 +197,13 @@ status = "disabled";
 				compatible = "xlnx,axi-dma-s2mm-channel";
 				interrupts = <0 57 4 >; // IRQ 89
 				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x0>;
+				xlnx,device-id = <0x1>;
 			};
 			dma-channel@52300000 {
 				compatible = "xlnx,axi-dma-mm2s-channel";
 				interrupts = <0 56 4 >; // IRQ 88
 				xlnx,datawidth = <0x40>;
-				xlnx,device-id = <0x0>;
+				xlnx,device-id = <0x1>;
 			};
 		};
 
@@ -278,6 +278,7 @@ status = "disabled";
 				0x54000000 0x00001000  /* srio_swrite_pack_0    */
 				0x54100000 0x00001000  /* srio_swrite_pack_1    */
 				0x54200000 0x00001000  /* srio_swrite_unpack_0  */
+				0x52400000 0x00001000  /* routing_reg_0         */
 			>;
 
 			reg-names =
@@ -296,7 +297,8 @@ status = "disabled";
 				"vita49-trig-dac-1",
 				"swrite-pack-0",
 				"swrite-pack-1",
-				"swrite-unpack";
+				"swrite-unpack",
+				"routing-reg";
 		};
 
 		leds_4bits: gpio@41200000 {

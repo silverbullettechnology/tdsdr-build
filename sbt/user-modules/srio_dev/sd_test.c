@@ -547,62 +547,6 @@ struct file_operations  sd_test_phy_mce_fops =
 };
 
 
-static struct proc_dir_entry *sd_test_dest_adc_sw_proc;
-static ssize_t sd_test_dest_adc_sw_read (struct file *f, char __user *u, size_t s,
-                                         loff_t *o)
-{
-	char     b[128];
-	ssize_t  l = 0;
-
-	if ( *o )
-		return 0;
-
-	l = snprintf(b, sizeof(b), "%u%u\n",
-	    sd_regs_get_dest_adc_sw(sd_test_dev, 0),
-	    sd_regs_get_dest_adc_sw(sd_test_dev, 1));
-
-	if ( copy_to_user(u, b, l) )
-		return -EFAULT;
-
-	*o += l;
-	return l;
-}
-static ssize_t sd_test_dest_adc_sw_write (struct file *f, const char __user *u, size_t s,
-                                          loff_t *o)
-{
-	char b[128];
-
-	if ( *o )
-		return 0;
-
-	if ( s >= sizeof(b) )
-		s = sizeof(b) - 1;
-
-	memset(b, 0, sizeof(b));
-	if ( copy_from_user(b, u, s) )
-		return -EFAULT;
-
-	switch ( b[0] )
-	{
-		case '0': sd_regs_set_dest_adc_sw(sd_test_dev, 0, 0); break;
-		case '1': sd_regs_set_dest_adc_sw(sd_test_dev, 0, 1); break;
-	}
-	switch ( b[1] )
-	{
-		case '0': sd_regs_set_dest_adc_sw(sd_test_dev, 1, 0); break;
-		case '1': sd_regs_set_dest_adc_sw(sd_test_dev, 1, 1); break;
-	}
-
-	*o += s;
-	return s;
-}
-struct file_operations  sd_test_dest_adc_sw_fops =
-{
-	read:   sd_test_dest_adc_sw_read,
-	write:  sd_test_dest_adc_sw_write,
-};
-
-
 void sd_test_exit (void)
 {
 	if ( sd_test_addr_proc          ) proc_remove(sd_test_addr_proc);
@@ -618,7 +562,6 @@ void sd_test_exit (void)
 	if ( sd_test_phy_link_reset_proc) proc_remove(sd_test_phy_link_reset_proc);
 	if ( sd_test_force_reinit_proc  ) proc_remove(sd_test_force_reinit_proc);
 	if ( sd_test_phy_mce_proc       ) proc_remove(sd_test_phy_mce_proc);
-	if ( sd_test_dest_adc_sw_proc   ) proc_remove(sd_test_dest_adc_sw_proc);
 
 	if ( sd_test_proc ) proc_remove(sd_test_proc);
 }
@@ -694,11 +637,6 @@ int sd_test_init (struct srio_dev *sd)
 	sd_test_phy_mce_proc = proc_create("phy_mce", 0444, sd_test_proc,
 	                                   &sd_test_phy_mce_fops);
 	if ( !sd_test_phy_mce_proc )
-		goto fail;
-
-	sd_test_dest_adc_sw_proc = proc_create("dest_adc_sw", 0666, sd_test_proc,
-	                                       &sd_test_dest_adc_sw_fops);
-	if ( !sd_test_dest_adc_sw_proc )
 		goto fail;
 
 	return 0;

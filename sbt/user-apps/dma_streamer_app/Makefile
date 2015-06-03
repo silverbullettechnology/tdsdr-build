@@ -24,6 +24,7 @@ APP_OBJS := \
 	pipe/vita49_assem.o \
 	pipe/vita49_trig_adc.o \
 	pipe/vita49_trig_dac.o \
+	pipe/routing_reg.o \
 	pipe/swrite_pack.o \
 	pipe/swrite_unpack.o \
 	pmon/pmon.a

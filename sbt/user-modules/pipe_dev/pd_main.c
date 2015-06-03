@@ -50,6 +50,7 @@ static struct pd_vita49_trig_regs   __iomem *vita49_trig_adc[2];
 static struct pd_vita49_trig_regs   __iomem *vita49_trig_dac[2];
 static struct pd_swrite_pack_regs   __iomem *swrite_pack[2];
 static struct pd_swrite_unpack_regs __iomem *swrite_unpack;
+static struct pd_routing_reg        __iomem *routing_reg;
 
 
 /******** Userspace interface ********/
@@ -664,6 +665,26 @@ static long pd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			reg = REG_READ(&swrite_unpack->addr_1);
 			pr_debug("PD_IOCG_SWRITE_UNPACK_ADDR_1 %08lx\n", reg);
 			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* ROUTING_REG IOCTLs */
+		case PD_IOCS_ROUTING_REG_ADC_SW_DEST:
+			if ( !routing_reg )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_ROUTING_REG_ADC_SW_DEST %08lx\n", arg);
+			REG_WRITE(&routing_reg->adc_sw_dest, arg);
+			return 0;
+
+
+		case PD_IOCG_ROUTING_REG_ADC_SW_DEST:
+			if ( !routing_reg )
+				return -ENODEV;
+
+			reg = REG_READ(&routing_reg->adc_sw_dest);
+			pr_debug("PD_IOCG_ROUTING_REG_ADC_SW_DEST %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
 	}
 
 	pr_err("%s(): unknown cmd %08x\n", __func__, cmd);
@@ -784,6 +805,9 @@ static int pd_probe (struct platform_device *pdev)
 	if ( !(swrite_unpack = pd_iomap(pdev, "swrite-unpack")) )
 		goto fail;
 
+	if ( !(routing_reg = pd_iomap(pdev, "routing-reg")) )
+		goto fail;
+
 	if ( (ret = misc_register(&mdev)) < 0 )
 	{
 		pr_err("misc_register() failed\n");
@@ -843,6 +867,7 @@ fail:
 	if ( swrite_pack[0]     )  devm_iounmap(&pdev->dev, swrite_pack[0]);
 	if ( swrite_pack[1]     )  devm_iounmap(&pdev->dev, swrite_pack[1]);
 	if ( swrite_unpack      )  devm_iounmap(&pdev->dev, swrite_unpack);
+	if ( routing_reg        )  devm_iounmap(&pdev->dev, routing_reg);
 
 	return ret;
 }

@@ -57,7 +57,7 @@ dsm-y := dsm_main.o dsm_chan.o dsm_thread.o dsm_xfer.o
 #CFLAGS_dsm_thread.o += -DDEBUG
 #CFLAGS_dsm_xfer.o   += -DDEBUG
 #EXTRA_CFLAGS += -DDEBUG
-#EXTRA_CFLAGS += -Werror
+EXTRA_CFLAGS += -Werror
 
 all:  modules
 

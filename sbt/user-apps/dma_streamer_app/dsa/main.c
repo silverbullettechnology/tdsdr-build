@@ -47,8 +47,8 @@ unsigned    dsa_opt_timeout  = 0; // auto-calculated now
 const char *dsa_opt_dsm_dev  = DEF_DSM_DEVICE;
 const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
 const char *dsa_opt_pipe_dev = DEF_PIPE_DEVICE;
-long        dsa_opt_adjust   = 0;
 size_t      dsa_total_words  = 0;
+long        dsa_opt_priority = DEF_PRIORITY;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];

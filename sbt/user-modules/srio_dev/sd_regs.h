@@ -126,18 +126,12 @@ struct sd_lpsl_ef_regs
 #define SD_SR_STAT_DEVICE_ID_M              0xFFFF0000
 #define SD_SR_STAT_DEVICE_ID_S                      16
 
-#define SD_SR_DEST_ADC_SW_DEST0_M           0x00000001
-#define SD_SR_DEST_ADC_SW_DEST0_S                    0
-#define SD_SR_DEST_ADC_SW_DEST1_M           0x00000002
-#define SD_SR_DEST_ADC_SW_DEST1_S                    1
-
 
 /* SYS_REG registers (SBT Implementation) */
 struct sd_sys_reg
 {
 	uint32_t  ctrl;  /* 0x0: ctrl_reg (RW)  */
 	uint32_t  stat;  /* 0x4: status_reg (R) */
-	uint32_t  dest;  /* 0x8: ADC_DATA_DEST (RW) */
 };
 
 
@@ -167,9 +161,6 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 
 uint16_t sd_regs_get_devid (struct srio_dev *sd);
 void     sd_regs_set_devid (struct srio_dev *sd, uint16_t id);
-
-unsigned sd_regs_get_dest_adc_sw (struct srio_dev *sd, unsigned ch);
-void     sd_regs_set_dest_adc_sw (struct srio_dev *sd, unsigned ch, unsigned val);
 
 /* DRP registers (SBT Implementation) */
 
