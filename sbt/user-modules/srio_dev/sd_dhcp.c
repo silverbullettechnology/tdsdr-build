@@ -98,7 +98,7 @@ void sd_dhcp_recv (struct sd_fifo *fifo, struct sd_desc *desc)
 	// TODO: can we use short-message with a larger mbox number?
 	if ( ((desc->virt[2] >> 20) & 0x0F) != 11 || ((desc->virt[1] >> 4) & 0x3F) != 0x3F )
 	{
-		pr_debug("ignored: not MESSAGE to mbox 3 (%u / %u)\n",
+		pr_debug("ignored: not MESSAGE to mbox 0x3F (%u / %u)\n",
 		         ((desc->virt[2] >> 20) & 0x0F),
 		         ((desc->virt[1] >>  4) & 0x3F));
 		goto free;

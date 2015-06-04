@@ -333,7 +333,10 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 					sd_user_recv_mbox(mesg, mbox);
 				return;
 			}
-			pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
+			else if ( sd_user_dev->devid != 0xFFFF && mbox == 0x3F )
+				pr_debug("MESSAGE: 0x3F after probe, drop\n");
+			else
+				pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
 			break;
 
 		default:
