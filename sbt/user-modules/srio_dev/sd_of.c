@@ -281,6 +281,22 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 	else
 		pr_debug("No shadow FIFO defined\n");
 
+	/* "ping" function implemented with dbells: if both values are set low enough to be
+	 * valid dbell "info" values (ie <= 0xFFFF) then respond to dbell messages with info
+	 * equal to ping[0], and respond with a dbell containing info value ping[1].  Pre-
+	 * shift the 16-bit values since info is the high half of the HELLO word.  */
+	sd->ping[0] = 0xFFFFFFFF;
+	sd->ping[1] = 0xFFFFFFFF;
+	of_property_read_u32_array(pdev->dev.of_node, "sbt,ping", sd->ping,
+	                           ARRAY_SIZE(sd->ping));
+	if ( sd->ping[0] <= 0xFFFF && sd->ping[1] <= 0xFFFF )
+	{
+		sd->ping[0] <<= 16;
+		sd->ping[1] <<= 16;
+		pr_info("%s: Expect dbell ping requests on %04x, response on %04x\n",
+		        dev_name(sd->dev), sd->ping[0] >> 16, sd->ping[1] >> 16);
+	}
+
 
 	if ( sd_test_init(sd) )
 	{

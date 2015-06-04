@@ -80,6 +80,11 @@ struct srio_dev
 	u32                gt_txpostcursor;
 	u32                gt_rxlpmen;
 
+	/* "ping" function implemented with dbells: if both values are set low enough to be
+	 * valid dbell "info" values (ie <= 0xFFFF) then respond to dbell messages with info
+	 * equal to ping[0], and respond with a dbell containing info value ping[1]. */
+	u32                ping[2];
+
 	/* Status monitoring */
 	struct timer_list  status_timer;
 	unsigned           status_every;

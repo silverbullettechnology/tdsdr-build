@@ -657,7 +657,7 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 {
 	struct list_head *temp, *walk;
 	struct sd_desc   *desc = sf->rx_current;
-	uint32_t          resp, tuser;
+	uint32_t          resp, tuser, type;
 
 	sf->rx.stats.completes++;
 	REG_RMW(&sf->regs->ier, 0, RFPF|RC);
@@ -684,7 +684,8 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	}
 
 	/* handle response packets */
-	if ( (desc->virt[2] & 0x00F00000) == 0x00D00000 )
+	type = (desc->virt[2] & 0x00F00000) >> 20;
+	if ( type == 13 )
 	{
 		/* everything needed is in the MSW of the HELLO header */
 		resp = desc->virt[2] & 0xFFF00000;
@@ -714,18 +715,29 @@ static void sd_fifo_rx_finish (struct sd_fifo *sf)
 	}
 
 	/* Non-response packet: calculate response if necessary */
+	tuser = desc->virt[0];
 	if ( (resp = sd_fifo_response(desc->virt + 1)) )
-	{
 		sf_debug(sf, "req %08x.%08x -> resp %08x\n",
 		         desc->virt[2], desc->virt[1], resp);
-		tuser = desc->virt[0];
-	}
 
 	/* Dispatch to listener, or dump and free for debug */
 	sf_debug(sf, "%08x:%08x.%08x, %zu bytes, RX complete:\n", 
 	         desc->virt[0], desc->virt[2], desc->virt[1], desc->used - 12);
 	hexdump_buff(&desc->virt[SD_HEAD_SIZE], desc->used - 12);
-	if ( sf->rx_func )
+
+	/* ping response: type 10 (dbell) packet with info == ping[0], received on target
+	 * FIFO, generate a ping response (type 10)  to the sender on the initiator FIFO
+	 * reusing received desc.  no return here because we still have to send an SRIO
+	 * response (type 13) for the request */
+	if ( type == 10 && desc->virt[1] == sf->sd->ping[0] && sf == sf->sd->targ_fifo )
+	{
+		desc->virt[0] = (tuser >> 16) | (tuser << 16);
+		desc->virt[1] = sf->sd->ping[1];
+		desc->used = 12;
+		desc->resp = sd_fifo_response(desc->virt + 1);
+		sd_fifo_tx_burst(sf->sd->init_fifo, &desc, 1);
+	}
+	else if ( sf->rx_func )
 		sf->rx_func(sf, desc);
 	else
 		sd_desc_free(sf->sd, desc);

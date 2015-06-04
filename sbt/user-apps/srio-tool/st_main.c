@@ -394,18 +394,6 @@ int main (int argc, char **argv)
 					case 10:
 						switch ( dbell->info )
 						{
-							case 0xFFF0: // PING req - inc info, return
-								dbell->info++;
-								mesg->src_addr = opt_loc_addr;
-								mesg->dst_addr = opt_rem_addr;
-								if ( (ret = write(dev, buff, size)) < size )
-								{
-									perror("write() to driver");
-									main_loop = 0;
-								}
-								printf("PING req\n");
-								break;
-
 							case 0xFFF1: // PING req
 								send_ns  = send_ts.tv_sec;
 								send_ns *= 1000000000;

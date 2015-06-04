@@ -246,6 +246,11 @@ status = "disabled";
 			sbt,init-flags   = <0x001C>;
 			sbt,targ-flags   = <0x001C>;
 			sbt,shadow-flags = <0x0700>;
+
+			/* "ping" function implemented with dbells: if both values are set then
+			 * respond to dbell messages with info equal to ping[0], and respond with a
+			 * dbell containing info value ping[1]. */
+			sbt,ping = <0xFFF0>,<0xFFF1>;
 		};
 
 		fifo-dev {
