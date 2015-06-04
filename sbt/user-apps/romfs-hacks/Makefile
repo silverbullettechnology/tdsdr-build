@@ -51,6 +51,8 @@ endif
 	rm -f  $(ROMFSDIR)/etc/rcS.d/S99last-led
 	ln -sv ../init.d/first-led   $(ROMFSDIR)/etc/rcS.d/S03first-led
 	ln -sv ../init.d/last-led    $(ROMFSDIR)/etc/rcS.d/S99last-led
+	mkdir -p $(ROMFSDIR)/etc/udhcpc.d
+	install -m755 udhcp-rdate    $(ROMFSDIR)/etc/udhcpc.d/90rdate
 
 image: 
 	echo image
