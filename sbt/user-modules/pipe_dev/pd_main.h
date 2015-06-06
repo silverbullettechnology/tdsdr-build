@@ -76,7 +76,7 @@
 #define PD_ACCESS_AD2_RX  0x00000002  /* RX path on AD2 */
 #define PD_ACCESS_AD1_TX  0x00000004  /* TX path on AD1 */
 #define PD_ACCESS_AD2_TX  0x00000008  /* TX path on AD2 */
-#define PD_ACCESS_MASK    0x0000000F  /* TX path on AD2 */
+#define PD_ACCESS_MASK    0x0000000F  /* Bitmask for all bits */
 
 /* Integer + Fractional timestamp struct */
 struct pd_vita49_ts

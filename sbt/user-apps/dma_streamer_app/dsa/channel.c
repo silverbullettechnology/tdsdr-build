@@ -31,6 +31,7 @@
 #include "dsa/channel.h"
 #include "dsm/dsm.h"
 #include "pipe/access.h"
+#include "fifo/access.h"
 #include "common/common.h"
 
 #include "common/log.h"
@@ -760,9 +761,19 @@ int dsa_channel_access_request (int ident, unsigned long priority)
 
 	if ( (ret = pipe_access_request(bits)) )
 	{
-		LOG_ERROR("Access request for %s (priority %08lx) denied: %s\n",
+		LOG_ERROR("Pipe-dev access request for %s (%lx) denied: %s\n",
 		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
-				  priority, strerror(errno));
+				  bits, strerror(errno));
+		return ret;
+	}
+
+	// Note, assumes the PD_ACCESS bits and FD_ACCESS bits are equal (currently true)
+	if ( (ret = fifo_access_request(bits)) )
+	{
+		LOG_ERROR("FIFO-dev access request for %s (%lx) denied: %s\n",
+		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
+				  bits, strerror(errno));
+		pipe_access_release(bits);
 		return ret;
 	}
 

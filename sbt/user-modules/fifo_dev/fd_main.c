@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/ioport.h>
@@ -36,8 +37,15 @@
 //#define pr_trace pr_debug
 
 
-static spinlock_t  fd_lock;
-static int         fd_users;
+static spinlock_t        fd_lock;
+static struct list_head  fd_users;
+static unsigned long     fd_granted;
+
+struct fd_user_priv
+{
+	unsigned long     granted;
+	struct list_head  list;
+};
 
 
 static struct fd_dsrc_regs __iomem *fd_dsrc0_regs = NULL;
@@ -60,29 +68,104 @@ static void __iomem *fd_pmon_regs = NULL;
 
 /******** Userspace interface ********/
 
-static int fd_open (struct inode *inode_p, struct file *file_p)
+static int fd_open (struct inode *i, struct file *f)
 {
-	unsigned long  flags;
-	int            ret = -EACCES;
+	struct fd_user_priv *priv;
+	unsigned long        flags;
+
+	if ( !(priv = kzalloc(sizeof(*priv), GFP_KERNEL)) )
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&priv->list);
+
+	f->private_data = priv;
+	pr_debug("%s: open: f %p, priv %p\n", __func__, f, priv);
 
 	spin_lock_irqsave(&fd_lock, flags);
-	if ( !fd_users )
-	{
-		pr_debug("%s()\n", __func__);
-		fd_users = 1;
-		ret = 0;
-	}
+	list_add_tail(&priv->list, &fd_users);
 	spin_unlock_irqrestore(&fd_lock, flags);
 
-	return ret;
+	return 0;
 }
 
 
-static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
+static int fd_access_request (struct fd_user_priv *priv, unsigned long bits)
 {
-	unsigned long  reg;
-	int            ret = -ENOSYS;
-	int            max = 10;
+	unsigned long  flags;
+
+	/* Filter by bits already granted to this user, early out if no new bits */
+	if ( bits & priv->granted )
+	{
+		pr_info("%s: bits 0x%lx already granted, masked out\n",
+		        __func__, bits & priv->granted);
+		bits &= ~priv->granted;
+	}
+	if ( !bits )
+		return 0;
+
+	/* Check new bits aren't already granted to somebody else, add them to this user, and
+	 * mark them as used to block next user. */
+	spin_lock_irqsave(&fd_lock, flags);
+	if ( bits & fd_granted )
+	{
+		spin_unlock_irqrestore(&fd_lock, flags);
+		pr_err("%s: requested bits 0x%lx already granted\n", __func__, bits & fd_granted);
+		return -EPERM;
+	}
+	priv->granted |= bits;
+	fd_granted    |= bits;
+	spin_unlock_irqrestore(&fd_lock, flags);
+
+	pr_info("%s: granted bits 0x%lx\n", __func__, bits);
+	return 0;
+}
+
+static int fd_access_release (struct fd_user_priv *priv, unsigned long bits)
+{
+	unsigned long  flags;
+
+	/* Filter by bits already granted to this user, early out if no new bits */
+	if ( bits & ~priv->granted )
+	{
+		pr_debug("%s: bits 0x%lx not granted to user, masked out\n",
+		        __func__, bits & ~priv->granted);
+		bits &= priv->granted;
+	}
+	if ( bits & ~fd_granted )
+	{
+		pr_info("%s: bits 0x%lx not granted at all, masked out\n",
+		        __func__, bits & ~fd_granted);
+		bits &= fd_granted;
+	}
+	if ( !bits )
+		return 0;
+
+	/* Check bits aren't already granted to somebody else, add them to this user, and
+	 * mark them as used to block next user. */
+	spin_lock_irqsave(&fd_lock, flags);
+	if ( bits & ~fd_granted )
+	{
+		spin_unlock_irqrestore(&fd_lock, flags);
+		pr_err("%s: releasing bits 0x%lx not granted at all?\n", __func__,
+		       bits & ~fd_granted);
+		return -EINVAL;
+	}
+	priv->granted &= ~bits;
+	fd_granted    &= ~bits;
+	spin_unlock_irqrestore(&fd_lock, flags);
+
+	pr_debug("%s: released bits 0x%lx\n", __func__, bits);
+	return 0;
+}
+
+
+static long fd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
+{
+	struct fd_user_priv *priv = f->private_data;
+	unsigned long        reg;
+	unsigned long        flags;
+	int                  ret = -ENOSYS;
+	int                  max = 10;
 
 	pr_trace("%s(cmd %x, arg %08lx)\n", __func__, cmd, arg);
 
@@ -91,6 +174,26 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch ( cmd )
 	{
+		/* Access control IOCTLs */
+		case FD_IOCG_ACCESS_AVAIL:
+			spin_lock_irqsave(&fd_lock, flags);
+			reg = ~fd_granted;
+			spin_unlock_irqrestore(&fd_lock, flags);
+
+			reg &= FD_ACCESS_MASK;
+			pr_debug("FD_IOCG_ACCESS_AVAIL %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case FD_IOCS_ACCESS_REQUEST:
+			return fd_access_request(priv, arg & FD_ACCESS_MASK);
+
+
+		case FD_IOCS_ACCESS_RELEASE:
+			return fd_access_release(priv, arg & FD_ACCESS_MASK);
+
+
+
 		case  FD_IOCG_FIFO_CNT:
 		{
 			struct fd_fifo_counts buff;
@@ -715,6 +818,7 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 		{
 			struct fd_new_adi_regs  regs;
 			void __iomem            *addr = NULL;
+			unsigned long            need = 0;
 
 			if ( (ret = copy_from_user(&regs, (void *)arg, sizeof(regs))) )
 			{
@@ -725,16 +829,29 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 			// validate device and regs pointer
 			switch ( regs.adi )
 			{
-				case 0: addr = fd_adi1_new_regs; break;
-				case 1: addr = fd_adi2_new_regs; break;
+				case 0:
+					addr = fd_adi1_new_regs;
+					need = regs.tx ? FD_ACCESS_AD1_TX : FD_ACCESS_AD1_RX;
+					break;
+
+				case 1:
+					addr = fd_adi2_new_regs;
+					need = regs.tx ? FD_ACCESS_AD2_TX : FD_ACCESS_AD2_RX;
+					break;
+
 				default:
 					pr_err("regs.dev %lu invalid, stop\n", regs.adi);
 					return -EINVAL;
 			}
-			if ( !addr )
+			if ( !addr || !need )
 			{
 				pr_err("register access pointers not setup, stop.\n");
 				return -ENODEV;
+			}
+			if ( !(priv->granted & need) )
+			{
+				pr_err("register access withou grant, stop.\n");
+				return -EPERM;
 			}
 
 			switch ( cmd )
@@ -830,21 +947,19 @@ static long fd_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 }
 
 
-static int fd_release (struct inode *inode_p, struct file *file_p)
+static int fd_release (struct inode *i, struct file *f)
 {
-	unsigned long  flags;
-	int            ret = -EBADF;
+	struct fd_user_priv *priv = f->private_data;
+	unsigned long        flags;
 
 	spin_lock_irqsave(&fd_lock, flags);
-	if ( fd_users )
-	{
-		pr_debug("%s()\n", __func__);
-		fd_users = 0;
-		ret = 0;
-	}
+	list_del_init(&priv->list);
 	spin_unlock_irqrestore(&fd_lock, flags);
 
-	return ret;
+	kfree(priv);
+	f->private_data = NULL;
+
+	return 0;
 }
 
 
@@ -911,6 +1026,9 @@ static int fd_probe (struct platform_device *pdev)
 		ret = -EIO;
 		goto fail;
 	}
+
+	spin_lock_init(&fd_lock);
+	INIT_LIST_HEAD(&fd_users);
 
 	pr_info("registered successfully\n");
 	return 0;

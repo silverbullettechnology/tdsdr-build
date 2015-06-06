@@ -26,6 +26,7 @@
 #include "dsa/main.h"
 #include "dsm/dsm.h"
 #include "fifo/dev.h"
+#include "fifo/access.h"
 #include "fifo/adi_old.h"
 #include "fifo/adi_new.h"
 #include "fifo/dsxx.h"
@@ -953,8 +954,10 @@ for ( ret = 0; ret <= argc; ret++ )
 				pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
 
 		if ( (ret = pipe_access_release(~0)) )
-			LOG_ERROR("Access release for denied: %s\n", strerror(errno));
+			LOG_ERROR("Pipe-dev access release denied: %s\n", strerror(errno));
 	}
+	if ( fifo_access_release(~0) )
+		LOG_ERROR("FIFO-dev access release denied: %s\n", strerror(errno));
 
 	if ( pmon )
 	{

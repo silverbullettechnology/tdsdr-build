@@ -44,7 +44,6 @@ static unsigned long      pd_granted;
 
 struct pd_user_priv
 {
-	unsigned long     requested;
 	unsigned long     granted;
 	struct list_head  list;
 };
@@ -125,7 +124,7 @@ static int pd_access_release (struct pd_user_priv *priv, unsigned long bits)
 	/* Filter by bits already granted to this user, early out if no new bits */
 	if ( bits & ~priv->granted )
 	{
-		pr_info("%s: bits 0x%lx not granted to user, masked out\n",
+		pr_debug("%s: bits 0x%lx not granted to user, masked out\n",
 		        __func__, bits & ~priv->granted);
 		bits &= priv->granted;
 	}
@@ -148,11 +147,11 @@ static int pd_access_release (struct pd_user_priv *priv, unsigned long bits)
 		       bits & ~pd_granted);
 		return -EINVAL;
 	}
-	priv->granted &= bits;
-	pd_granted    &= bits;
+	priv->granted &= ~bits;
+	pd_granted    &= ~bits;
 	spin_unlock_irqrestore(&pd_lock, flags);
 
-	pr_info("%s: released bits 0x%lx\n", __func__, bits);
+	pr_debug("%s: released bits 0x%lx\n", __func__, bits);
 	return 0;
 }
 
@@ -183,7 +182,7 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			return put_user(reg, (unsigned long *)arg);
 
 
-		case PD_IOCS_ACCESS_REQUEST: /* TODO: implement */
+		case PD_IOCS_ACCESS_REQUEST:
 			return pd_access_request(priv, arg & PD_ACCESS_MASK);
 
 
@@ -943,6 +942,7 @@ static int pd_probe (struct platform_device *pdev)
 		REG_WRITE(&adi2axis[dev]->bytes,       8 << 20); // 8MB / 1MS
 	}
 
+	spin_lock_init(&pd_lock);
 	INIT_LIST_HEAD(&pd_users);
 
 	pr_info("registered successfully\n");

@@ -10,6 +10,7 @@ APP_OBJS := \
 	dsa/channel.o \
 	dsa/command.o \
 	dsm/dsm.o \
+	fifo/access.o \
 	fifo/adi_old.o \
 	fifo/adi_new.o \
 	fifo/dsxx.o \

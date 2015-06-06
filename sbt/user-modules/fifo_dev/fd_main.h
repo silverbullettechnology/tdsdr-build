@@ -53,6 +53,13 @@
 #define FD_NEW_CTRL_TX1          0x04
 #define FD_NEW_CTRL_TX2          0x08
 
+/* Access control bits */
+#define FD_ACCESS_AD1_RX  0x00000001  /* RX path on AD1 */
+#define FD_ACCESS_AD2_RX  0x00000002  /* RX path on AD2 */
+#define FD_ACCESS_AD1_TX  0x00000004  /* TX path on AD1 */
+#define FD_ACCESS_AD2_TX  0x00000008  /* TX path on AD2 */
+#define FD_ACCESS_MASK    0x0000000F  /* Bitmask for all bits */
+
 
 struct fd_fifo_counts
 {
@@ -80,16 +87,13 @@ struct fd_pmon_regs
 	unsigned long  val;
 };
 
-
 // Target list bitmap from xparameters
 #define  FD_IOCG_TARGET_LIST  _IOR(FD_IOCTL_MAGIC, 0, unsigned long *)
 
-// Some old debugging tools:
-// Get counters from ADI DPFD/LVDS interface FIFOs. 
-// Get clock counters for digital interface
-#define  FD_IOCG_FIFO_CNT          _IOR(FD_IOCTL_MAGIC, 1, struct fd_fifo_counts *)
-#define  FD_IOCG_ADI1_OLD_CLK_CNT  _IOR(FD_IOCTL_MAGIC, 2, unsigned long *)
-#define  FD_IOCG_ADI2_OLD_CLK_CNT  _IOR(FD_IOCTL_MAGIC, 3, unsigned long *)
+/* Access control IOCTLs */
+#define  FD_IOCG_ACCESS_AVAIL    _IOR(FD_IOCTL_MAGIC, 1, unsigned long *)
+#define  FD_IOCS_ACCESS_REQUEST  _IOW(FD_IOCTL_MAGIC, 2, unsigned long)
+#define  FD_IOCS_ACCESS_RELEASE  _IOW(FD_IOCTL_MAGIC, 3, unsigned long)
 
 // Access to ADI LVDS regs
 #define  FD_IOCS_ADI1_OLD_CTRL    _IOW(FD_IOCTL_MAGIC, 10, unsigned long)
@@ -157,6 +161,13 @@ struct fd_pmon_regs
 #define  FD_IOCG_PMON_REG      _IOR(FD_IOCTL_MAGIC, 80, struct fd_pmon_regs *)
 #define  FD_IOCS_PMON_REG_SO   _IOW(FD_IOCTL_MAGIC, 81, struct fd_pmon_regs *)
 #define  FD_IOCS_PMON_REG_RB   _IOW(FD_IOCTL_MAGIC, 82, struct fd_pmon_regs *)
+
+// Some old debugging tools:
+// Get counters from ADI DPFD/LVDS interface FIFOs. 
+// Get clock counters for digital interface
+#define  FD_IOCG_FIFO_CNT          _IOR(FD_IOCTL_MAGIC, 90, struct fd_fifo_counts *)
+#define  FD_IOCG_ADI1_OLD_CLK_CNT  _IOR(FD_IOCTL_MAGIC, 91, unsigned long *)
+#define  FD_IOCG_ADI2_OLD_CLK_CNT  _IOR(FD_IOCTL_MAGIC, 92, unsigned long *)
 
 
 #endif /* _INCLUDE_FD_MAIN_H */
