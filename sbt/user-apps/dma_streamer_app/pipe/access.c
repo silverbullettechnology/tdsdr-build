@@ -28,7 +28,7 @@
 #include "pipe/access.h"
 
 
-int pipe_access_avail (unsigned long  *bits)
+int pipe_access_avail (unsigned long *bits)
 {
 	int ret;
 
@@ -38,12 +38,11 @@ int pipe_access_avail (unsigned long  *bits)
 	return ret;
 }
 
-int pipe_access_request (unsigned long bits, unsigned long priority)
+int pipe_access_request (unsigned long bits)
 {
-	struct pd_access  access = { .priority = priority, .bits = bits };
-	int               ret;
+	int ret;
 
-	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_REQUEST, &access)) )
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_REQUEST, bits)) )
 		printf("PD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
 
 	return ret;
@@ -51,10 +50,9 @@ int pipe_access_request (unsigned long bits, unsigned long priority)
 
 int pipe_access_release (unsigned long bits)
 {
-	struct pd_access  access = { .priority = 0, .bits = bits };
-	int               ret;
+	int ret;
 
-	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_RELEASE, &access)) )
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_RELEASE, bits)) )
 		printf("PD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
 
 	return ret;

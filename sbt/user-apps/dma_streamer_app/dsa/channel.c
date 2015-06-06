@@ -758,7 +758,7 @@ int dsa_channel_access_request (int ident, unsigned long priority)
 	if ( (ident & (DC_DIR_RX|DC_DEV_AD2)) == (DC_DIR_RX|DC_DEV_AD2) )
 		bits |= PD_ACCESS_AD2_RX;
 
-	if ( (ret = pipe_access_request(bits, priority)) )
+	if ( (ret = pipe_access_request(bits)) )
 	{
 		LOG_ERROR("Access request for %s (priority %08lx) denied: %s\n",
 		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),

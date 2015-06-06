@@ -20,7 +20,7 @@
 
 
 int pipe_access_avail   (unsigned long *bits);
-int pipe_access_request (unsigned long  bits, unsigned long priority);
+int pipe_access_request (unsigned long  bits);
 int pipe_access_release (unsigned long  bits);
 
 

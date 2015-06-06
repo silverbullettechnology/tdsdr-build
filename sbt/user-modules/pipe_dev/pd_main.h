@@ -76,13 +76,7 @@
 #define PD_ACCESS_AD2_RX  0x00000002  /* RX path on AD2 */
 #define PD_ACCESS_AD1_TX  0x00000004  /* TX path on AD1 */
 #define PD_ACCESS_AD2_TX  0x00000008  /* TX path on AD2 */
-
-/* Access control request struct */
-struct pd_access
-{
-	unsigned long  priority;
-	unsigned long  bits;
-};
+#define PD_ACCESS_MASK    0x0000000F  /* TX path on AD2 */
 
 /* Integer + Fractional timestamp struct */
 struct pd_vita49_ts
@@ -114,9 +108,9 @@ struct pd_vita49_unpack
  */
 
 /* Access control IOCTLs */
-#define  PD_IOCG_ACCESS_AVAIL    _IOR(PD_IOCTL_MAGIC, 0, struct pd_access *)
-#define  PD_IOCS_ACCESS_REQUEST  _IOW(PD_IOCTL_MAGIC, 1, struct pd_access *)
-#define  PD_IOCS_ACCESS_RELEASE  _IOW(PD_IOCTL_MAGIC, 2, struct pd_access *)
+#define  PD_IOCG_ACCESS_AVAIL    _IOR(PD_IOCTL_MAGIC, 0, unsigned long *)
+#define  PD_IOCS_ACCESS_REQUEST  _IOW(PD_IOCTL_MAGIC, 1, unsigned long)
+#define  PD_IOCS_ACCESS_RELEASE  _IOW(PD_IOCTL_MAGIC, 2, unsigned long)
 
 /* ADI2AXIS IOCTLs */
 #define  PD_IOCS_ADI2AXIS_0_CTRL   _IOW(PD_IOCTL_MAGIC, 10, unsigned long)
