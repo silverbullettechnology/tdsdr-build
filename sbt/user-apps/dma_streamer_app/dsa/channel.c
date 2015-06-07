@@ -27,11 +27,11 @@
 #include <pd_main.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <dsm.h>
 
 #include "dsa/main.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
-#include "dsm/dsm.h"
 #include "common/common.h"
 
 #include "common/log.h"

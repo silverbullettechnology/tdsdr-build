@@ -26,9 +26,9 @@
 #include <ad9361.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <dsm.h>
 
 #include "dsa/main.h"
-#include "dsm/dsm.h"
 #include "dsa/command.h"
 #include "common/common.h"
 

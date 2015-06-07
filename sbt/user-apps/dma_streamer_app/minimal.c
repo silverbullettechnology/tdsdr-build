@@ -24,8 +24,8 @@
 #include <errno.h>
 
 #include <fifo_dev.h>
+#include <dsm.h>
 
-#include "dsm/dsm.h"
 #include "common/common.h"
 
 

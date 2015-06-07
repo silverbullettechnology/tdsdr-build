@@ -1,5 +1,5 @@
-/** \file      dsm/dsm.h
- *  \brief     interface declarations for common FIFO / DSM controls
+/** \file      dsm.h
+ *  \brief     interface declarations for DSM controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not

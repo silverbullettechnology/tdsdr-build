@@ -24,9 +24,9 @@
 #include <dma_streamer_mod.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <dsm.h>
 
 #include "dsa/main.h"
-#include "dsm/dsm.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
 #include "common/common.h"

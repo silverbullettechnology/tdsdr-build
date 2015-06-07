@@ -8,8 +8,7 @@ APP_OBJS := \
 	dsa/main.o \
 	dsa/format.o \
 	dsa/channel.o \
-	dsa/command.o \
-	dsm/dsm.o
+	dsa/command.o
 
 CFLAGS   += -I$(CURDIR)
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
@@ -29,19 +28,20 @@ else
 APP      := dsa_format
 endif
 
-CFLAGS += -Wall -Werror
-LDLIBS += -L$(STAGEDIR)/usr/lib -lfifo_dev -lpipe_dev
+CFLAGS  += -Wall -Werror
+LDFLAGS += -L$(STAGEDIR)/usr/lib
+LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm
 
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) -lm -lad9361 $(LDLIBS)
+	$(CC) $(LDFLAGS) $(LDFLAGS) -o $@ $(APP_OBJS) -lm $(LDLIBS)
 
 dsa_format: dsa/format.c common/common.c common/log.c
-	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ -lm $(LDLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -DUNIT_TEST -o $@ $^ -lm
 
-minimal: minimal.c dsm/dsm.c common/common.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+minimal: minimal.c common/common.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 pmon/pmon.a:
 	$(MAKE) -C pmon/
