@@ -71,7 +71,7 @@ int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:D:A:p:")) > -1 )
+	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:D:A:p:l:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -156,6 +156,15 @@ int dsa_command_options (int argc, char **argv)
 				LOG_DEBUG("optarg '%s' -> prio %08lx -> %lu.%04lu\n",
 				          optarg, dsa_opt_priority, dsa_opt_priority >> 16,
 				          ((dsa_opt_priority & 0xFFFF) * 10000) >> 16);
+				break;
+
+			// set VITA49 packet length in 32-bit words 
+			case 'l':
+				if ( (dsa_opt_v49_len = strtoul(optarg, NULL, 0)) & 1 )
+				{
+					LOG_ERROR("-l must be even\n");
+					return -1;
+				}
 				break;
 
 			case '?':
@@ -696,6 +705,7 @@ for ( ret = 0; ret <= argc; ret++ )
 		// Local mode: switch ADI/VITA49 sample pipeline to passthru mode and switch from
 		// SRIO to local DMA.
 		if ( dsa_pipe_dev )
+		{
 			for ( dev = 0; dev < 2; dev++ )
 			{
 				if ( dsa_evt.rx[dev] )
@@ -703,15 +713,19 @@ for ( ret = 0; ret <= argc; ret++ )
 					// reset blocks in the PL
 					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_RESET);
 					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
+					pipe_adi2axis_set_ctrl(dev,        PD_ADI2AXIS_CTRL_RESET);
 
-					// enable passthru
-					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_PASSTHRU);
-					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
-
-					// reset, set length, and enable passthru
-					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
-					pipe_adi2axis_set_bytes(dev, dsa_evt.rx[dev]->len * DSM_BUS_WIDTH);
-					pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_LEGACY);
+					// V49 packer experiments
+					if ( dsa_opt_v49_len )
+					{
+						pipe_vita49_pack_set_streamid(dev, 0x11223344);
+						pipe_vita49_pack_set_pkt_size(dev, dsa_opt_v49_len);
+						pipe_vita49_pack_set_trailer(dev,  0x11223344);
+						pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_ENABLE |
+						                                   PD_VITA49_PACK_CTRL_TRAILER);
+					}
+					else
+						pipe_vita49_pack_set_ctrl(dev, PD_VITA49_PACK_CTRL_PASSTHRU);
 
 					// Set adc_sw_dest switch to 0 for device
 					pipe_routing_reg_get_adc_sw_dest(&reg);
@@ -720,6 +734,14 @@ for ( ret = 0; ret <= argc; ret++ )
 						reg &= ~(1 << dev);
 						pipe_routing_reg_set_adc_sw_dest(reg);
 					}
+
+					// TODO: overhead for packet headers
+//					if ( dsa_opt_v49_len )
+					reg = dsa_evt.rx[dev]->len * DSM_BUS_WIDTH;
+					pipe_adi2axis_set_bytes(dev, reg);
+
+					// enable legacy timing - no triggers
+					pipe_adi2axis_set_ctrl(dev, PD_ADI2AXIS_CTRL_LEGACY);
 				}
 
 				if ( dsa_evt.tx[dev] )
@@ -733,6 +755,7 @@ for ( ret = 0; ret <= argc; ret++ )
 					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
 				}
 			}
+		}
 	}
 
 	// Data source/sink module
@@ -871,6 +894,28 @@ for ( ret = 0; ret <= argc; ret++ )
 
 		dsm_cleanup();
 		return -1;
+	}
+
+	if ( dsa_pipe_dev && (dsa_evt.rx[0] || dsa_evt.rx[1]) )
+	{
+//		time_t now = time(NULL);
+
+		pipe_vita49_clk_set_ctrl(0);
+		pipe_vita49_clk_get_tsi(&reg);
+		LOG_INFO("TSI is %lu\n", reg);
+
+		if ( reg < 86400 )
+		{
+			reg = 0x12341234;
+			pipe_vita49_clk_set_tsi(reg);
+			pipe_vita49_clk_set_ctrl(PD_VITA49_CLK_CTRL_SET_INT);
+			LOG_INFO("Set clock to %lu\n", reg);
+		}
+
+		pipe_vita49_clk_set_ctrl(PD_VITA49_CLK_CTRL_ENABLE);
+		for ( dev = 0; dev < 2; dev++ )
+			if ( dsa_evt.rx[dev] )
+				pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
 	}
 
 	if ( pmon )
@@ -1132,6 +1177,22 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	if ( dsm_cleanup() )
 		LOG_ERROR("DMA unmapping failed: %s\n", strerror(errno));
+
+	if ( dsa_adi_new && dsa_pipe_dev )
+	{
+		struct pd_vita49_ts  ts;
+		for ( dev = 0; dev < 2; dev++ )
+			if ( dsa_evt.rx[dev] )
+			{
+				pipe_vita49_trig_adc_set_ctrl(dev, 0);
+
+				memset(&ts, 0, sizeof(ts));
+				pipe_vita49_clk_read(dev, &ts);
+				LOG_FOCUS("AD%d TS after RX: %08lx.%08lx%08lx\n", dev + 1, 
+				          ts.tsi, ts.tsf_hi, ts.tsf_lo);
+
+			}
+	}
 
 	// save sink buffers 
 	if ( dsa_channel_save(&dsa_evt) < 0 )

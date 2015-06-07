@@ -931,15 +931,6 @@ static int pd_probe (struct platform_device *pdev)
 		REG_WRITE(&vita49_trig_adc[dev]->ctrl, 0);
 		REG_WRITE(&vita49_assem[dev]->cmd,     0);
 		msleep(1);
-
-		// enable passthru
-		REG_WRITE(&vita49_pack[dev]->ctrl,     PD_VITA49_PACK_CTRL_PASSTHRU);
-		REG_WRITE(&vita49_unpack[dev]->ctrl,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
-		REG_WRITE(&vita49_trig_dac[dev]->ctrl, PD_VITA49_TRIG_CTRL_PASSTHRU);
-		REG_WRITE(&vita49_trig_adc[dev]->ctrl, PD_VITA49_TRIG_CTRL_PASSTHRU);
-		REG_WRITE(&vita49_assem[dev]->cmd,     PD_VITA49_ASSEM_CMD_PASSTHRU);
-		REG_WRITE(&adi2axis[dev]->ctrl,        PD_ADI2AXIS_CTRL_LEGACY);
-		REG_WRITE(&adi2axis[dev]->bytes,       8 << 20); // 8MB / 1MS
 	}
 
 	spin_lock_init(&pd_lock);

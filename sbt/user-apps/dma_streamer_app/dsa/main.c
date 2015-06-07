@@ -49,6 +49,7 @@ const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
 const char *dsa_opt_pipe_dev = DEF_PIPE_DEVICE;
 size_t      dsa_total_words  = 0;
 long        dsa_opt_priority = DEF_PRIORITY;
+long        dsa_opt_v49_len  = 0;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];
@@ -74,7 +75,7 @@ int dsa_main_dev_reopen (void)
 {
 	if ( dsm_reopen(dsa_opt_dsm_dev) )
 	{
-		LOG_DEBUG("open(%s): %s\n", dsa_opt_dsm_dev, strerror(errno));
+		LOG_ERROR("open(%s): %s\n", dsa_opt_dsm_dev, strerror(errno));
 		return -1;
 	}
 
@@ -131,14 +132,14 @@ int dsa_main_dev_reopen (void)
 
 	if ( fifo_dev_reopen(dsa_opt_fifo_dev) )
 	{
-		LOG_DEBUG("open(%s): %s\n", dsa_opt_fifo_dev, strerror(errno));
+		LOG_ERROR("open(%s): %s\n", dsa_opt_fifo_dev, strerror(errno));
 		dsa_main_dev_close();
 		return -1;
 	}
 
 	if ( pipe_dev_reopen(dsa_opt_pipe_dev) )
 	{
-		LOG_DEBUG("open(%s): %s\n", dsa_opt_pipe_dev, strerror(errno));
+		LOG_ERROR("open(%s): %s\n", dsa_opt_pipe_dev, strerror(errno));
 		LOG_INFO("No pipe-dev, assuming local-only DSM stack (ie SDRDC)\n");
 		dsa_pipe_dev = 0;
 	}

@@ -69,7 +69,7 @@ int pipe_vita49_pack_get_stat (int dev, unsigned long *reg)
 	return ret;
 }
 
-int pipe_vita49_pack_set_strm_id (int dev, unsigned long reg)
+int pipe_vita49_pack_set_streamid (int dev, unsigned long reg)
 {
 	int ret;
 
@@ -79,7 +79,7 @@ int pipe_vita49_pack_set_strm_id (int dev, unsigned long reg)
 	return ret;
 }
 
-int pipe_vita49_pack_get_strm_id (int dev, unsigned long *reg)
+int pipe_vita49_pack_get_streamid (int dev, unsigned long *reg)
 {
 	int ret;
 

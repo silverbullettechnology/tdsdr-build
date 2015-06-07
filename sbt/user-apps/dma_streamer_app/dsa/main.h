@@ -45,6 +45,7 @@ extern const char *dsa_opt_dsm_dev;
 extern const char *dsa_opt_fifo_dev;
 extern size_t      dsa_total_words;
 extern long        dsa_opt_priority;
+extern long        dsa_opt_v49_len;
 
 extern char  env_data_path[];
 

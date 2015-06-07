@@ -22,8 +22,8 @@
 int pipe_vita49_pack_set_ctrl     (int dev, unsigned long  reg);
 int pipe_vita49_pack_get_ctrl     (int dev, unsigned long *reg);
 int pipe_vita49_pack_get_stat     (int dev, unsigned long *reg);
-int pipe_vita49_pack_set_strm_id  (int dev, unsigned long  reg);
-int pipe_vita49_pack_get_strm_id  (int dev, unsigned long *reg);
+int pipe_vita49_pack_set_streamid (int dev, unsigned long  reg);
+int pipe_vita49_pack_get_streamid (int dev, unsigned long *reg);
 int pipe_vita49_pack_set_pkt_size (int dev, unsigned long  reg);
 int pipe_vita49_pack_get_pkt_size (int dev, unsigned long *reg);
 int pipe_vita49_pack_set_trailer  (int dev, unsigned long  reg);
