@@ -23,20 +23,10 @@
 
 #include <dma_streamer_mod.h>
 #include <fifo_dev.h>
+#include <pipe_dev.h>
 
 #include "dsa/main.h"
 #include "dsm/dsm.h"
-#include "pipe/access.h"
-#include "pipe/adi2axis.h"
-#include "pipe/routing_reg.h"
-#include "pipe/swrite_pack.h"
-#include "pipe/swrite_unpack.h"
-#include "pipe/vita49_assem.h"
-#include "pipe/vita49_clk.h"
-#include "pipe/vita49_pack.h"
-#include "pipe/vita49_trig_adc.h"
-#include "pipe/vita49_trig_dac.h"
-#include "pipe/vita49_unpack.h"
 #include "dsa/sample.h"
 #include "dsa/channel.h"
 #include "common/common.h"

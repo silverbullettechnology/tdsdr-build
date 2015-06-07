@@ -1,5 +1,5 @@
-/** \file      pipe/vita49_clk.h
- *  \brief     interface declarations for VITA49 CLOCK IOCTLs
+/** \file      src/lib/routing_reg.c
+ *  \brief     implementation of ROUTING_REG IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,17 +15,35 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_PIPE_VITA49_CLK_H_
-#define _INCLUDE_PIPE_VITA49_CLK_H_
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+
 #include <pd_main.h>
 
-
-int pipe_vita49_clk_set_ctrl (unsigned long  reg);
-int pipe_vita49_clk_get_ctrl (unsigned long *reg);
-int pipe_vita49_clk_get_stat (unsigned long *reg);
-int pipe_vita49_clk_set_tsi  (unsigned long  reg);
-int pipe_vita49_clk_get_tsi  (unsigned long *reg);
-int pipe_vita49_clk_read     (int dev, struct pd_vita49_ts *ts);
+#include "pipe_dev.h"
+#include "private.h"
 
 
-#endif // _INCLUDE_PIPE_VITA49_CLK_H_
+int pipe_routing_reg_get_adc_sw_dest (unsigned long *reg)
+{
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_ROUTING_REG_ADC_SW_DEST, reg)) )
+		printf("PD_IOCG_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+int pipe_routing_reg_set_adc_sw_dest (unsigned long reg)
+{
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ROUTING_REG_ADC_SW_DEST, reg)) )
+		printf("PD_IOCS_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+

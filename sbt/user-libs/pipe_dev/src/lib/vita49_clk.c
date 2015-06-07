@@ -1,4 +1,4 @@
-/** \file      pipe/vita49_clk.c
+/** \file      src/lib/vita49_clk.c
  *  \brief     implementation of VITA49 CLOCK IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/vita49_clk.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int VITA49_CLK_READ[2] = { PD_IOCG_VITA49_CLK_READ_0, PD_IOCG_VITA49_CLK_READ_1 };

@@ -1,4 +1,4 @@
-/** \file      pipe/swrite_unpack.c
+/** \file      src/lib/swrite_unpack.c
  *  \brief     implementation of SWRITE_UNPACK IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/swrite_unpack.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int SWRITE_UNPACK_S_ADDR[2] = { PD_IOCS_SWRITE_UNPACK_ADDR_0, PD_IOCS_SWRITE_UNPACK_ADDR_1 };

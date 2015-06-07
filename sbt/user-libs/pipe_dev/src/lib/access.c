@@ -1,6 +1,6 @@
-/** \file      pipe/dev.c
- *  \brief     implementation of pipe-dev controls
- *  \copyright Copyright 2013,2014 Silver Bullet Technology
+/** \file      pipe/access.c
+ *  \brief     implementation of Access control IOCTLs
+ *  \copyright Copyright 2015 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *             use this file except in compliance with the License.  You may obtain a copy
@@ -16,42 +16,44 @@
  * vim:ts=4:noexpandtab
  */
 #include <stdio.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <sys/ioctl.h>
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
-int            pipe_dev_fd = -1;
-
-
-void pipe_dev_close (void)
+int pipe_access_avail (unsigned long *bits)
 {
-	if ( pipe_dev_fd >= 0 )
-		close(pipe_dev_fd);
-	pipe_dev_fd = -1;
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_ACCESS_AVAIL, bits)) )
+		printf("PD_IOCG_ACCESS_AVAIL: %d: %s\n", ret, strerror(errno));
+
+	return ret;
 }
 
-
-int pipe_dev_reopen (const char *node)
+int pipe_access_request (unsigned long bits)
 {
-	pipe_dev_close();
+	int ret;
 
-	errno = 0;
-	if ( (pipe_dev_fd = open(node, O_RDWR)) < 0 )
-		return pipe_dev_fd;
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_REQUEST, bits)) )
+		printf("PD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
 
-	return 0;
+	return ret;
 }
 
+int pipe_access_release (unsigned long bits)
+{
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_RELEASE, bits)) )
+		printf("PD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
 

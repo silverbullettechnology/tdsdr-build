@@ -1,4 +1,4 @@
-/** \file      pipe/vita49_trig_dac.c
+/** \file      src/lib/vita49_trig_dac.c
  *  \brief     implementation of data source/sink controls
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/vita49_trig_dac.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int VITA49_TRIG_S_CTRL[2] = { PD_IOCS_VITA49_TRIG_DAC_0_CTRL, PD_IOCS_VITA49_TRIG_DAC_1_CTRL };

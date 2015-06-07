@@ -1,4 +1,4 @@
-/** \file      pipe/vita49_pack.c
+/** \file      src/lib/vita49_pack.c
  *  \brief     implementation of VITA49_PACK IOCTLs
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/vita49_pack.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int VITA49_PACK_S_CTRL[2]     = { PD_IOCS_VITA49_PACK_0_CTRL,     PD_IOCS_VITA49_PACK_1_CTRL     };

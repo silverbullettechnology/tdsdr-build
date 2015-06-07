@@ -25,10 +25,10 @@
 
 #include <ad9361.h>
 #include <fifo_dev.h>
+#include <pipe_dev.h>
 
 #include "dsa/main.h"
 #include "dsm/dsm.h"
-#include "pipe/dev.h"
 #include "dsa/command.h"
 #include "common/common.h"
 

@@ -1,4 +1,4 @@
-/** \file      pipe/vita49_assem.c
+/** \file      src/lib/vita49_assem.c
  *  \brief     implementation of VITA49_ASSEM IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/vita49_assem.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int VITA49_ASSEM_S_CMD[2]     = { PD_IOCS_VITA49_ASSEM_0_CMD,     PD_IOCS_VITA49_ASSEM_1_CMD     };

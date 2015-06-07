@@ -9,19 +9,7 @@ APP_OBJS := \
 	dsa/format.o \
 	dsa/channel.o \
 	dsa/command.o \
-	dsm/dsm.o \
-	pipe/dev.o \
-	pipe/access.o \
-	pipe/adi2axis.o \
-	pipe/vita49_clk.o \
-	pipe/vita49_pack.o \
-	pipe/vita49_unpack.o \
-	pipe/vita49_assem.o \
-	pipe/vita49_trig_adc.o \
-	pipe/vita49_trig_dac.o \
-	pipe/routing_reg.o \
-	pipe/swrite_pack.o \
-	pipe/swrite_unpack.o
+	dsm/dsm.o
 
 CFLAGS   += -I$(CURDIR)
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
@@ -42,7 +30,7 @@ APP      := dsa_format
 endif
 
 CFLAGS += -Wall -Werror
-LDLIBS += -L$(STAGEDIR)/usr/lib -lfifo_dev
+LDLIBS += -L$(STAGEDIR)/usr/lib -lfifo_dev -lpipe_dev
 
 all: $(APP)
 

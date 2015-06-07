@@ -1,5 +1,5 @@
-/** \file      pipe/vita49_trig_adc.h
- *  \brief     interface declarations for data source/sink controls
+/** \file      src/lib/dev.c
+ *  \brief     implementation of pipe-dev controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,16 +15,43 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_PIPE_VITA49_TRIG_ADC_H_
-#define _INCLUDE_PIPE_VITA49_TRIG_ADC_H_
+#include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #include <pd_main.h>
 
-
-int pipe_vita49_trig_adc_set_ctrl (int dev, unsigned long  reg);
-int pipe_vita49_trig_adc_get_ctrl (int dev, unsigned long *reg);
-int pipe_vita49_trig_adc_get_stat (int dev, unsigned long *reg);
-int pipe_vita49_trig_adc_set_ts   (int dev, struct pd_vita49_ts *buf);
-int pipe_vita49_trig_adc_get_ts   (int dev, struct pd_vita49_ts *buf);
+#include "pipe_dev.h"
+#include "private.h"
 
 
-#endif // _INCLUDE_PIPE_VITA49_TRIG_ADC_H_
+int            pipe_dev_fd = -1;
+
+
+void pipe_dev_close (void)
+{
+	if ( pipe_dev_fd >= 0 )
+		close(pipe_dev_fd);
+	pipe_dev_fd = -1;
+}
+
+
+int pipe_dev_reopen (const char *node)
+{
+	pipe_dev_close();
+
+	errno = 0;
+	if ( (pipe_dev_fd = open(node, O_RDWR)) < 0 )
+		return pipe_dev_fd;
+
+	return 0;
+}
+
+

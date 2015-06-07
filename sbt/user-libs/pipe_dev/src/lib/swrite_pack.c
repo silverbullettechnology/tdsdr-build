@@ -1,4 +1,4 @@
-/** \file      pipe/swrite_pack.c
+/** \file      src/lib/swrite_pack.c
  *  \brief     implementation of data source/sink controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/swrite_pack.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int SWRITE_PACK_S_CMD[2]     = { PD_IOCS_SWRITE_PACK_0_CMD,     PD_IOCS_SWRITE_PACK_1_CMD     };

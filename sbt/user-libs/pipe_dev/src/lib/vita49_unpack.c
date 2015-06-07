@@ -1,4 +1,4 @@
-/** \file      pipe/vita49_unpack.c
+/** \file      src/lib/vita49_unpack.c
  *  \brief     implementation of VITA49_UNPACK IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/vita49_unpack.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int VITA49_UNPACK_S_CTRL[2]    = { PD_IOCS_VITA49_UNPACK_0_CTRL,    PD_IOCS_VITA49_UNPACK_1_CTRL    };

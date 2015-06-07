@@ -23,9 +23,8 @@
 
 #include <pd_main.h>
 
-#include "pipe/dev.h"
-#include "pipe/private.h"
-#include "pipe/adi2axis.h"
+#include "pipe_dev.h"
+#include "private.h"
 
 
 static int ADI2AXIS_S_CTRL[2]  = { PD_IOCS_ADI2AXIS_0_CTRL,  PD_IOCS_ADI2AXIS_1_CTRL  };
