@@ -23,9 +23,9 @@
 #include <getopt.h>
 #include <errno.h>
 
+#include <fifo_dev.h>
+
 #include "dsm/dsm.h"
-#include "fifo/dev.h"
-#include "fifo/dsxx.h"
 #include "common/common.h"
 
 

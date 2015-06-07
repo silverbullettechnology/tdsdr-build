@@ -24,10 +24,10 @@
 #include <errno.h>
 
 #include <ad9361.h>
+#include <fifo_dev.h>
 
 #include "dsa/main.h"
 #include "dsm/dsm.h"
-#include "fifo/dev.h"
 #include "pipe/dev.h"
 #include "dsa/command.h"
 #include "common/common.h"

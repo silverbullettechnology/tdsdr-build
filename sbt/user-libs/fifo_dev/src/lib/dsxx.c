@@ -1,4 +1,4 @@
-/** \file      fifo/dsxx.c
+/** \file      src/lib//dsxx.c
  *  \brief     implementation of data source/sink controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
-#include "fifo/dsxx.h"
+#include "fifo_dev.h"
+#include "private.h"
 
 
 static int DSRC_S_CTRL[2]  = { FD_IOCS_DSRC0_CTRL,  FD_IOCS_DSRC1_CTRL  };

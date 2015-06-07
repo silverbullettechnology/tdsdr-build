@@ -10,12 +10,6 @@ APP_OBJS := \
 	dsa/channel.o \
 	dsa/command.o \
 	dsm/dsm.o \
-	fifo/access.o \
-	fifo/adi_old.o \
-	fifo/adi_new.o \
-	fifo/dsxx.o \
-	fifo/dev.o \
-	fifo/pmon.o \
 	pipe/dev.o \
 	pipe/access.o \
 	pipe/adi2axis.o \
@@ -27,31 +21,39 @@ APP_OBJS := \
 	pipe/vita49_trig_dac.o \
 	pipe/routing_reg.o \
 	pipe/swrite_pack.o \
-	pipe/swrite_unpack.o \
-	pmon/pmon.a
+	pipe/swrite_unpack.o
 
 CFLAGS   += -I$(CURDIR)
-CFLAGS   += -I$(CURDIR)/pmon
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 CFLAGS   += -I$(PETALINUX)/software/user-modules/fifo_dev
 CFLAGS   += -I$(PETALINUX)/software/user-modules/pipe_dev
+
+# pmon disabled for now
+#CFLAGS   += -I$(CURDIR)/pmon -DDSA_USE_PMON
+#APP_OBJS += \
+	pmon/xaxipmon.o \
+	pmon/xaxipmon_g.o \
+	pmon/xaxipmon_selftest.o \
+	pmon/xaxipmon_sinit.o \
+	pmon/pmon.o
+
 else
 APP      := dsa_format
 endif
 
 CFLAGS += -Wall -Werror
-LDLIBS += -lm
+LDLIBS += -L$(STAGEDIR)/usr/lib -lfifo_dev
 
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS) -lad9361
+	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) -lm -lad9361 $(LDLIBS)
 
 dsa_format: dsa/format.c common/common.c common/log.c
-	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ -lm $(LDLIBS)
 
-minimal: minimal.c dsm/dsm.c common/common.c fifo/dev.c fifo/dsxx.c
-	$(CC) $(CFLAGS) -o $@ $^
+minimal: minimal.c dsm/dsm.c common/common.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 pmon/pmon.a:
 	$(MAKE) -C pmon/

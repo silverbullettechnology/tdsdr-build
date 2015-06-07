@@ -161,7 +161,7 @@ void GetPmonAXI4 (void)
 
 }
 
-#include "../fifo/pmon.h"
+#include <fifo_dev.h>
 u32 Xil_In32 (u32 addr)
 {
 	unsigned long  val;

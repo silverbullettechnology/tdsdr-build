@@ -1,6 +1,6 @@
-/** \file      fifo/adi_new.h
- *  \brief     interface declarations for new ADI DAC/ADC controls
- *  \copyright Copyright 2013,2014 Silver Bullet Technology
+/** \file      fifo_dev.h
+ *  \brief     interface declarations for FIFO-dev IOCTLs library
+ *  \copyright Copyright 2015 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *             use this file except in compliance with the License.  You may obtain a copy
@@ -45,10 +45,35 @@
  *           CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  *           OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *           OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_FIFO_ADI_NEW_H_
-#define _INCLUDE_FIFO_ADI_NEW_H_
+#ifndef _INCLUDE_FIFO_DEV_H_
+#define _INCLUDE_FIFO_DEV_H_
+#include <fd_main.h>
 
+
+/******* Device handle open/close functions *******/
+
+
+extern unsigned long  fifo_dev_target_mask;
+
+
+int  fifo_dev_reopen (const char *node);
+void fifo_dev_close  (void);
+
+
+const char *fifo_dev_target_desc (unsigned long mask);
+
+
+/******* Access request / release functions *******/
+
+int fifo_access_avail   (unsigned long *bits);
+int fifo_access_request (unsigned long  bits);
+int fifo_access_release (unsigned long  bits);
+
+
+/******* New AD9361 FIFO control bits and functions *******/
 
 #define ADI_NEW_RX 0
 #define ADI_NEW_TX 1
@@ -187,4 +212,46 @@ int fifo_adi_new_read  (int dev, int tx, unsigned long ofs, unsigned long *val);
 int fifo_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long  val);
 
 
-#endif // _INCLUDE_FIFO_ADI_NEW_H_
+/******* Old AD9361 FIFO functions *******/
+
+
+int fifo_adi_old_set_ctrl     (int dev, unsigned long reg);
+int fifo_adi_old_get_ctrl     (int dev, unsigned long *reg);
+int fifo_adi_old_set_tx_cnt   (int dev, unsigned long len, unsigned long reps);
+int fifo_adi_old_get_tx_cnt   (int dev, unsigned long *reg);
+int fifo_adi_old_set_rx_cnt   (int dev, unsigned long len, unsigned long reps);
+int fifo_adi_old_get_rx_cnt   (int dev, unsigned long *reg);
+int fifo_adi_old_get_sum      (int dev, unsigned long *sum);
+int fifo_adi_old_get_last     (int dev, unsigned long *last);
+int fifo_adi_old_get_fifo_cnt (struct fd_fifo_counts *fb);
+int fifo_adi_old_chksum_reset (int dev);
+
+
+/******* Old data source/sink blocks functions *******/
+
+
+int fifo_dsrc_set_ctrl  (int dev, unsigned long  reg);
+int fifo_dsrc_get_stat  (int dev, unsigned long *reg);
+int fifo_dsrc_set_bytes (int dev, unsigned long  reg);
+int fifo_dsrc_get_bytes (int dev, unsigned long *reg);
+int fifo_dsrc_get_sent  (int dev, unsigned long *reg);
+int fifo_dsrc_set_type  (int dev, unsigned long  reg);
+int fifo_dsrc_get_type  (int dev, unsigned long *reg);
+int fifo_dsrc_set_reps  (int dev, unsigned long  reg);
+int fifo_dsrc_get_reps  (int dev, unsigned long *reg);
+int fifo_dsrc_get_rsent (int dev, unsigned long *reg);
+
+int fifo_dsnk_set_ctrl  (int dev, unsigned long  reg);
+int fifo_dsnk_get_stat  (int dev, unsigned long *reg);
+int fifo_dsnk_get_bytes (int dev, unsigned long *reg);
+int fifo_dsnk_get_sum   (int dev, unsigned long *reg);
+
+
+/******* Xilinx AXI performance monitor functions *******/
+
+
+int fifo_pmon_read  (unsigned long ofs, unsigned long *val);
+int fifo_pmon_write (unsigned long ofs, unsigned long  val);
+
+
+#endif // _INCLUDE_FIFO_DEV_H_

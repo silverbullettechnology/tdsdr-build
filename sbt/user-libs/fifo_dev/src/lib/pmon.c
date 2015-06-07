@@ -1,4 +1,4 @@
-/** \file      fifo/pmon.c
+/** \file      src/lib/pmon.c
  *  \brief     implementation of register access to performance monitor
  *  \copyright Copyright 2014 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
-#include "fifo/pmon.h"
+#include "fifo_dev.h"
+#include "private.h"
 
 
 int fifo_pmon_read (unsigned long ofs, unsigned long *val)

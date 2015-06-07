@@ -22,15 +22,10 @@
 #include <errno.h>
 
 #include <dma_streamer_mod.h>
+#include <fifo_dev.h>
 
 #include "dsa/main.h"
 #include "dsm/dsm.h"
-#include "fifo/dev.h"
-#include "fifo/access.h"
-#include "fifo/adi_old.h"
-#include "fifo/adi_new.h"
-#include "fifo/dsxx.h"
-#include "fifo/pmon.h"
 #include "pipe/access.h"
 #include "pipe/adi2axis.h"
 #include "pipe/routing_reg.h"
@@ -46,7 +41,9 @@
 #include "dsa/channel.h"
 #include "common/common.h"
 
+#ifdef DSA_USE_PMON
 #include "pmon/pmon.h"
+#endif // DSA_USE_PMON
 
 #include "common/log.h"
 LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
@@ -428,7 +425,9 @@ void dsa_command_trigger_usage (void)
 	       "-f  Debugging: show FIFO counters before and after transfer\n"
 	       "-u  Debugging: un-transpose RX data after transfer in software\n"
 	       "-c  Debugging: debug FIFO control registers before and after transfer\n\n"
+#ifdef DSA_USE_PMON
 	       "-p  Debugging: collect pmon stats\n\n"
+#endif
 	       "The positional arguments support several operating modes:\n"
 	       "- reps may be a numeric number of repetitions to trigger, once, before cleaning\n"
 	       "  up and exiting.  The number may suffixed with K or M for convenience.\n"
@@ -555,7 +554,9 @@ int dsa_command_trigger (int argc, char **argv)
 	int                 utp      = 0;
 	int                 ctrl     = 0;
 	int                 ensm     = 0;
+#ifdef DSA_USE_PMON
 	int                 pmon     = 0;
+#endif // DSA_USE_PMON
 	int                 ret;
 	int                 dev;
 
@@ -575,18 +576,22 @@ for ( ret = 0; ret <= argc; ret++ )
 			case 'e': exp = 1;   break;
 			case 'u': utp = 1;   break;
 			case 'c': ctrl = 1;  break;
-			case 'p': pmon = 1;  break;
+#ifdef DSA_USE_PMON
+			case 'p': pmon = 1; break;
+#endif // DSA_USE_PMON
 
 			default:
 				return -1;
 		}
 
 	errno = 0;
+#ifdef DSA_USE_PMON
 	if ( pmon && (Init_Pmon() || errno) )
 	{
 		LOG_ERROR("pmon failed to init, stop\n");
 		return -1;
 	}
+#endif // DSA_USE_PMON
 
 	// figure number of reps from argument
 	if ( !argv[optind] || !strcasecmp(argv[optind], "once") )
@@ -918,12 +923,14 @@ for ( ret = 0; ret <= argc; ret++ )
 				pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
 	}
 
+#ifdef DSA_USE_PMON
 	if ( pmon )
 	{
 		Reset_Pmon();
 		SetPmonAXIS();
 		SetPmonAXI4();
 	}
+#endif // DSA_USE_PMON
 
 	// Trigger DMA and block until complete
 	switch ( trig )
@@ -1004,12 +1011,14 @@ for ( ret = 0; ret <= argc; ret++ )
 	if ( fifo_access_release(~0) )
 		LOG_ERROR("FIFO-dev access release denied: %s\n", strerror(errno));
 
+#ifdef DSA_USE_PMON
 	if ( pmon )
 	{
 		GetPmonAXIS();
 		GetPmonAXI4();
 		Reset_Pmon();
 	}
+#endif // DSA_USE_PMON
 
 	if ( !ensm && dsa_channel_ensm_wake )
 		dsa_channel_sleep();

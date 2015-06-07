@@ -1,4 +1,4 @@
-/** \file      fifo/dev.c
+/** \file      src/lib/dev.c
  *  \brief     implementation of FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -28,8 +28,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
+#include "fifo_dev.h"
+#include "private.h"
 
 
 int            fifo_dev_fd = -1;

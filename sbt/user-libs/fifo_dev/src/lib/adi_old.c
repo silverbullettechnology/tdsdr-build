@@ -1,4 +1,4 @@
-/** \file      fifo/adi_old.c
+/** \file      src/lib/adi_old.c
  *  \brief     implementation for legacy ADI FIFO controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
-#include "fifo/adi_old.h"
+#include "fifo_dev.h"
+#include "private.h"
 
 
 static int  ADI_S_CTRL[2]   = { FD_IOCS_ADI1_OLD_CTRL,   FD_IOCS_ADI2_OLD_CTRL   };

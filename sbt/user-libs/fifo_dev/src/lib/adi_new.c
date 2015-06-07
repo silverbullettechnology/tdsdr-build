@@ -1,4 +1,4 @@
-/** \file      fifo/adi_new.c
+/** \file      src/lib/adi_new.c
  *  \brief     implementation of new ADI DAC/ADC controls
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -23,12 +23,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
-#include "fifo/adi_new.h"
-
-#include "common/log.h"
-LOG_MODULE_STATIC("ioctl_adi_new", LOG_LEVEL_INFO);
+#include "fifo_dev.h"
+#include "private.h"
 
 
 int fifo_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *val)

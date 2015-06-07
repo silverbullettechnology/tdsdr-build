@@ -1,4 +1,4 @@
-/** \file      fifo/access.c
+/** \file      src/lib/access.c
  *  \brief     implementation of Access control IOCTLs
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -23,9 +23,8 @@
 
 #include <fd_main.h>
 
-#include "fifo/dev.h"
-#include "fifo/private.h"
-#include "fifo/access.h"
+#include "fifo_dev.h"
+#include "private.h"
 
 
 int fifo_access_avail (unsigned long *bits)
