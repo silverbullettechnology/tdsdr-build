@@ -21,7 +21,8 @@
 #include <stdint.h>
 #include <limits.h>
 
-#include "dsa/format.h"
+#include <format.h>
+
 #include "dsa/sample.h"
 
 
@@ -39,8 +40,8 @@
 // describes the data source / sink for a single channel within a transfer
 struct dsa_channel_sxx
 {
-	struct format *fmt;
-	char           loc[0];
+	struct format_class *fmt;
+	char                 loc[0];
 };
 
 // describes a single transfer buffer for one ADI part in one direction
@@ -68,7 +69,7 @@ extern int dsa_channel_ensm_wake;
 int  dsa_channel_ident   (const char *argv0);
 int  dsa_channel_buffer  (struct dsa_channel_event *evt, int ident, size_t len, int paint);
 int  dsa_channel_sxx     (struct dsa_channel_event *evt, int ident, int sxx,
-                          struct format *fmt, const char *loc);
+                          struct format_class *fmt, const char *loc);
 void dsa_channel_cleanup (struct dsa_channel_event *evt);
 
 const char *dsa_channel_desc (int ident);
@@ -79,7 +80,6 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh);
 int dsa_channel_save (struct dsa_channel_event *evt);
 
 void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps, int dsxx);
-void dsa_format_list(FILE *fp);
 
 // calculates the DMA timeout for the largest allocated buffer at the given sample 
 // rate (currently 4MSPS), with a +25% margin.

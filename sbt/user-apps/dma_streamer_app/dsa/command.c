@@ -104,7 +104,7 @@ int dsa_command_options (int argc, char **argv)
 				break;
 
 			case 'f':
-				if ( !(dsa_opt_format = format_find(optarg)) )
+				if ( !(dsa_opt_format = format_class_find(optarg)) )
 				{
 					LOG_ERROR("Invalid format name '%s'\n", optarg);
 					return -1;
@@ -164,7 +164,7 @@ int dsa_command_options (int argc, char **argv)
 	}
 
 	if ( !dsa_opt_format )
-		dsa_opt_format = format_find(DEF_FORMAT);
+		dsa_opt_format = format_class_find(DEF_FORMAT);
 	if ( !dsa_opt_format )
 	{
 		LOG_DEBUG("No %s format, stop.", DEF_FORMAT);
@@ -220,11 +220,11 @@ void dsa_command_setup_usage (void)
 
 int dsa_command_setup (int sxx, int argc, char **argv)
 {
-	struct format *fmt   = NULL;
-	size_t         len   = 0;
-	int            paint = 1;
-	int            ret;
-	int            ident;
+	struct format_class *fmt   = NULL;
+	size_t               len   = 0;
+	int                  paint = 1;
+	int                  ret;
+	int                  ident;
 
 	LOG_DEBUG("dsa_parse_channel(argc %d, argv):\n", argc);
 	for ( ret = 0; ret <= argc; ret++ )
@@ -291,7 +291,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 				break;
 
 			case 'f':
-				if ( !(fmt = format_find(optarg)) )
+				if ( !(fmt = format_class_find(optarg)) )
 				{
 					LOG_ERROR("Invalid format name '%s'\n", optarg);
 					return -1;
@@ -303,7 +303,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 		}
 	}
 LOG_DEBUG("len %zu, paint %d, fmt %s, loc %s\n", 
-        len, paint, fmt ? fmt->name : "(none)",
+        len, paint, fmt ? format_class_name(fmt) : "(none)",
 		argv[optind] ? argv[optind] : "(none)");
 
 	// for an RX buffer, prefer the local value, fallback to the default value, must be >0
@@ -357,17 +357,18 @@ LOG_DEBUG("len %zu, paint %d, fmt %s, loc %s\n",
 		if ( (p = strchr(argv[optind], ':')) )
 		{
 			*p++ = '\0';
-			if ( !(fmt = format_find(argv[optind])) )
+			if ( !(fmt = format_class_find(argv[optind])) )
 			{
 				LOG_ERROR("Format '%s' not known\n", argv[optind]);
 				return -1;
 			}
 		}
 		// fallback: guess from filename
-		else if ( !fmt && (fmt = format_guess(argv[optind])) )
+		else if ( !fmt && (fmt = format_class_guess(argv[optind])) )
 		{
 			p = argv[optind];
-			LOG_DEBUG("Format '%s' guessed from filename '%s'\n", fmt->name, argv[optind]);
+			LOG_DEBUG("Format '%s' guessed from filename '%s'\n", 
+			          format_class_name(fmt), argv[optind]);
 		}
 		// fallback: use default format 
 		else if ( dsa_opt_format )

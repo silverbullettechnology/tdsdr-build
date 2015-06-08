@@ -54,7 +54,7 @@ long        dsa_opt_v49_len  = 0;
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];
 
-struct format *dsa_opt_format = NULL;
+struct format_class     *dsa_opt_format = NULL;
 struct dsa_channel_event dsa_evt;
 
 unsigned long  dsa_dsm_rx_channels[2] = { 0, 2 };
@@ -197,7 +197,7 @@ static void dsa_main_formats (void)
 {
 	printf("The following formats are compiled in.  Some formats are output-only, and not\n"
 	       "used for loading sample data.\n");
-	dsa_format_list(stdout);
+	format_class_list(stdout);
 	printf("\n");
 }
 

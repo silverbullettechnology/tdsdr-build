@@ -1,5 +1,5 @@
-/** \file      dsa_format.h
- *  \brief     I/O formatters
+/** \file      private.h
+ *  \brief     I/O formatters - private definitions
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,8 +15,9 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _DSA_FORMAT_H_
-#define _DSA_FORMAT_H_
+#ifndef _PRIVATE_H_
+#define _PRIVATE_H_
+#include <stdio.h>
 
 
 typedef long (* format_size_fn)   (FILE *fp, int chan);
@@ -24,7 +25,7 @@ typedef int  (* format_read_fn)   (FILE *fp, void *buff, size_t size, int chan, 
 typedef int  (* format_write_fn)  (FILE *fp, void *buff, size_t size, int chan);
 
 
-struct format
+struct format_class
 {
 	const char      *name;
 	const char      *exts;
@@ -34,49 +35,8 @@ struct format
 };
 
 
-struct format *format_find (const char *name);
-struct format *format_guess (const char *name);
+extern FILE *format_debug;
 
 
-static inline int format_size (struct format *fmt, FILE *fp, int chan)
-{
-	if ( !fmt || !fmt->size )
-	{
-		errno = ENOSYS;
-		return -1;
-	}
 
-	return fmt->size(fp, chan);
-}
-
-static inline int format_read (struct format *fmt, FILE *fp, void *buff, size_t size,
-                               int chan, int lsh)
-{
-	if ( !fmt || !fmt->read )
-	{
-		errno = ENOSYS;
-		return -1;
-	}
-
-	return fmt->read(fp, buff, size, chan, lsh);
-}
-
-static inline int format_write (struct format *fmt, FILE *fp, void *buff, size_t size,
-                                int chan)
-{
-	if ( !fmt || !fmt->write )
-	{
-		errno = ENOSYS;
-		return -1;
-	}
-
-	return fmt->write(fp, buff, size, chan);
-}
-
-
-void hexdump_line (FILE *fp, const unsigned char *ptr, int len);
-void hexdump_buff (FILE *fp, const void *buf, int len);
-void smpdump (FILE *fp, void *buff, size_t size);
-
-
-#endif /* _DSA_FORMAT_H_ */
+#endif // _PRIVATE_H_

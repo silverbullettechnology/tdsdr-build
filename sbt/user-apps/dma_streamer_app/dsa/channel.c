@@ -299,7 +299,7 @@ static struct dsa_channel_sxx **xfer_to_sxx (struct dsa_channel_xfer *xfer, int 
 // sizes, allocates, initializes, and returns a dsa_channel_sxx for the given user
 // bitmask, format, and location string.  TODO is location expansion with printf-style
 // format characters, which will complicate sizing the string and thus the buffer.
-static struct dsa_channel_sxx *sxx_int (struct format *fmt, const char *loc,
+static struct dsa_channel_sxx *sxx_int (struct format_class *fmt, const char *loc,
                                         int dev, int dir, int sxx, int chan)
 {
 	struct dsa_channel_sxx *ret;
@@ -394,7 +394,7 @@ static struct dsa_channel_sxx *sxx_int (struct format *fmt, const char *loc,
 // spec, but may be different to allow for unusual cases (see xfer_to_sxx above).  Returns
 // 0 on success, <0 on error.
 int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
-                     struct format *fmt, const char *loc)
+                     struct format_class *fmt, const char *loc)
 {
 	struct dsa_channel_xfer **xfer;
 	struct dsa_channel_sxx  **sxx;
@@ -528,7 +528,7 @@ static void dump_sxx (struct dsa_channel_sxx *sxx)
 
 	LOG_DEBUG("\t\tfmt: %p",   sxx->fmt);
 	if ( sxx->fmt )
-		LOG_DEBUG(" (%s)", sxx->fmt->name);
+		LOG_DEBUG(" (%s)", format_class_name(sxx->fmt));
 	LOG_DEBUG("\n");
 	LOG_DEBUG("\t\tloc: %s\n", sxx->loc);
 }
@@ -583,7 +583,7 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 					{
 						LOG_DEBUG("  load src for dev/dir/chan %s: %s:%s\n",
 						        dsa_channel_desc(dev|dir|chan),
-						        (*sxx)->fmt ? (*sxx)->fmt->name : "???",
+						        (*sxx)->fmt ? format_class_name((*sxx)->fmt) : "???",
 						        (*sxx)->loc);
 
 						if ( !(*sxx)->fmt )
@@ -610,17 +610,9 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						if ( ! (*xfer)->smp )
 						{
 							LOG_DEBUG("Late buffer alloc attempt\n");
-							if ( !(*sxx)->fmt->size )
-							{
-								LOG_ERROR("Format %s can't estimate size\n",
-						                  (*sxx)->fmt ? (*sxx)->fmt->name : "???");
-								errno = ENOSYS;
-								return -1;
-							}
 							if ( (len = format_size((*sxx)->fmt, fp, chan)) < 0 )
 							{
-								LOG_ERROR("Format size failed: %s\n",
-						                  strerror(errno));
+								LOG_ERROR("Format size failed: %s\n", strerror(errno));
 								return -1;
 							}
 							len /= sizeof(struct dsa_sample_pair);
@@ -641,7 +633,7 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						if ( ret < 0 )
 						{
 							LOG_ERROR("format_read(%s, %s, %zu) failed: %s",
-							          (*sxx)->fmt->name, loc,
+							          format_class_name((*sxx)->fmt), loc,
 							          (*xfer)->len * sizeof(struct dsa_sample_pair),
 									  strerror(errno));
 							fclose(fp);
@@ -676,7 +668,7 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 					{
 						LOG_DEBUG("  save snk for dev/dir/chan %s: %s:%s\n",
 						        dsa_channel_desc(dev|dir|chan),
-						        (*sxx)->fmt ? (*sxx)->fmt->name : "???",
+						        (*sxx)->fmt ? format_class_name((*sxx)->fmt) : "???",
 						        (*sxx)->loc);
 
 						if ( !(*sxx)->fmt )
@@ -701,7 +693,7 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 						if ( ret < 0 )
 						{
 							LOG_ERROR("format_write(%s, %s, %zu) failed: %s\n",
-							          (*sxx)->fmt->name, (*sxx)->loc,
+							          format_class_name((*sxx)->fmt), (*sxx)->loc,
 							          (*xfer)->len * sizeof(struct dsa_sample_pair),
 									  strerror(errno));
 							fclose(fp);
@@ -1147,7 +1139,7 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 
 
 #ifdef UNIT_TEST
-struct format             fmt;
+struct format_class       fmt;
 struct dsa_channel_event  evt;
 
 int main (int argc, char **argv)

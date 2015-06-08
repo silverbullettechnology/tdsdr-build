@@ -1,4 +1,4 @@
-/** \file      dsm.v
+/** \file      format.v
  *  \brief     Shared-library exports and version control
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,24 +15,18 @@
  *
  * vim:ts=4:noexpandtab
  */
-dsm_0.1 {
+format_0.1 {
 	global:
-		/* dsm.c */
-		dsm_limits;
-		dsm_channels;
-		dsm_close;
-		dsm_reopen;
-		dsm_user_alloc;
-		dsm_user_free;
-		dsm_map_user_array;
-		dsm_map_user;
-		dsm_cleanup;
-		dsm_set_timeout;
-		dsm_oneshot_start;
-		dsm_oneshot_wait;
-		dsm_get_stats;
-		dsm_cyclic_stop;
-		dsm_cyclic_start;
+		/* src/lib/common.c */
+		format_debug_setup;
+		format_class_list;
+		format_class_find;
+		format_class_guess;
+		format_class_name;
+		dsa_format_list;
+		format_size;
+		format_read;
+		format_write;
 	local:
 		*;
 };

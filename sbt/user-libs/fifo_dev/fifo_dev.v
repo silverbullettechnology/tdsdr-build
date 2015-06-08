@@ -15,7 +15,7 @@
  *
  * vim:ts=4:noexpandtab
  */
-pipe_dev_0.1 {
+fifo_dev_0.1 {
 	global:
 		/* src/lib/access.c */
 		fifo_access_avail;

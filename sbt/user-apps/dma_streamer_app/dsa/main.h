@@ -49,7 +49,7 @@ extern long        dsa_opt_v49_len;
 
 extern char  env_data_path[];
 
-extern struct format            *dsa_opt_format;
+extern struct format_class      *dsa_opt_format;
 extern struct dsa_channel_event  dsa_evt;
 
 extern unsigned long  dsa_dsm_rx_channels[];

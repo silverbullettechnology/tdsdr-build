@@ -1,12 +1,11 @@
 ifdef PETALINUX
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
-APP      := dma_streamer_app dsa_format minimal
+APP      := dma_streamer_app minimal
 APP_OBJS := \
 	common/common.o \
 	common/log.o \
 	dsa/main.o \
-	dsa/format.o \
 	dsa/channel.o \
 	dsa/command.o
 
@@ -23,22 +22,16 @@ CFLAGS   += -I$(PETALINUX)/software/user-modules/pipe_dev
 	pmon/xaxipmon_selftest.o \
 	pmon/xaxipmon_sinit.o \
 	pmon/pmon.o
-
-else
-APP      := dsa_format
 endif
 
 CFLAGS  += -Wall -Werror
 LDFLAGS += -L$(STAGEDIR)/usr/lib
-LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm
+LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm -lformat
 
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
 	$(CC) $(LDFLAGS) $(LDFLAGS) -o $@ $(APP_OBJS) -lm $(LDLIBS)
-
-dsa_format: dsa/format.c common/common.c common/log.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -DUNIT_TEST -o $@ $^ -lm
 
 minimal: minimal.c common/common.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
