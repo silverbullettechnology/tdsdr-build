@@ -13,6 +13,3 @@
 #
 # vim:ts=4:noexpandtab
 
-export STAGEDIR  := stage
-export CFLAGS    += -Istage/usr/include
-

@@ -241,13 +241,6 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 	}
 	LOG_DEBUG("  argv[0] '%s' -> %s\n", argv[0], dsa_channel_desc(ident));
 
-	// check for access to stack
-	if ( dsa_adi_new && dsa_pipe_dev )
-	{
-		if ( (ret = dsa_channel_access_request(ident, dsa_opt_priority)) )
-			return ret;
-	}
-
 	// check the requested buffer mask is supported by the active channels in the
 	// ADI9361(s)
 	if ( (ret = dsa_channel_check_active(ident)) )
@@ -399,6 +392,11 @@ LOG_DEBUG("len %zu, paint %d, fmt %s, loc %s\n",
 		LOG_ERROR("No filename given.\n");
 		return -1;
 	}
+
+	// request access to stack
+	if ( dsa_adi_new && dsa_pipe_dev )
+		if ( (ret = dsa_channel_access_request(ident, dsa_opt_priority)) )
+			return ret;
 
 LOG_DEBUG("dsa_parse_channel(): return %d\n", optind);
 	return optind;

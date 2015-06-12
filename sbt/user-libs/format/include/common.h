@@ -1,4 +1,4 @@
-/** \file      dsa_common.h
+/** \file      common.h
  *  \brief     interfaces for various utility functions
  *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DSA_COMMON_H_
-#define _INCLUDE_DSA_COMMON_H_
+#ifndef _INCLUDE_COMMON_H_
+#define _INCLUDE_COMMON_H_
 #include <stdarg.h>
 #include <stdint.h>
 
@@ -56,4 +56,4 @@ char *path_match (char *dst, size_t max, const char *search, const char *leaf);
 unsigned long pow10_32 (unsigned e);
 
 
-#endif // _INCLUDE_DSA_COMMON_H_
+#endif // _INCLUDE_COMMON_H_

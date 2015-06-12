@@ -28,180 +28,368 @@
 #include <format.h>
 #include <common.h>
 
-// temporary
-#define DC_CHAN_1      0x10
-#define DC_CHAN_2      0x20
-#define DSM_BUS_WIDTH  8
+#ifndef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
 
-char *argv0;
-char *opt_in_file    = NULL;
-char *opt_in_format  = NULL;
-char *opt_out_file   = NULL;
-char *opt_out_format = NULL;
-int   opt_size       = 0;
-int   opt_chan       = 0;
-int   opt_lsh        = 0;
-int   opt_verbose    = 0;
+char   *argv0;
+FILE   *debug        = NULL;
+long    opt_size_num = -1;
+char    opt_size_pre = '\0';
+char    opt_size_suf = '\0';
+size_t  size         = 0;
 
-static int usage (void)
+enum { IN, OUT, MAX };
+struct opts
 {
-	printf("Usage: %s [-12lv] [-s size] in-format[:in-file] out-format[:out-file]\n"
-	       "Where:\n"
-	       "-1       For single-channel formats like .iqw, use only channel 1\n"
-	       "-2       For single-channel formats like .iqw, use only channel 2\n"
-	       "-l       Left-shift loaded data 4 bits for new ADI PL\n"
-	       "-v       Verbose debugging messages\n"
-	       "-s size  When reading stdin, specify the buffer size.\n"
+	char                  *file;
+	char                  *format;
+	struct format_class   *fmt_class;
+	struct format_options  fmt_opts;
+}
+opts[MAX];
+const char *dirs[MAX] = { "IN", "OUT" };
+
+struct format_options  default_opts =
+{
+	.channels = 0,
+	.single   = sizeof(uint16_t) * 2,
+	.sample   = sizeof(uint16_t) * 4,
+	.bits     = 12,
+	.packet   = 0,
+	.head     = 0,
+	.data     = 0,
+	.foot     = 0,
+};
+
+
+static void progress (size_t done, size_t size)
+{
+	if ( !size )
+		fprintf(stderr, "Failed!");
+	else if ( !done )
+		fprintf(stderr, "  0%%");
+	else if ( done >= size )
+		fprintf(stderr, "\b\b\b\b100%%\n");
+	else
+	{
+		unsigned long long prog = done;
+		prog *= 100;
+		prog /= size;
+		fprintf(stderr, "\b\b\b\b%3llu%%", prog);
+	}
+}
+
+
+static void usage (void)
+{
+	fprintf(stderr,
+	       "Usage: %s [-v] [-s|-S size] [-c num] [in-opts] [in-format:]in-file [out-opts] [out-format:]out-file\n"
 	       "\n"
-	       "If in-file is not given or '-' then read from stdin\n"
+	       "Global options:\n"
+	       "-v       Enable debugging messages\n"
+	       "-S size  Specify buffer size in samples, K or M suffix allowed\n"
+	       "-s size  Specify buffer size to load/save in bytes, K or M suffix allowed\n"
+	       "-c num   Set number of channels in buffer (default 2, max 8)\n"
+	       "Size is calculated from in-file if not specified; if specified and smaller than\n"
+	       "in-file, the data will be truncated, if larger than in-file then in-file will\n"
+	       "repeated to fill the buffer.  K/M mean 1E3/1E6 for samples, 2^10/2^20 for bytes\n"
+	       "\n"
+	       "File options may be given before each filename; out-file options default to the\n"
+	       "in-file options for straight format conversion, or may differ to isolate/copy\n"
+	       "sample data.\n"
+	       "\n"
+	       "File options: [-12345678a] [-b bits] [-p spec]\n"
+	       "-1-8     Operate on numbered channel (default all)\n"
+	       "-a       Operate on all channels\n"
+	       "-q       Quiet - do not show progresss\n"
+	       "-b bits  Number of significant bits (default 12)\n"
+	       "-p spec  Packetize or depacketize according to spec, a set of 4 comma-separated\n"
+	       "         values in bytes: packet,head,data,foot\n"
 	       "If out-file is not given or '-' then write to stdout\n",
 	       argv0);
 
 	printf("in-format and out-format should be one of:\n");
 	format_class_list(stdout);
 
-	return 1;
+	exit(1);
 }
 
 int main (int argc, char **argv)
 {
-	setbuf(stdout, NULL);
-
 	if ( (argv0 = strrchr(argv[0], '/')) )
 		argv0++;
 	else
 		argv0 = argv[0];
 
-	int opt;
-	while ( (opt = getopt(argc, argv, "12vs:S:")) != -1 )
-		switch ( opt )
-		{
-			case '1':
-				opt_chan |= DC_CHAN_1;
-				break;
+	default_opts.prog_func = progress;
+	opts[IN].fmt_opts      = default_opts;
 
-			case '2':
-				opt_chan |= DC_CHAN_2;
-				break;
+	int dir;
+	for ( dir = IN; dir < MAX; dir++ )
+	{
+		struct opts *cur = &opts[dir];
+		char        *ptr;
+		int          opt;
+		int          ret;
 
-			case 'l':
-				opt_lsh = 1;
-				break;
+		if ( dir > 0 )
+			opts[dir] = opts[dir - 1];
+		cur->fmt_opts.channels = 0;
 
-			case 'v':
-				opt_verbose = 1;
-				format_debug_setup(stderr);
-				break;
+		optind = 1;
+		while ( (opt = getopt(argc, argv, "+vs:S:c:12345678ab:ixXp:")) != -1 )
+			switch ( opt )
+			{
+				case 'v':
+					debug = stderr;
+					format_debug_setup(stderr);
+					break;
 
-			case 's':
-				errno = 0;
-				if ( (opt_size = size_bin(optarg)) < 0 )
-					return usage();
+				case 's':
+				case 'S':
+					if ( dir > IN )
+					{
+						fprintf(stderr, "-%c not allowed for output file\n", opt);
+						usage();
+					}
 
-			case 'S':
-				errno = 0;
-				if ( (opt_size = size_dec(optarg)) < 0 )
-					return usage();
-				opt_size /= DSM_BUS_WIDTH;
-				break;
+					opt_size_pre = opt;
+					opt_size_num = strtol(optarg, &ptr, 0);
+					opt_size_suf = *ptr;
+					break;
+
+				case 'c':
+					if ( dir > IN )
+					{
+						fprintf(stderr, "-c not allowed for output file\n");
+						usage();
+					}
+
+					cur->fmt_opts.sample  = strtoul(optarg, NULL, 0) * cur->fmt_opts.single;
+					break;
+
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+					cur->fmt_opts.channels |= 1 << (opt - '1');
+					break;
+
+				case 'a':
+					cur->fmt_opts.channels = (1 << (cur->fmt_opts.sample / cur->fmt_opts.single)) - 1;
+					break;
+
+				case 'q':
+					cur->fmt_opts.prog_func = NULL;
+					break;
+
+				case 'b':
+					cur->fmt_opts.bits = strtoul(optarg, NULL, 0);
+					if ( cur->fmt_opts.bits > (cur->fmt_opts.single * 4) )
+					{
+						fprintf(stderr, "-b: value %zu > possible %zu\n", 
+						        cur->fmt_opts.bits, cur->fmt_opts.single * 4);
+						usage();
+					}
+					break;
+
+				case 'p':
+					ret = sscanf(optarg, "%zu,%zu,%zu,%zu", &cur->fmt_opts.packet,
+					             &cur->fmt_opts.head, &cur->fmt_opts.data,
+					             &cur->fmt_opts.foot);
+					if ( ret != 4 )
+					{
+						fprintf(stderr, "-b: malformed: %s\n", strerror(errno));
+						usage();
+					}
+					break;
+
+				default:
+					fprintf(stderr, "Option -%c unknown\n", opt);
+					usage();
 		}
-	if ( !opt_chan )
-		opt_chan = DC_CHAN_1|DC_CHAN_2;
 
-	if ( (argc - optind) < 1 )
-		return usage();
+		if ( optind >= argc )
+		{
+			fprintf(stderr, "Missing a file/format spec\n");
+			usage();
+		}
 
-	struct format_class *in_format;
-	opt_in_format = argv[optind];
-	if ( (opt_in_file = strchr(opt_in_format, ':')) )
-	{
-		*opt_in_file++ = '\0';
-		in_format = format_class_find(opt_in_format);
+		cur->format = argv[optind];
+		if ( debug )
+			fprintf(stderr, "%s: try to identify '%s'\n", dirs[dir], cur->format);
+
+		if ( (cur->file = strchr(cur->format, ':')) )
+		{
+			*cur->file++ = '\0';
+			cur->fmt_class = format_class_find(cur->format);
+		}
+		else if ( (cur->fmt_class = format_class_find(cur->format)) )
+			cur->file = "-";
+		else if ( (cur->fmt_class = format_class_guess(cur->format)) )
+			cur->file = cur->format;
+
+		if ( !cur->fmt_class )
+		{
+			fprintf(stderr, "Couldn't identify format\n");
+			usage();
+		}
+
+		argv += optind;
+		argc -= optind;
 	}
-	else if ( (in_format = format_class_find(opt_in_format)) )
-		opt_in_file = "-";
-	else if ( (in_format = format_class_guess(opt_in_format)) )
-		opt_in_file = opt_in_format;
-	else
-		return usage();
 
-	if ( !in_format )
-		return usage();
-
-	if ( (argc - optind) > 1 )
-		opt_out_format = argv[optind + 1];
-	else
+	for ( dir = IN; dir < MAX; dir++ )
 	{
-		opt_out_format = opt_in_format;
-		opt_out_file = "-";
-	}
+		struct opts *cur      = &opts[dir];
+		unsigned     channels = (1 << (cur->fmt_opts.sample / cur->fmt_opts.single)) - 1;
 
-	struct format_class *out_format;
-	if ( (opt_out_file = strchr(opt_out_format, ':')) )
-	{
-		*opt_out_file++ = '\0';
-		out_format = format_class_find(opt_out_format);
-	}
-	else if ( (out_format = format_class_find(opt_out_format)) )
-		opt_out_file = "-";
-	else if ( (out_format = format_class_guess(opt_out_format)) )
-		opt_out_file = opt_out_format;
-	else
-		return usage();
+		if ( debug )
+			fprintf(debug, "%s: format '%s' and file '%s'\n", dirs[dir],
+			        format_class_name(opts[dir].fmt_class), opts[dir].file);
 
-	if ( !out_format )
-		return usage();
+		// TODO: check channels against 
+		if ( !cur->fmt_opts.channels )
+			cur->fmt_opts.channels = channels;
+		else if ( cur->fmt_opts.channels & ~channels )
+			stop("Requested channels don't exist");
 
-	if ( opt_verbose )
-	{
-		fprintf(stderr, "opt_in_format '%s' and opt_in_file '%s'\n",
-		        format_class_name(in_format), opt_in_file);
-		fprintf(stderr, "opt_out_format '%s' and opt_out_file '%s'\n",
-		        format_class_name(out_format), opt_out_file);
+		if ( cur->fmt_opts.packet )
+		{
+			if ( debug )
+				fprintf(debug, "%s: packet %zu, head %zu, data %zu, foot %zu\n",
+				        dirs[dir], cur->fmt_opts.packet, cur->fmt_opts.head,
+				        cur->fmt_opts.data, cur->fmt_opts.foot);
+
+			if ( !cur->fmt_opts.data )
+				cur->fmt_opts.data = cur->fmt_opts.packet - (cur->fmt_opts.head +
+				                                             cur->fmt_opts.foot);
+
+			size_t need = cur->fmt_opts.head + cur->fmt_opts.data + cur->fmt_opts.foot;
+			if ( cur->fmt_opts.packet < need )
+				stop("%s: packet options invalid (head %zu + data %zu + foot %zu) "
+				     "> packet %zu", 
+				     dirs[dir], cur->fmt_opts.head, cur->fmt_opts.data,
+				     cur->fmt_opts.foot, cur->fmt_opts.packet);
+		}
 	}
 	
 	FILE *in_file;
-	if ( !strcmp(opt_in_file, "-") )
-		in_file = stdin;
-	else if ( !(in_file = fopen(opt_in_file, "r")) )
-		stop("fopen(%s, r)", opt_in_file);
+	if ( !(in_file = fopen(opts[IN].file, "r")) )
+		stop("fopen(%s, r)", opts[IN].file);
 
-	if ( !opt_size )
+	if ( opt_size_num > -1 )
 	{
-//		if ( !strcmp(opt_in_file, "-") )
-//			stop("Specify size with -s when using stdin");
-//		if ( !in_format->size )
-//			stop("Specify size with -s when using %s", opt_in_format);
+		if ( debug )
+			fprintf(debug, "User size: -%c%ld%c -> ",
+			        opt_size_pre, opt_size_num, opt_size_suf);
 
-		if ( (opt_size = format_size(in_format, in_file, opt_chan)) < 1 )
-			stop("format_%s_size(%s)", opt_in_format, opt_in_file);
+		switch ( opt_size_pre )
+		{
+			case 's': // bytes
+				size = opt_size_num;
+				switch ( tolower(opt_size_suf) )
+				{
+					case 'm': size <<= 10; // fall-through
+					case 'k': size <<= 10;
+				}
+				break;
+
+			case 'S': // samples
+				size = opt_size_num;
+				switch ( tolower(opt_size_suf) )
+				{
+					case 'm': size *= 1000; // fall-through
+					case 'k': size *= 1000;
+				}
+				size *= opts[IN].fmt_opts.sample;
+				break;
+		}
+
+		if ( debug )
+			fprintf(debug, "%zu bytes\n", size);
 	}
 
-//	if ( opt_size > DSM_MAX_SIZE )
-//		stop("size %zu exceeds maximum %u", opt_size, DSM_MAX_SIZE);
+	if ( !size )
+		size = format_size(opts[IN].fmt_class, &opts[IN].fmt_opts, in_file);
+	if ( !size )
+		stop("format_%s_size(%s)", format_class_name(opts[IN].fmt_class), opts[IN].file);
 
-	if ( opt_size % DSM_BUS_WIDTH )
-		stop("size %zu not a multiple of width %u", opt_size, DSM_BUS_WIDTH);
+	if ( size % opts[IN].fmt_opts.sample )
+		fprintf(stderr, "warning: size %zu not a multiple of sample width %zu\n",
+		        size, opts[IN].fmt_opts.sample);
 
-	void *buff = calloc(opt_size, 1);
+	void *buff = malloc(size);
 	if ( !buff )
 		stop("failed to alloc buffer");
-
-	if ( format_read(in_format, in_file, buff, opt_size, opt_chan, opt_lsh) < 0 )
-		stop("format_%s_read()", opt_in_format);
+	if ( debug )
+		fprintf(debug, "buffer: %zu bytes allocated\n", size);
 	
-	if ( in_file != stdin )
-		fclose(in_file);
+	if ( opts[IN].fmt_opts.packet )
+	{
+		void   *end  = buff + size;
+		void   *ptr  = buff;
+		size_t  skip = opts[IN].fmt_opts.head +
+		               opts[IN].fmt_opts.data +
+		               opts[IN].fmt_opts.foot;
+
+		if ( skip < opts[IN].fmt_opts.packet )
+			skip = opts[IN].fmt_opts.packet - skip;
+		else
+			skip = 0;
+
+		while ( ptr < end )
+		{
+			memset(ptr, 'H', min(opts[IN].fmt_opts.head, end - ptr));
+			ptr += min(opts[IN].fmt_opts.head, end - ptr);
+
+			memset(ptr, 'D', min(opts[IN].fmt_opts.data, end - ptr));
+			ptr += min(opts[IN].fmt_opts.data, end - ptr);
+
+			memset(ptr, 'F', min(opts[IN].fmt_opts.foot, end - ptr));
+			ptr += min(opts[IN].fmt_opts.foot, end - ptr);
+
+			if ( skip )
+			{
+				memset(ptr, 'S', min(skip, end - ptr));
+				ptr += min(skip, end - ptr);
+			}
+		}
+	}
+	else
+		memset(buff, 0xFF, size);
+	
+	if ( opts[IN].fmt_opts.prog_func )
+	{
+		opts[IN].fmt_opts.prog_step  = size / 100;
+		fprintf(stderr, "Reading: ");
+	}
+
+	if ( !format_read(opts[IN].fmt_class, &opts[IN].fmt_opts, buff, size, in_file) )
+		stop("format_%s_read()", (opts[IN].fmt_class));
+	
+	fclose(in_file);
 	in_file = NULL;
 
 	FILE *out_file;
-	if ( !strcmp(opt_out_file, "-") )
+	if ( !strcmp(opts[OUT].file, "-") )
 		out_file = stdout;
-	else if ( !(out_file = fopen(opt_out_file, "w")) )
-		stop("fopen(%s, r)", opt_out_file);
+	else if ( !(out_file = fopen(opts[OUT].file, "w")) )
+		stop("fopen(%s, r)", opts[OUT].file);
 
-	if ( format_write(out_format, out_file, buff, opt_size, opt_chan) < 0 )
-		stop("format_%s_write()", opt_out_format);
+	if ( opts[OUT].fmt_opts.prog_func )
+	{
+		opts[OUT].fmt_opts.prog_step = size / 100;
+		fprintf(stderr, "Writing: ");
+	}
+
+	if ( !format_write(opts[OUT].fmt_class, &opts[OUT].fmt_opts, buff, size, out_file) )
+		stop("format_%s_write()", format_class_name(opts[OUT].fmt_class));
 	
 	if ( out_file != stdout )
 		fclose(out_file);

@@ -18,15 +18,20 @@
 format_0.1 {
 	global:
 		/* src/lib/common.c */
-		format_debug_setup;
-		format_class_list;
 		format_class_find;
 		format_class_guess;
 		format_class_name;
-		dsa_format_list;
+		format_class_list;
+		format_class_read_channels;
+		format_class_write_channels;
 		format_size;
 		format_read;
 		format_write;
+		format_size_data_from_buff;
+		format_size_buff_from_data;
+		format_error_setup;
+		format_debug_setup;
 	local:
 		*;
 };
+

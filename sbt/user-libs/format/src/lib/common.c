@@ -1,6 +1,6 @@
-/** \file      dsa_format.c
+/** \file      src/lib/common.c
  *  \brief     I/O formatters
- *  \copyright Copyright 2013,2014 Silver Bullet Technology
+ *  \copyright Copyright 2013-2015 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *             use this file except in compliance with the License.  You may obtain a copy
@@ -25,665 +25,741 @@
 #include <math.h>
 #include <errno.h>
 
-
 #include "format.h"
 #include "private.h"
 
 
-// temporary
-#define DC_CHAN_1      0x10
-#define DC_CHAN_2      0x20
-#define DSM_BUS_WIDTH  8
-
-
 FILE *format_debug = NULL;
-#define LOG_DEBUG(...) \
-	do{ \
-		if ( format_debug ) \
-			fprintf(format_debug, ##__VA_ARGS__); \
-	}while(0)
-
 void format_debug_setup (FILE *fp)
 {
 	format_debug = fp;
 }
 
-static void spin (void)
+FILE *format_error = NULL;
+void format_error_setup (FILE *fp)
 {
-	static int idx = 0;
-	static char chars[4] = { '/', '-', '\\', '|' };
-	fputc('\r', stderr);
-	fputc(chars[idx++ & 3], stderr);
+	format_error = fp;
+}
+
+static int bits_set (unsigned long  channels)
+{
+	int c;
+
+	for ( c = 0; channels; channels >>= 1 )
+		if ( channels & 1 )
+			c++;
+
+	return c;
 }
 
 
-static long fmt_bin_size (FILE *fp, int chan)
+/** Calculate payload data size from a given buffer size
+ *
+ *  This mostly calculates and subtracts the packet overhead according to the given
+ *  options.
+ *
+ *  \param  opt   Format options pointer
+ *  \param  buff  Size of buffer in bytes
+ *
+ *  \return  Size of the output data in the buffer, or 0 on error
+ */
+size_t format_size_data_from_buff (struct format_options *opt, size_t buff)
 {
-	if ( fp == stdin )
+	if ( !opt || !opt->packet )
 	{
-		LOG_DEBUG("fp is stdin, can't size\n");
-		errno = ENOTTY;
+		LOG_DEBUG("%s: no packet, data == buff == %zu\n", __func__, buff);
+		return buff;
+	}
+	LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__, 
+	          opt->packet, opt->head, opt->data, opt->foot);
+
+	/* number of full-size packets, based on packet size */
+	size_t num  = buff / opt->packet;
+	LOG_DEBUG("%s: buff %zu -> %zu full packets\n", __func__, buff, num);
+
+	/* bytes of data in full-size packets, but subtract number of full packets */
+	size_t data = num * opt->data;
+	buff -= num * opt->packet;
+	LOG_DEBUG("%s: data %zu from %zu bytes per %zu full packets, remainder %zu\n",
+	          __func__, data, opt->data, num, buff);
+
+	/* partial packet if there's enough for data */
+	if ( buff && buff > (opt->head + opt->foot) )
+	{
+		LOG_DEBUG("%s: remainder %zu has %zu bytes data\n", __func__,
+		          buff, buff - opt->head + opt->foot);
+		buff -= opt->head + opt->foot;
+		data += buff;
+	}
+
+	LOG_DEBUG("%s: final data %zu\n", __func__, data);
+	return data;
+}
+
+/** Calculate buffer size from a given payload data size
+ *
+ *  This mostly calculates and adds the packet overhead according to the given options. 
+ *
+ *  \param  opt   Format options pointer
+ *  \param  data  Size of payload data in bytes
+ *
+ *  \return  Size of the buffer, or 0 on error
+ */
+size_t format_size_buff_from_data (struct format_options *opt, size_t data)
+{
+	if ( !opt || !opt->packet )
+	{
+		LOG_DEBUG("%s: no packet, data == buff == %zu\n", __func__, data);
+		return data;
+	}
+	LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__, 
+	          opt->packet, opt->head, opt->data, opt->foot);
+
+	/* number of full-size packets, based on payload size */
+	size_t num = data / opt->data;
+	LOG_DEBUG("%s: data %zu -> %zu full packets\n", __func__, data, num);
+
+	/* bytes of buffer for full-size packets */
+	size_t buff = num * opt->packet;
+	data -= (num * opt->data);
+	LOG_DEBUG("%s: buff %zu from %zu bytes per %zu full packets, remainder %zu\n",
+	          __func__, buff, opt->packet, num, data);
+
+	/* partial packet */
+	if ( data )
+	{
+		LOG_DEBUG("%s: remainder %zu bytes data\n", __func__, data);
+		buff += opt->head + data + opt->foot;
+	}
+
+	LOG_DEBUG("%s: final buff %zu\n", __func__, buff);
+	return buff;
+}
+
+
+/* Class registration struct */
+static struct format_class *format_list[] =
+{
+	&format_bin,
+	&format_bit,
+	&format_dec,
+	&format_hex,
+	&format_iqw,
+	&format_nul,
+	&format_raw,
+	NULL
+};
+
+
+/** Find a class by name
+ *
+ *  \param  name  Class name specified by user
+ *
+ *  \return  Class struct pointer, or NULL on error
+ */
+struct format_class *format_class_find (const char *name)
+{
+	struct format_class **fmt;
+
+	for ( fmt = format_list; *fmt; fmt++ )
+		if ( !strcasecmp((*fmt)->name, name) )
+			return *fmt;
+
+	LOG_DEBUG("%s: class '%s' not found by name\n", __func__, name);
+	errno = ENOENT;
+	return NULL;
+}
+
+/** Guess a class by filename
+ *
+ *  Currently uses the file extension (after the last dot), may in future also search a
+ *  list of possible extensions.
+ *
+ *  \param  name  Filename specified by user
+ *
+ *  \return  Class struct pointer, or NULL on error
+ */
+struct format_class *format_class_guess (const char *name)
+{
+	struct format_class **fmt;
+	char                 *ptr;
+
+	if ( !(ptr = strrchr(name, '.')) )
+	{
+		LOG_DEBUG("%s: class '%s' not guessable\n", __func__, name);
+		errno = ENOENT;
+		return NULL;
+	}
+
+	ptr++;
+	for ( fmt = format_list; *fmt; fmt++ )
+		if ( !strcasecmp((*fmt)->name, ptr) )
+			return *fmt;
+		//TODO: search the exts[] array
+
+	LOG_DEBUG("%s: class '%s' not guessed by name\n", __func__, name);
+	errno = ENOENT;
+	return NULL;
+}
+
+/** Print a list of compiled-in classes to the given file handle
+ *
+ *  The list will contain at minimum each class name and in/out/both support, and a
+ *  description for classes which implement it.
+ *
+ *  \param  fp  Output FILE pointer
+ */
+void format_class_list (FILE *fp)
+{
+	static struct format_class **fmt;
+	const char                  *desc;
+	char                        *dirs;
+
+	for ( fmt = format_list; *fmt; fmt++ )
+	{
+		if ( (*fmt)->read_block && (*fmt)->write_block )
+			dirs = "in/out";
+		else if ( (*fmt)->read_block )
+			dirs = "in-only";
+		else
+			dirs = "out-only";
+
+		desc = (*fmt)->desc ? (*fmt)->desc : "";
+
+		fprintf(fp, "  %-7s  %-8s  %s\n", (*fmt)->name, dirs, desc);
+	}
+}
+
+/** Return a class's printable name
+ *
+ *  \param  fmt  Format class pointer
+ *
+ *  \return  Printable string, which may be "(null)" if the class pointer is NULL
+ */
+const char *format_class_name (struct format_class *fmt)
+{
+	return fmt ? fmt->name : "(null)";
+}
+
+/** Returns a hint as to how many channels a single call of _read or _write can handle,
+ *  for a given class
+ *
+ *  - FC_CHAN_BUFFER - operates on the entire buffer and all channels in it (ie, .bin)
+ *  - FC_CHAN_SINGLE - operates on a single channel (not currently used)
+ *  - FC_CHAN_MULTI  - operates on multiple channels, specified by the "channels" bitmap
+ *                     in the options struct.
+ *
+ *  Note that some FC_CHAN_MULTI formats (ie IQW) handle inherently single-channel data
+ *  files but can be loaded into multiple channels in a single pass for efficiency.  These
+ *  formats may return different values for calls to format_class_read_channels() versus
+ *  format_class_write_channels().
+ *
+ *  Note also that FC_CHAN_BUFFER formats generally work on the packed binary format in
+ *  the buffer, and calling one with a channels mask which isn't the full width of the
+ *  buffer will trigger a warning if debug is enabled.
+ *
+ *  \param  fmt  Format class pointer
+ *
+ *  \return  One of the FC_CHAN_* constants described above, or <0 if the class pointer is
+ *           NULL (errno will be EFAULT) or the class doesn't support the relevant
+ *           operation (ie _read on an output-only format, errno will be ENOSYS)
+ */
+int format_class_read_channels (struct format_class *fmt)
+{
+	if ( !fmt )
+	{
+		errno = EFAULT;
+		return -1;
+	}
+	if ( !fmt->read_block )
+	{
+		errno = ENOSYS;
 		return -1;
 	}
 
-	struct stat sb;
-	if ( fstat(fileno(fp), &sb) )
-		return -1;
-
-	LOG_DEBUG("fp is %ld bytes\n", (long)sb.st_size);
-	return sb.st_size;
+	errno = 0;
+	return fmt->read_channels;
 }
 
-static int fmt_bin_read (FILE *fp, void *buff, size_t size, int chan, int lsh)
+/* See above */
+int format_class_write_channels (struct format_class *fmt)
 {
-	long    page = sysconf(_SC_PAGESIZE);
-	int     file = 0;
-	int     offs = 0;
-	size_t  want;
-	size_t  left = size;
-	char   *dst = buff;
-	int     ret;
-	int     every = 0;
+	if ( !fmt )
+	{
+		errno = EFAULT;
+		return -1;
+	}
+	if ( !fmt->write_block )
+	{
+		errno = ENOSYS;
+		return -1;
+	}
 
+	errno = 0;
+	return fmt->write_channels;
+}
+
+
+/* Default options match the SDRDC legacy: two channels of 12-bit I/Q with 16-bit
+ * alignment, packed with no gaps for packet headers */
+static struct format_options  format_options =
+{
+	.channels = 3,
+	.single   = sizeof(uint16_t) * 2,
+	.sample   = sizeof(uint16_t) * 4,
+	.bits     = 12,
+	.packet   = 0,
+	.head     = 0,
+	.data     = 0,
+	.foot     = 0,
+};
+
+
+/** Analyze an existing file and calculate buffer size
+ *
+ *  Reads the file as needed and calculates the number of data samples contained, and the
+ *  number of buffer bytes necessary to load it according to the options given.  Note this
+ *  may be larger than the file-size: if options specifies a 2-channel buffer, sizing a
+ *  single-channel format will return the size of a 2-channel buffer size.
+ *
+ *  If opt is NULL, an internal defaults struct is used instead, which matches the SDRDC
+ *  legacy: two channels of 12-bit I/Q with 16-bit alignment, packed with no gaps for
+ *  packet headers.
+ *
+ *  \param  fmt  Format class pointer
+ *  \param  opt  Format options pointer
+ *  \param  fp   FILE pointer
+ *
+ *  \return  Buffer size in bytes, or 0 on error
+ */
+size_t format_size (struct format_class *fmt, struct format_options *opt, FILE *fp)
+{
+	if ( !fmt || !fmt->size )
+	{
+		errno = ENOSYS;
+		return 0;
+	}
+	if ( !opt )
+		opt = &format_options;
+
+	size_t data = fmt->size(opt, fp);
+	if ( !data )
+		return 0;
+
+	return format_size_buff_from_data(opt, data);
+}
+
+/** Read a file into a buffer
+ *
+ *  If the buffer is smaller than the file the data will be truncated to fit.  If the
+ *  buffer is larger then the fill will be rewound and looped to fit.  Currently this
+ *  means fp cannot be a stream, this restriction may be lifted in future.
+ *
+ *  The "packet" fields in the options if present will cause the operation to skip bytes
+ *  in the buffer, so the user can pre-fill the packet headers/footers if desired. 
+ *
+ *  Multi-channel details, based on the return from format_class_read_channels():
+ *  - FC_CHAN_BUFFER: all channels in the buffer will be loaded regardless of the
+ *                    "channels" field in the options.   
+ *  - FC_CHAN_MULTI:  the channel with the lowest-numbered bit set in "channels" will be
+ *                    loaded with the first channel in each read sample, the next-lowest
+ *                    the second channel, etc.
+ *  - FC_CHAN_SINGLE: each channel with a bit set in "channels" will be loaded with the
+ *                    read data. 
+ *
+ *  \param  fmt   Format class pointer
+ *  \param  opt   Format options pointer
+ *  \param  buff  Buffer to read into
+ *  \param  size  Buffer size
+ *  \param  fp    FILE pointer
+ *
+ *  \return  number of bytes used in the buffer, which should be size, or 0 on error.
+ */
+size_t format_read (struct format_class *fmt, struct format_options *opt,
+                    void *buff, size_t size, FILE *fp)
+{
+	struct format_state  state;
+	unsigned long        channels;
+	long                 page = sysconf(_SC_PAGESIZE);
+	size_t               step = 0;
+	size_t               data;
+	size_t               want;
+	size_t               skip = 0;
+	void                *dst;
+	size_t               ret;
+	int                  cycles = 5;
+
+	if ( !fmt || !fmt->read_block )
+	{
+		LOG_ERROR("%s: No fmt or read_block\n", __func__);
+		errno = ENOSYS;
+		return 0;
+	}
+
+	if ( !opt )
+		opt = &format_options;
+
+	// restrict requested channels to actual ones; pointer math in some _block code needs
+	// this for safety / accuracy
+	channels = (1 << (opt->sample / opt->single)) - 1;
+	if ( opt->channels & ~channels )
+	{
+		LOG_DEBUG("%s: channel mask 0x%lx exceeds actual 0x%lx, masked to 0x%lx\n",
+		          __func__, opt->channels, channels, opt->channels & channels);
+		opt->channels &= channels;
+	}
+
+	// warning on requesting a partial read using a full-buffer mode
+	if ( fmt->read_channels == FC_CHAN_BUFFER && opt->channels != channels )
+		LOG_DEBUG("%s: partial channel read requested with FC_CHAN_BUFFER method, which"
+		          " operates on all channels implicitly; the results will probably not"
+		          " be what you want.\n", __func__);
+
+	// only 16-bit samples supported currently
+	if ( opt->single != sizeof(uint16_t) * 2 )
+	{
+		LOG_ERROR("%s: sample size %zu not supported yet.\n", __func__, opt->single);
+		errno = EINVAL;
+		return 0;
+	}
+
+	// warning only, weird-size packet headers may trigger this 
+	if ( (size % opt->sample) )
+		LOG_DEBUG("%s: requested block %zu not a multiple of sample %zu\n", __func__,
+		          size, opt->sample);
+
+	memset(&state, 0, sizeof(state));
+	state.opt  = opt;
+	state.buff = size;
+	state.data = format_size_data_from_buff(opt, size);
+
+	LOG_DEBUG("%s: starting out, page %ld, size %zu\n", __func__, page, size);
 	if ( page < 1024 )
 	{
 		page = 1024;
 		LOG_DEBUG("page adjusted to %ld\n", page);
 	}
 
-	if ( fp != stdin )
+	if ( opt->packet )
 	{
-		if ( (file = fseek(fp, 0, SEEK_END)) < 0 )
-			return -1;
-
-		LOG_DEBUG("file is %d bytes\n", file);
-		fseek(fp, 0, SEEK_SET);
+		page = opt->data;
+		if ( opt->packet > (opt->head + opt->data + opt->foot) )
+			skip = opt->packet - (opt->head + opt->data + opt->foot);
+		LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__,
+		          opt->packet, opt->head, opt->data, opt->foot);
 	}
 
-	while ( left )
+	rewind(fp);
+	if ( fmt->read_start && !fmt->read_start(&state, fp) )
 	{
-		if ( (want = page) > left )
-			want = left;
-		if ( file && want > (file - offs) )
-			want = file - offs;
-		LOG_DEBUG("page %ld, file %d, offs %d -> want %zu\n", page, file, offs, want);
+		LOG_ERROR("%s: format_%s_read_start: %s\n", __func__,
+		          fmt->name, strerror(errno));
+		return 0;
+	}
 
-		if ( (ret = fread(dst, 1, want, fp)) < 0 )
-			return -1;
+	if ( state.opt->prog_func )
+	{
+		step = state.opt->prog_step;
+		LOG_DEBUG("initial prog_step %zu\n", step);
+		LOG_DEBUG("call prog_func(%u, %zu);\n", 0, size);
+		state.opt->prog_func(0, size);
+	}
 
-		// EOF handling
-		if ( ret == 0 )
+	// Multi-pass: treat passes 0 as 1 so single-pass classes can skip it.
+	// classes which need multi-pass must set it to 2 or more
+	state.cur_pass = 0;
+	do
+	{
+		state.new_pass = 1;
+
+		data = format_size_data_from_buff(opt, size);
+		dst  = buff;
+
+		while ( data && cycles-- )
 		{
-			// more buffer to fill from file: rewind to 0 and repeat
-			if ( file && left > 0 )
+			// constrain want to size of data left
+			if ( (want = page) > data )
+				want = data;
+
+			if ( opt->head )
+				dst  += opt->head;
+
+			if ( !(ret = fmt->read_block(&state, dst, want, fp)) )
 			{
-				LOG_DEBUG("file > left, rewind and reload\n");
-				fseek(fp, 0, SEEK_SET);
-				offs = 0;
-				continue;
-			}
-			// stdin or when done: return success
-			else
+				LOG_ERROR("%s: format_%s_read_block: %s\n", __func__,
+				          fmt->name, strerror(errno));
+				if ( fmt->read_finish )
+					fmt->read_finish(&state, fp);
+				if ( state.opt->prog_func )
+				{
+					LOG_DEBUG("call prog_func(%u, %u);\n", 0, 0);
+					state.opt->prog_func(0, 0);
+				}
 				return 0;
-		}
-
-		if ( (every++ & 0xfff) == 0xfff )
-			spin();
-		LOG_DEBUG("read block of %d at %d, %zu left\n", ret, offs, left - ret);
-		dst  += ret;
-		left -= ret;
-		offs += ret;
-	}
-
-	if ( lsh )
-	{
-		uint16_t *walk = (uint16_t *)buff;
-		for ( left = size; left; left -= sizeof(uint16_t) )
-		{
-			if ( *walk )
-				*walk <<= 4;
-			walk++;
-		}
-	}
-
-	fputc('\r', stderr);
-	LOG_DEBUG("success.\n");
-	return 0;
-}
-
-static int fmt_bin_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	char  *dst  = buff;
-	long   page = sysconf(_SC_PAGESIZE);
-	int    ret;
-	int    every = 0;
-
-	while ( size )
-	{
-		if ( page > size )
-			page = size;
-
-		if ( (ret = fwrite(dst, 1, page, fp)) < 0 )
-			return -1;
-
-		if ( (every++ & 0xfff) == 0xfff )
-			spin();
-		LOG_DEBUG("wrote block of %d, %zu left\n", ret, size - ret);
-		dst  += ret;
-		size -= ret;
-	}
-
-	fputc('\r', stderr);
-	return 0;
-}
-
-
-void hexdump_line (FILE *fp, const unsigned char *ptr, int len)
-{
-	int i;
-	for ( i = 0; i < len; i++ )
-		fprintf (fp, "%02x ", ptr[i]);
-
-	for ( ; i < 16; i++ )
-		fputs("   ", fp);
-
-	for ( i = 0; i < len; i++ )
-		fputc(isprint(ptr[i]) ? ptr[i] : '.', fp);
-	fputc('\n', fp);
-}
- 
-void hexdump_buff (FILE *fp, const void *buf, int len)
-{
-	const unsigned char *ptr = buf;
-	while ( len >= 16 )
-	{
-		hexdump_line(fp, ptr, 16);
-		ptr += 16;
-		len -= 16;
-	}
-	if ( len )
-		hexdump_line(fp, ptr, len);
-}
-
-static int fmt_hex_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	hexdump_buff(fp, buff, size);
-	return 0;
-}
-
-
-void smpdump (FILE *fp, void *buff, size_t size)
-{
-	uint16_t *s = buff;
-	long      v;
-	int       i;
-
-	size /= sizeof(uint16_t);
-	while ( size )
-	{
-		for ( i = 0; i < 4; i++ )
-		{
-			v = s[i];
-			fprintf(fp, "%03lx:%c%c%c%c%c%c%c%c%c%c%c%c%c",
-			        v, 
-			        v & 0x800 ? '1' : '0',
-			        v & 0x400 ? '1' : '0',
-			        v & 0x200 ? '1' : '0',
-			        v & 0x100 ? '1' : '0',
-			        v & 0x080 ? '1' : '0',
-			        v & 0x040 ? '1' : '0',
-			        v & 0x020 ? '1' : '0',
-			        v & 0x010 ? '1' : '0',
-			        v & 0x008 ? '1' : '0',
-			        v & 0x004 ? '1' : '0',
-			        v & 0x002 ? '1' : '0',
-			        v & 0x001 ? '1' : '0',
-			        (i == 3) ? '\n' : '\t');
-		}
-		s += 4;
-		size -= 4;
-	}
-
-	fprintf(fp, "\n");
-}
-
-static int fmt_bit_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	smpdump(fp, buff, size);
-	return 0;
-}
-
-
-static long fmt_bist_size (FILE *fp, int chan)
-{
-	char  buf[256];
-	long  val;
-	long  cnt = 0;
-
-	if ( fp != stdin )
-		fseek(fp, 0, SEEK_SET);
-
-	while ( fgets(buf, sizeof(buf), fp) )
-	{
-		errno = 0;
-		val = strtoul(buf, NULL, 16);
-		if ( errno || val > 0xFFFF )
-			return -1;
-		cnt++;
-	}
-
-	return cnt * sizeof(uint16_t);
-}
-
-static int fmt_bist_read (FILE *fp, void *buff, size_t size, int chan, int lsh)
-{
-	char      buf[256];
-	long      val;
-	long      cnt = 0;
-	char     *prompts[4] = { "TX1_I", "TX1_Q", "TX2_I", "TX2_Q" };
-	uint16_t *d = buff;
-
-	if ( fp == stdin )
-		printf("%s[%ld]: ", prompts[0], cnt);
-	else
-		fseek(fp, 0, SEEK_SET);
-
-	size /= sizeof(uint16_t);
-	while ( size-- && fgets(buf, sizeof(buf), fp) )
-	{
-		errno = 0;
-		val = strtoul(buf, NULL, 16);
-		if ( errno || val > 0xFFF )
-			return -1;
-
-		*d = (uint16_t)val & 0xFFF;
-		LOG_DEBUG("v %03lx -> d[%ld] %03x\n", val, cnt & 3, *d);
-		if ( lsh )
-			*d <<= 4;
-		d++;
-
-		cnt++;
-		if ( fp == stdin )
-			printf("%s[%ld]: ", prompts[cnt & 3], cnt >> 2);
-	}
-
-	return cnt * sizeof(uint16_t);
-}
-
-
-static int fmt_bist_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	uint8_t *ptr = buff;
-	size_t   idx = 0;
-
-	while ( idx < size )
-	{
-		if ( !(idx & 7) )
-			fprintf(fp, "\nValue[%4zu]: ", idx);
-		fprintf(fp, "%02x ", ptr[idx]);
-		idx++;
-	}
-
-	fprintf(fp, "\n");
-	return 0;
-}
-
-
-static int fmt_null_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	return 0;
-}
-
-
-static long fmt_dec_size (FILE *fp, int chan)
-{
-	char  buf[256];
-	long  cnt = 0;
-
-	if ( fp != stdin )
-		fseek(fp, 0, SEEK_SET);
-
-	while ( fgets(buf, sizeof(buf), fp) )
-		cnt += 4;
-
-	return cnt * sizeof(uint16_t);
-}
-
-static int fmt_dec_read (FILE *fp, void *buff, size_t size, int chan, int lsh)
-{
-	char      l[256];
-	char     *p;
-	int       i;
-	long      v;
-	uint16_t *d = buff;
-
-	if ( fp != stdin )
-		fseek(fp, 0, SEEK_SET);
-
-	size /= DSM_BUS_WIDTH;
-	while ( size-- && fgets(l, sizeof(l), fp) )
-	{
-		LOG_DEBUG("line: %s", l);
-		d[0] = d[1] = d[2] = d[3] = 0;
-
-		p = l;
-		for ( i = 0; i < 4; i++ )
-		{
-			errno = 0;
-			v = strtol(p, &p, 10);
-			if ( errno || v < -2048 || v > 2047 )
-				return -1;
-
-			d[i] = (uint16_t)v & 0x7FF;
-			if ( v < 0 )
-				d[i] |= 0x800;
-			LOG_DEBUG("v %ld -> d[%d] %03x\n", v, i, d[i]);
-			if ( lsh )
-				d[i] <<= 4;
-		}
-
-		d += 4;
-	}
-
-	return 0;
-}
-
-static int fmt_dec_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	uint16_t *s = buff;
-	long      v;
-	int       i;
-
-	size /= DSM_BUS_WIDTH;
-	while ( size-- )
-	{
-		for ( i = 0; i < 4; i++ )
-		{
-			v = s[i] & 0x7FF;
-			if ( s[i] & 0x800 )
-				v -= 0x800;
-			fprintf(fp, "%6ld%c", v, (i == 3) ? '\n' : '\t');
-		}
-		s += 4;
-	}
-
-	return 0;
-}
-
-
-static long fmt_iqw_data_size (uint32_t head)
-{
-	long data = head;
-	data /= 2;
-	data *= DSM_BUS_WIDTH;
-	return data;
-}
-
-static long fmt_iqw_size (FILE *fp, int chan)
-{
-	struct stat  sb;
-	uint32_t     head;
-	off_t        file;
-	long         ret;
-
-	fseek(fp, 0, SEEK_SET);
-	if ( (ret = fread(&head, 1, sizeof(head), fp)) < sizeof(head) )
-		return -1;
-
-	// TODO: endian swap head if necessary
-	if ( head & 1 )
-		return -1;
-	
-	file  = head;
-	file *= sizeof(float);
-	file += sizeof(uint32_t);
-
-	if ( fstat(fileno(fp), &sb) || sb.st_size != file )
-		return -2;
-	
-	ret = fmt_iqw_data_size(head);
-	LOG_DEBUG("head %08x -> %lu bytes\n", head, ret);
-	return ret;
-}
-
-static int fmt_iqw_read (FILE *fp, void *buff, size_t size, int chan, int lsh)
-{
-	int       i;
-	float     f;
-	int16_t   s;
-	uint16_t *d = buff;
-	size_t    p;
-	int       c = 0;
-	uint32_t  every = 0;
-
-	if ( fp != stdin )
-		fseek(fp, sizeof(uint32_t), SEEK_SET);
-	else
-	{
-		uint32_t head;
-		if ( fread(&head, 1, sizeof(head), fp) < sizeof(head) )
-			return -1;
-		// TODO: endian swap head if necessary
-		if ( size != fmt_iqw_data_size(head) )
-		{
-			fprintf(stderr, "iqw: file has data size %ld, buffer size %zu, stop\n",
-			        size, fmt_iqw_data_size(head));
-			errno = EINVAL;
-			return -1;
-		}
-	}
-
-	// two passes through data: first I, then Q.  Use i=0 for I, i=1 for Q
-	for ( i = 0; i < 2; i++ )
-	{
-		LOG_DEBUG("start pass %d\n", i);
-		d = buff;
-		p = size / DSM_BUS_WIDTH;
-		while ( p-- )
-		{
-			if ( fread(&f, 1, sizeof(f), fp) < sizeof(f) )
-				return -1;
-			// TODO: endian swap f if necessary
-
-			s = roundf(f * 2048);
-			if ( s > 2047 )
-			{
-				s = 2047;
-				c++;
 			}
-			else if ( s < -2048 )
-			{
-				s = -2048;
-				c++;
-			}
+			state.new_pass = 0;
 
-			// store in channel 1
-			if ( chan & DC_CHAN_1 )
-			{
-				d[i] = (unsigned long)s & 0x7FF;
-				if ( s < 0 )
-					d[i] |= 0x800;
-				if ( lsh )
-					d[i] <<= 4;
-			}
+			data -= ret;
+			dst  += ret;
 
-			// store in channel 2
-			if ( chan & DC_CHAN_2 )
-			{
-				d[i + 2] = (unsigned long)s & 0x7FF;
-				if ( s < 0 )
-					d[i + 2] |= 0x800;
-				if ( lsh )
-					d[i + 2] <<= 4;
-			}
-			
-			d += DSM_BUS_WIDTH / sizeof(uint16_t);
+			if ( opt->foot )
+				dst  += opt->foot;
 
-			if ( (every++ & 0x1ffff) == 0x1ffff )
-				spin();
+			if ( skip )
+				dst  += skip;
+
+			if ( state.opt->prog_func )
+			{
+				if ( !step )
+				{
+					LOG_DEBUG("call prog_func(%zu, %zu);\n", dst - buff, size);
+					state.opt->prog_func(dst - buff - 1, size);
+				}
+				else if ( (dst - buff) >= step )
+				{
+					LOG_DEBUG("call prog_func(%zu, %zu);\n", dst - buff, size);
+					state.opt->prog_func(dst - buff - 1, size);
+					step += state.opt->prog_step;
+				}
+			}
 		}
-		LOG_DEBUG("done pass %d\n", i);
+
+		state.cur_pass++;
 	}
+	while ( state.cur_pass < fmt->passes );
 
-
-	if ( c )
-		LOG_DEBUG("warning: %d samples clipped on input\n", c);
-
-	fputc('\r', stderr);
-	return 0;
-}
-
-static int fmt_iqw_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	uint32_t  head = size;
-	int       i;
-	float     f;
-	int16_t   s;
-	uint16_t *d = buff;
-	size_t    p;
-	uint32_t  every = 0;
-
-	head /= DSM_BUS_WIDTH;
-	head *= 2;
-	if ( fwrite(&head, 1, sizeof(head), fp) < sizeof(head) )
-		return -1;
-
-	// two passes through data: first I, then Q.  Use i=0 for I, i=1 for Q
-	for ( i = 0; i < 2; i++ )
+	if ( fmt->read_finish && !fmt->read_finish(&state, fp) )
 	{
-		LOG_DEBUG("start pass %d\n", i);
-		d = buff;
-		p = size / DSM_BUS_WIDTH;
-		if ( chan & DC_CHAN_2 )
-			d += 2;
-		while ( p-- )
+		LOG_ERROR("%s: format_%s_read_finish: %s\n", __func__,
+		          fmt->name, strerror(errno));
+		if ( state.opt->prog_func )
 		{
-			s = d[i] & 0x7FF;
-			if ( d[i] & 0x800 )
-				s -= 0x800;
-
-			f  = s;
-			f /= 2048.0;
-			// TODO: endian swap f if necessary
-
-			if ( fwrite(&f, 1, sizeof(f), fp) < sizeof(f) )
-				return -1;
-
-			d += DSM_BUS_WIDTH / sizeof(uint16_t);
-			if ( (every++ & 0x1ffff) == 0x1ffff )
-				spin();
+			LOG_DEBUG("call prog_func(%u, %u);\n", 0, 0);
+			state.opt->prog_func(0, 0);
 		}
-		LOG_DEBUG("done pass %d\n", i);
+		return 0;
 	}
 
-	fputc('\r', stderr);
-	return 0;
-}
+	LOG_DEBUG("%s: Success\n", __func__);
 
-static int fmt_nul_write (FILE *fp, void *buff, size_t size, int chan)
-{
-	fputc('\r', stderr);
-	return 0;
-}
-
-
-static struct format_class format_list[] =
-{
-	{ "bin",   "",  fmt_bin_size,   fmt_bin_read,   fmt_bin_write   },
-	{ "hex",   "",  NULL,           NULL,           fmt_hex_write   },
-	{ "bist",  "",  fmt_bist_size,  fmt_bist_read,  fmt_bist_write  },
-	{ "null",  "",  NULL,           NULL,           fmt_null_write  },
-	{ "dec",   "",  fmt_dec_size,   fmt_dec_read,   fmt_dec_write   },
-	{ "iqw",   "",  fmt_iqw_size,   fmt_iqw_read,   fmt_iqw_write   },
-	{ "bit",   "",  NULL,           NULL,           fmt_bit_write  },
-	{ "nul",   "",  NULL,           NULL,           fmt_nul_write  },
-	{ NULL }
-};
-
-struct format_class *format_class_find (const char *name)
-{
-	struct format_class *fmt;
-
-	for ( fmt = format_list; fmt->name; fmt++ )
-		if ( !strcasecmp(fmt->name, name) )
-			return fmt;
-
-	return NULL;
-}
-
-// Future: guess format_class from filename extension?
-struct format_class *format_class_guess (const char *name)
-{
-	struct format_class *fmt;
-	char          *ptr;
-
-	if ( !(ptr = strrchr(name, '.')) )
-		return NULL;
-
-	ptr++;
-	for ( fmt = format_list; fmt->name; fmt++ )
-		if ( !strcasecmp(fmt->name, ptr) )
-			return fmt;
-		//TODO: search the exts[] array
-
-	return NULL;
-}
-
-
-void format_class_list (FILE *fp)
-{
-	static struct format_class *fmt;
-	for ( fmt = format_list; fmt->name; fmt++ )
+	if ( state.opt->prog_func )
 	{
-		fprintf(fp, "  %-7s  ", fmt->name);
-		if ( fmt->read && fmt->write )
-			fprintf(fp, "in/out\n");
-		else if ( fmt->read )
-			fprintf(fp, "in-only\n");
-		else
-			fprintf(fp, "out-only\n");
+		LOG_DEBUG("call prog_func(%zu, %zu);\n", size, size);
+		state.opt->prog_func(size, size);
 	}
+
+	errno = 0;
+	return dst - buff;
 }
 
-const char *format_class_name (struct format_class *fmt)
+/** Write a file from a buffer
+ *
+ *  The "packet" fields in the options if present will cause the operation to skip bytes
+ *  in the buffer, so the user can pre-fill the packet headers/footers if desired. 
+ *
+ *  Multi-channel details, based on the return from format_class_write_channels():
+ *  - FC_CHAN_BUFFER: all channels in the buffer will be written regardless of the
+ *                    "channels" field in the options.   
+ *  - FC_CHAN_MULTI:  the channel with the lowest-numbered bit set in "channels" will be
+ *                    the first channel written in each output sample, the next-lowest the
+ *                    second channel, etc.
+ *  - FC_CHAN_SINGLE: the channel with the only bit set in "channels" will be written; a
+ *                    single bit must be set before writing - otherwise is an error.
+ *
+ *  \param  fmt   Format class pointer
+ *  \param  opt   Format options pointer
+ *  \param  buff  Buffer to write from
+ *  \param  size  Buffer size
+ *  \param  fp    FILE pointer
+ *
+ *  \return  number of bytes used in the buffer, which should be size, or 0 on error.
+ */
+size_t format_write (struct format_class *fmt, struct format_options *opt,
+                     const void *buff, size_t size, FILE *fp)
 {
-	return fmt->name;
-}
+	struct format_state  state;
+	unsigned long        channels;
+	const void          *src = buff;
+	long                 page = sysconf(_SC_PAGESIZE);
+	size_t               step = 0;
+	size_t               data;
+	size_t               want;
+	size_t               skip = 0;
+	size_t               ret;
 
-
-
-int format_size (struct format_class *fmt, FILE *fp, int chan)
-{
-	if ( !fmt || !fmt->size )
+	if ( !fmt || !fmt->write_block )
 	{
+		LOG_ERROR("%s: No fmt or write_block\n", __func__);
 		errno = ENOSYS;
-		return -1;
+		return 0;
 	}
 
-	return fmt->size(fp, chan);
-}
+	if ( !opt )
+		opt = &format_options;
 
-int format_read (struct format_class *fmt, FILE *fp, void *buff, size_t size, int chan, int lsh)
-{
-	if ( !fmt || !fmt->read )
+	// restrict requested channels to actual ones; pointer math in some _block code needs
+	// this for safety / accuracy
+	channels = (1 << (opt->sample / opt->single)) - 1;
+	if ( opt->channels & ~channels )
 	{
-		errno = ENOSYS;
-		return -1;
+		LOG_DEBUG("%s: channel mask 0x%lx exceeds actual 0x%lx, masked to 0x%lx\n",
+		          __func__, opt->channels, channels, opt->channels & channels);
+		opt->channels &= channels;
 	}
 
-	return fmt->read(fp, buff, size, chan, lsh);
-}
-
-int format_write (struct format_class *fmt, FILE *fp, void *buff, size_t size, int chan)
-{
-	if ( !fmt || !fmt->write )
+	switch ( fmt->write_channels )
 	{
-		errno = ENOSYS;
-		return -1;
+		// warning on requesting a partial write using a full-buffer mode
+		case FC_CHAN_BUFFER:
+			if ( opt->channels != channels )
+				LOG_DEBUG("%s: partial channel write requested with FC_CHAN_BUFFER method"
+				          ", which operates on all channels implicitly; the results will"
+				          " probably not be what you want.\n", __func__);
+			break;
+
+		// fail on requesting an impossible operation
+		case FC_CHAN_SINGLE:
+			if ( bits_set(opt->channels) != 1 )
+			{
+				LOG_ERROR("%s: FC_CHAN_SINGLE must have a single channel bit set\n",
+				          __func__);
+				errno = EINVAL;
+				return 0;
+			}
+			break;
 	}
 
-	return fmt->write(fp, buff, size, chan);
+	// only 16-bit samples supported currently
+	if ( opt->single != sizeof(uint16_t) * 2 )
+	{
+		LOG_ERROR("%s: sample size %zu not supported yet.\n", __func__, opt->single);
+		errno = EINVAL;
+		return 0;
+	}
+
+	// warning only, weird-size packet headers may trigger this 
+	if ( (size % opt->sample) )
+		LOG_DEBUG("%s: requested block %zu not a multiple of sample %zu\n", __func__,
+		          size, opt->sample);
+
+	memset(&state, 0, sizeof(state));
+	state.opt  = opt;
+	state.buff = size;
+	state.data = format_size_data_from_buff(opt, size);
+
+	if ( opt->packet )
+	{
+		page = opt->data;
+		if ( opt->packet > (opt->head + opt->data + opt->foot) )
+			skip = opt->packet - (opt->head + opt->data + opt->foot);
+		LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__,
+		          opt->packet, opt->head, opt->data, opt->foot);
+	}
+
+	if ( state.opt->prog_func )
+	{
+		step = state.opt->prog_step;
+		LOG_DEBUG("initial prog_step %zu\n", step);
+		LOG_DEBUG("call prog_func(%u, %zu);\n", 0, size);
+		state.opt->prog_func(0, size);
+	}
+
+	if ( fmt->write_start && !fmt->write_start(&state, fp) )
+	{
+		LOG_ERROR("%s: format_%s_write_start: %s\n", __func__,
+		          fmt->name, strerror(errno));
+		if ( state.opt->prog_func )
+		{
+			LOG_DEBUG("call prog_func(%u, %u);\n", 0, 0);
+			state.opt->prog_func(0, 0);
+		}
+		return 0;
+	}
+
+	// Multi-pass: treat passes 0 as 1 so single-pass classes can skip it.
+	// classes which need multi-pass must set it to 2 or more
+	state.cur_pass = 0;
+	do
+	{
+		state.new_pass = 1;
+
+		data = format_size_data_from_buff(opt, size);
+		src = buff;
+
+		while ( data )
+		{
+			// constrain want to size of data left
+			if ( (want = page) > data )
+				want = data;
+
+			if ( opt->head )
+				src  += opt->head;
+
+			if ( !(ret = fmt->write_block(&state, src, want, fp)) )
+			{
+				LOG_ERROR("%s: format_%s_write_block: %s\n", __func__,
+				          fmt->name, strerror(errno));
+				if ( fmt->write_finish )
+					fmt->write_finish(&state, fp);
+				if ( state.opt->prog_func )
+				{
+					LOG_DEBUG("call prog_func(%u, %u);\n", 0, 0);
+					state.opt->prog_func(0, 0);
+				}
+				return 0;
+			}
+			state.new_pass = 0;
+
+			data -= ret;
+			src  += ret;
+
+			if ( opt->foot )
+				src += opt->foot;
+
+			if ( skip )
+				src += skip;
+
+			if ( state.opt->prog_func )
+			{
+				if ( !step )
+				{
+					LOG_DEBUG("call prog_func(%zu, %zu);\n", src - buff, size);
+					state.opt->prog_func(src - buff - 1, size);
+				}
+				else if ( (src - buff) >= step )
+				{
+					LOG_DEBUG("call prog_func(%zu, %zu);\n", src - buff, size);
+					state.opt->prog_func(src - buff - 1, size);
+					step += state.opt->prog_step;
+				}
+			}
+		}
+
+		state.cur_pass++;
+	}
+	while ( state.cur_pass < fmt->passes );
+
+	if ( fmt->write_finish && !fmt->write_finish(&state, fp) )
+	{
+		LOG_ERROR("%s: format_%s_write_finish: %s\n", __func__,
+		          fmt->name, strerror(errno));
+		if ( state.opt->prog_func )
+		{
+			LOG_DEBUG("call prog_func(%u, %u);\n", 0, 0);
+			state.opt->prog_func(0, 0);
+		}
+		return 0;
+	}
+
+	LOG_DEBUG("%s: Success\n", __func__);
+
+	if ( state.opt->prog_func )
+	{
+		LOG_DEBUG("call prog_func(%zu, %zu);\n", size, size);
+		state.opt->prog_func(size, size);
+	}
+
+	errno = 0;
+	return src - buff;
 }
-
-
 

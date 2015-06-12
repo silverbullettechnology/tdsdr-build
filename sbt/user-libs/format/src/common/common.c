@@ -33,18 +33,14 @@ void stop (const char *fmt, ...)
 {
 	int      err = errno;
 	va_list  ap;
-	char     buff[256];
-	char    *p = buff;
-	char    *e = buff + sizeof(buff);
 
 	va_start(ap, fmt); 
-	p += vsnprintf(p, e - p, fmt, ap);
+	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 
-	if ( err && p < e )
-		p += snprintf(p, e - p, ": %s", strerror(err));
+	fprintf(stderr, ": %s", strerror(err));
 
-	puts(buff);
+	fputc('\n', stderr);
 	exit(1);
 }
 

@@ -22,6 +22,13 @@ LIBS :=
 
 # in-tree objs - cleaned
 OBJS := \
+	src/lib/bin.o \
+	src/lib/bit.o \
+	src/lib/dec.o \
+	src/lib/hex.o \
+	src/lib/iqw.o \
+	src/lib/nul.o \
+	src/lib/raw.o \
 	src/lib/common.o
 
 CFLAGS += -Wall -Werror -fpic
@@ -32,6 +39,7 @@ all: install
 
 .PHONY: install
 install: $(BIN)/$(ANAME) $(BIN)/$(SHARED) $(BIN)/$(LDNAME) $(BIN)/$(SONAME)
+ifneq ($(STAGEDIR),)
 	# Install libraries to stage dir - shared and static
 	mkdir -p $(STAGEDIR)/usr/lib
 	cp -a $(BIN)/$(SHARED) $(STAGEDIR)/usr/lib
@@ -41,6 +49,7 @@ install: $(BIN)/$(ANAME) $(BIN)/$(SHARED) $(BIN)/$(LDNAME) $(BIN)/$(SONAME)
 	# Install includes to stage dir
 	mkdir -p $(STAGEDIR)/usr/include/$(NAME)
 	cp -a include/$(NAME).h  $(STAGEDIR)/usr/include
+endif
 
 $(BIN)/$(ANAME): $(OBJS)
 	$(AR) rcs $@ $^
@@ -61,16 +70,16 @@ $(BIN)/$(LDNAME): $(BIN)/$(SHARED)
 	
 romfs: install
 	# Install shared libraries to rootfs
-	mkdir -p "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(SHARED) "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(SONAME) "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(LDNAME) "$(ROMFSDIR)/usr/lib"
+	mkdir -p $(ROMFSDIR)/usr/lib
+	cp -a $(BIN)/$(SHARED) $(ROMFSDIR)/usr/lib
+	cp -a $(BIN)/$(SONAME) $(ROMFSDIR)/usr/lib
+	cp -a $(BIN)/$(LDNAME) $(ROMFSDIR)/usr/lib
 ifeq ($(CONFIG_USER_LIBS_PIPE_DEV_STATIC),y)
-	cp -a $(STAGEDIR)/usr/lib/$(ANAME)  "$(ROMFSDIR)/usr/lib"
+	cp -a $(BIN)/$(ANAME)  $(ROMFSDIR)/usr/lib
 endif
 ifeq ($(CONFIG_USER_LIBS_PIPE_DEV_INCLUDES),y)
-	mkdir -p "$(ROMFSDIR)/usr/include"
-	cp -a $(NAME).h  "$(ROMFSDIR)/usr/include"
+	mkdir -p $(ROMFSDIR)/usr/include
+	cp -a include/$(NAME).h  $(ROMFSDIR)/usr/include
 endif
 	true
 

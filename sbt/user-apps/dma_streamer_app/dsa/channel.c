@@ -27,6 +27,7 @@
 #include <pd_main.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <format.h>
 #include <dsm.h>
 
 #include "dsa/main.h"
@@ -39,6 +40,39 @@ LOG_MODULE_STATIC("channel", LOG_LEVEL_INFO);
 
 
 int dsa_channel_ensm_wake = 0;
+
+
+/* New format options: two channels of 12-bit I/Q with 16-bit alignment, packed with no
+ * gaps for packet headers */
+static struct format_options dsa_format_options =
+{
+	.channels = 3,
+	.single   = sizeof(struct dsa_sample),
+	.sample   = sizeof(struct dsa_sample_pair),
+	.bits     = 12,
+	.packet   = 0,
+	.head     = 0,
+	.data     = 0,
+	.foot     = 0,
+};
+
+
+static void dsa_channel_progress (size_t done, size_t size)
+{
+	if ( !size )
+		fprintf(stderr, "Failed!");
+	else if ( !done )
+		fprintf(stderr, "  0%%");
+	else if ( done >= size )
+		fprintf(stderr, "\b\b\b\b100%%\n");
+	else
+	{
+		unsigned long long prog = done;
+		prog *= 100;
+		prog /= size;
+		fprintf(stderr, "\b\b\b\b%3llu%%", prog);
+	}
+}
 
 
 const char *dsa_channel_desc (int ident)
@@ -297,8 +331,7 @@ static struct dsa_channel_sxx **xfer_to_sxx (struct dsa_channel_xfer *xfer, int 
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 // sizes, allocates, initializes, and returns a dsa_channel_sxx for the given user
-// bitmask, format, and location string.  TODO is location expansion with printf-style
-// format characters, which will complicate sizing the string and thus the buffer.
+// bitmask, format, and location string.  
 static struct dsa_channel_sxx *sxx_int (struct format_class *fmt, const char *loc,
                                         int dev, int dir, int sxx, int chan)
 {
@@ -398,6 +431,7 @@ int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
 {
 	struct dsa_channel_xfer **xfer;
 	struct dsa_channel_sxx  **sxx;
+	struct dsa_channel_sxx  **sxx2;
 	int                       dev;
 	int                       dir1;
 	int                       dir2;
@@ -409,6 +443,7 @@ int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
 	for ( dev = DC_DEV_AD1; dev <= DC_DEV_AD2; dev <<= 1 )
 		for ( dir1 = DC_DIR_TX; dir1 <= DC_DIR_RX; dir1 <<= 1 )
 			if ( (xfer = evt_to_xfer(evt, ident & (dev|dir1))) && *xfer )
+			{
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					for ( dir2 = DC_DIR_TX; dir2 <= DC_DIR_RX; dir2 <<= 1 )
 						if ( (sxx = xfer_to_sxx(*xfer, mask & (chan|dir2))) )
@@ -416,7 +451,47 @@ int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
 							free(*sxx);
 							if ( !(*sxx = sxx_int(fmt, loc, dev, dir1, dir2, chan)) )
 								return -1;
+
+							LOG_DEBUG("Setup sxx for dev/dir/chan %s: %s:%s\n",
+							          dsa_channel_desc(dev|dir1|chan),
+							          format_class_name((*sxx)->fmt),
+							          (*sxx)->loc);
 						}
+
+				// after setting up the channels and resolving the loc names, do some
+				// sanity/safety checks if we have two valid channels on the same file
+				sxx  = xfer_to_sxx(*xfer, DC_CHAN_1|dir1);
+				sxx2 = xfer_to_sxx(*xfer, DC_CHAN_2|dir1);
+				if ( *sxx && *sxx2 && !strcmp((*sxx)->loc, (*sxx2)->loc) )
+				{
+					if ( (*sxx)->fmt != (*sxx2)->fmt )
+					{
+						LOG_ERROR("%s two channels %s file %s with different "
+						          "formats (%s / %s) makes no sense, stop.\n",
+						          dir1 == DC_DIR_TX ? "Reading" : "Writing",
+						          dir1 == DC_DIR_TX ? "from"    : "to",
+						          (*sxx)->loc,  format_class_name((*sxx)->fmt),
+						          format_class_name((*sxx2)->fmt));
+						errno = EINVAL;
+						return -1;
+					}
+
+					if ( dir1 == DC_DIR_RX )
+					{
+						switch ( format_class_write_channels((*sxx)->fmt) )
+						{
+							case FC_CHAN_SINGLE:
+								LOG_ERROR("Writing two channels to %s with a single-"
+								          "channel format will lose data, stop.\n",
+								          (*sxx)->loc);
+								errno = EINVAL;
+								return -1;
+						}
+					}
+				}
+
+				LOG_DEBUG("OK for dev/dir %s\n", dsa_channel_desc(dev|dir1));
+			}
 
 	return 0;
 }
@@ -565,6 +640,8 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 {
 	struct dsa_channel_xfer **xfer;
 	struct dsa_channel_sxx  **sxx;
+	struct dsa_channel_sxx  **sxx2;
+	struct format_options     opt;
 	int                       dev;
 	int                       dir;
 	int                       chan;
@@ -581,10 +658,36 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					if ( (sxx = xfer_to_sxx(*xfer, DC_DIR_TX|chan)) && *sxx )
 					{
-						LOG_DEBUG("  load src for dev/dir/chan %s: %s:%s\n",
-						        dsa_channel_desc(dev|dir|chan),
-						        (*sxx)->fmt ? format_class_name((*sxx)->fmt) : "???",
-						        (*sxx)->loc);
+						// Setup options from defaults, then validate/modify for channel
+						// and format combination
+						memcpy(&opt, &dsa_format_options, sizeof(opt));
+
+						// On the DC_CHAN_1 pass, if there's also a valid DC_CHAN_2 setup,
+						// and it's the same output filename, and the format is
+						// a buffer or multi-channel format, then do both channels at once
+						sxx2 = xfer_to_sxx(*xfer, DC_DIR_TX|DC_CHAN_2);
+						if ( chan == DC_CHAN_1 && *sxx2 &&
+						     (*sxx)->fmt == (*sxx2)->fmt &&
+						     !strcmp((*sxx)->loc, (*sxx2)->loc) &&
+						     format_class_read_channels((*sxx)->fmt) != FC_CHAN_SINGLE )
+						{
+							opt.channels = 3;
+							LOG_DEBUG("Do load src for dev/dir %s: %s:%s (%lu)\n",
+							        dsa_channel_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
+							        format_class_name((*sxx)->fmt),
+							        (*sxx)->loc, opt.channels);
+						}
+
+						// Otherwise we have to make two passes with a single-bit for the
+						// channel we're saving
+						else
+						{
+							opt.channels = 1 << DC_CHAN_MASK_TO_IDX(chan);
+							LOG_DEBUG("Do load src for dev/dir/chan %s: %s:%s (%lu)\n",
+							        dsa_channel_desc(dev|dir|chan),
+							        format_class_name((*sxx)->fmt),
+							        (*sxx)->loc, opt.channels);
+						}
 
 						if ( !(*sxx)->fmt )
 						{
@@ -610,7 +713,7 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						if ( ! (*xfer)->smp )
 						{
 							LOG_DEBUG("Late buffer alloc attempt\n");
-							if ( (len = format_size((*sxx)->fmt, fp, chan)) < 0 )
+							if ( (len = format_size((*sxx)->fmt, &opt, fp)) < 0 )
 							{
 								LOG_ERROR("Format size failed: %s\n", strerror(errno));
 								return -1;
@@ -622,13 +725,18 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 							LOG_DEBUG("Late buffer alloc success: %ld samples\n", len);
 						}
 
+						// Setup progress here, after buffer size is known
+						opt.prog_func  = dsa_channel_progress;
+						opt.prog_step  = (*xfer)->len * sizeof(struct dsa_sample_pair);
+						opt.prog_step /= 100;
+
 						// TODO: unwrap channel loop, pass dsa_channel_xfer, format size
 						// change to len, pass channel mask.  (dual-channel formats can
 						// then detect internally)
-						LOG_INFO("  Loading buffer from %s...\r", loc);
-						ret = format_read((*sxx)->fmt, fp, (*xfer)->smp,
+						LOG_INFO("  Loading buffer from %s: ", loc);
+						ret = format_read((*sxx)->fmt, &opt, (*xfer)->smp,
 						                  (*xfer)->len * sizeof(struct dsa_sample_pair),
-						                  chan, lsh);
+						                  fp);
 
 						if ( ret < 0 )
 						{
@@ -641,7 +749,14 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						}
 
 						fclose(fp);
-						LOG_INFO("\r\e[KLoaded %s\n", loc);
+						LOG_INFO("Loaded %s\n", loc);
+
+						if ( opt.channels == 3 )
+						{
+							LOG_DEBUG("Skip second pass, multi-channel load (%lu)\n",
+							          opt.channels);
+							break;
+						}
 					}
 
 	LOG_DEBUG("dsa_channel_load(): %d\n", ret);
@@ -653,6 +768,8 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 {
 	struct dsa_channel_xfer **xfer;
 	struct dsa_channel_sxx  **sxx;
+	struct dsa_channel_sxx  **sxx2;
+	struct format_options     opt;
 	int                       dev;
 	int                       dir;
 	int                       chan;
@@ -666,14 +783,43 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 				for ( chan = DC_CHAN_1; chan <= DC_CHAN_2; chan <<= 1 )
 					if ( (sxx = xfer_to_sxx(*xfer, DC_DIR_RX|chan)) && *sxx )
 					{
-						LOG_DEBUG("  save snk for dev/dir/chan %s: %s:%s\n",
-						        dsa_channel_desc(dev|dir|chan),
-						        (*sxx)->fmt ? format_class_name((*sxx)->fmt) : "???",
-						        (*sxx)->loc);
+						// Setup options from defaults, then validate/modify for channel
+						// and format combination
+						memcpy(&opt, &dsa_format_options, sizeof(opt));
+						opt.prog_func  = dsa_channel_progress;
+						opt.prog_step  = (*xfer)->len * sizeof(struct dsa_sample_pair);
+						opt.prog_step /= 100;
+
+						// On the DC_CHAN_1 pass, if there's also a valid DC_CHAN_2 setup,
+						// and it's the same output filename, and the format is
+						// a buffer or multi-channel format, then do both channels at once
+						sxx2 = xfer_to_sxx(*xfer, DC_DIR_RX|DC_CHAN_2);
+						if ( chan == DC_CHAN_1 && *sxx2 &&
+						     (*sxx)->fmt == (*sxx2)->fmt &&
+						     !strcmp((*sxx)->loc, (*sxx2)->loc) )
+						{
+							opt.channels = 3;
+							LOG_DEBUG("Do save snk for dev/dir %s: %s:%s (%lu)\n",
+							        dsa_channel_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
+							        format_class_name((*sxx)->fmt),
+							        (*sxx)->loc, opt.channels);
+						}
+
+						// Otherwise we have to make two passes with a single-bit for the
+						// channel we're saving
+						else
+						{
+							opt.channels = 1 << DC_CHAN_MASK_TO_IDX(chan);
+							LOG_DEBUG("Do save snk for dev/dir/chan %s: %s:%s (%lu)\n",
+							        dsa_channel_desc(dev|dir|chan),
+							        format_class_name((*sxx)->fmt),
+							        (*sxx)->loc, opt.channels);
+						}
 
 						if ( !(*sxx)->fmt )
 						{
 							LOG_ERROR("No format set, stop\n");
+							errno = EINVAL;
 							return -1;
 						}
 						if ( !(fp = fopen((*sxx)->loc, "w")) )
@@ -682,13 +828,10 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 							return -1;
 						}
 
-						// TODO: unwrap channel loop, pass dsa_channel_xfer, format size
-						// change to len, pass channel mask.  (dual-channel formats can
-						// then detect internally)
-						LOG_INFO("  Saving buffer to %s...\r", (*sxx)->loc);
-						ret = format_write((*sxx)->fmt, fp, (*xfer)->smp,
+						LOG_INFO("Saving buffer to %s: ", (*sxx)->loc);
+						ret = format_write((*sxx)->fmt, &opt, (*xfer)->smp,
 						                   (*xfer)->len * sizeof(struct dsa_sample_pair),
-						                   chan);
+						                   fp);
 
 						if ( ret < 0 )
 						{
@@ -701,7 +844,14 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 						}
 
 						fclose(fp);
-						LOG_INFO("\r\e[KSaved %s\n", (*sxx)->loc);
+						LOG_DEBUG("Saved %s\n", (*sxx)->loc);
+
+						if ( opt.channels == 3 )
+						{
+							LOG_DEBUG("Skip second pass, multi-channel save (%lu)\n",
+							          opt.channels);
+							break;
+						}
 					}
 
 	return ret;

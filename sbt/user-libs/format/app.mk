@@ -30,7 +30,7 @@ OBJS := \
 
 CFLAGS  := -O2 -Wall -Werror -fpic
 CFLAGS  += -I$(PWD)/include
-LDFLAGS := -L$(STAGEDIR)/usr/lib 
+LDFLAGS := -L$(BIN)
 
 all: install
 
