@@ -817,6 +817,19 @@ for ( ret = 0; ret <= argc; ret++ )
 				// Rate 3 for T2R2 mode
 				reg = ADI_NEW_TX_TO_RATE(3);
 				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
+
+				// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
+				fifo_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_PCORE_VER, &reg);
+				if ( (reg & 0xFFFF0000) == 0x00080000 )
+				{
+					int ch;
+
+					printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
+					for ( ch = 0; ch < 4; ch++ )
+						fifo_adi_new_write(dev, ADI_NEW_TX,
+						                   ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
+						                   0x02);
+				}
 			}
 		} 
 
@@ -987,18 +1000,6 @@ for ( ret = 0; ret <= argc; ret++ )
 			dsm_cyclic_stop(~0);
 			break;
 	}
-
-	if ( dsa_adi_new && dsa_pipe_dev )
-	{
-		for ( dev = 0; dev < 2; dev++ )
-			if ( dsa_evt.rx[dev] )
-				pipe_adi2axis_set_ctrl(dev,  PD_ADI2AXIS_CTRL_RESET);
-
-		if ( (ret = pipe_access_release(~0)) )
-			LOG_ERROR("Pipe-dev access release denied: %s\n", strerror(errno));
-	}
-	if ( fifo_access_release(~0) )
-		LOG_ERROR("FIFO-dev access release denied: %s\n", strerror(errno));
 
 #ifdef DSA_USE_PMON
 	if ( pmon )
@@ -1190,7 +1191,12 @@ for ( ret = 0; ret <= argc; ret++ )
 				          ts.tsi, ts.tsf_hi, ts.tsf_lo);
 
 			}
+
+		if ( pipe_access_release(~0) )
+			LOG_ERROR("Failed to release pipe access? %s\n", strerror(errno));
 	}
+	if ( fifo_access_release(~0) )
+		LOG_ERROR("Failed to release fifo access? %s\n", strerror(errno));
 
 	// save sink buffers 
 	if ( dsa_channel_save(&dsa_evt) < 0 )
