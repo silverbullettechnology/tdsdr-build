@@ -702,6 +702,8 @@ for ( ret = 0; ret <= argc; ret++ )
 		{
 			for ( dev = 0; dev < 2; dev++ )
 			{
+				size_t len = 0;
+
 				if ( dsa_evt.rx[dev] )
 				{
 					// reset blocks in the PL
@@ -731,8 +733,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 					// TODO: overhead for packet headers
 //					if ( dsa_opt_v49_len )
-					reg = dsa_evt.rx[dev]->len * DSM_BUS_WIDTH;
-					pipe_adi2axis_set_bytes(dev, reg);
+					len = dsa_evt.rx[dev]->len * DSM_BUS_WIDTH;
 
 					// enable legacy timing - no triggers
 					pipe_adi2axis_set_ctrl(dev, PD_ADI2AXIS_CTRL_LEGACY);
@@ -747,6 +748,16 @@ for ( ret = 0; ret <= argc; ret++ )
 					// enable passthru
 					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
 					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
+
+					if ( dsa_evt.tx[dev]->len * DSM_BUS_WIDTH > len )
+						len = dsa_evt.tx[dev]->len * DSM_BUS_WIDTH;
+				}
+
+				// for either direction set the max length
+				if ( dsa_evt.rx[dev] || dsa_evt.tx[dev] )
+				{
+					pipe_adi2axis_set_bytes(dev, len);
+					pipe_adi2axis_set_ctrl(dev, PD_ADI2AXIS_CTRL_LEGACY);
 				}
 			}
 		}
