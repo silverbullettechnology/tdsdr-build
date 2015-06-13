@@ -133,4 +133,25 @@ int pipe_vita49_unpack_get_strm_id (int dev, unsigned long *reg);
 int pipe_vita49_unpack_get_counts  (int dev, struct pd_vita49_unpack *buf);
 
 
+/******* SRIO_DMA_COMB IOCTLs *******/
+
+
+int pipe_srio_dma_comb_set_cmd   (unsigned long  reg);
+int pipe_srio_dma_comb_get_cmd   (unsigned long *reg);
+int pipe_srio_dma_comb_get_stat  (unsigned long *reg);
+int pipe_srio_dma_comb_set_npkts (unsigned long  reg);
+int pipe_srio_dma_comb_get_npkts (unsigned long *reg);
+
+
+/******* SRIO_DMA_COMB IOCTLs *******/
+
+
+int pipe_srio_dma_comb_set_cmd   (unsigned long  reg);
+int pipe_srio_dma_comb_get_cmd   (unsigned long *reg);
+int pipe_srio_dma_comb_get_stat  (unsigned long *reg);
+int pipe_srio_dma_comb_set_npkts (unsigned long  reg);
+int pipe_srio_dma_comb_get_npkts (unsigned long *reg);
+int pipe_srio_dma_comb_get_tuser (unsigned long *reg);
+
+
 #endif // _INCLUDE_PIPE_DEV_H_

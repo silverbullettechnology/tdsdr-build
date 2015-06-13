@@ -59,6 +59,8 @@ static struct pd_vita49_trig_regs   __iomem *vita49_trig_dac[2];
 static struct pd_swrite_pack_regs   __iomem *swrite_pack[2];
 static struct pd_swrite_unpack_regs __iomem *swrite_unpack;
 static struct pd_routing_reg        __iomem *routing_reg;
+static struct pd_srio_dma_comb      __iomem *srio_dma_comb;
+static struct pd_srio_dma_split     __iomem *srio_dma_split;
 
 
 /******** Userspace interface ********/
@@ -781,6 +783,107 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			reg = REG_READ(&routing_reg->adc_sw_dest);
 			pr_debug("PD_IOCG_ROUTING_REG_ADC_SW_DEST %08lx\n", reg);
 			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* SRIO_DMA_COMB IOCTLs */
+		case PD_IOCS_SRIO_DMA_COMB_CMD:
+			if ( !srio_dma_comb )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_SRIO_DMA_COMB_CMD %08lx\n", arg);
+			REG_WRITE(&srio_dma_comb->cmd, arg);
+			return 0;
+
+		case PD_IOCG_SRIO_DMA_COMB_CMD:
+			if ( !srio_dma_comb )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_comb->cmd);
+			pr_debug("PD_IOCG_SRIO_DMA_COMB_CMD %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_SRIO_DMA_COMB_STAT:
+			if ( !srio_dma_comb )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_comb->stat);
+			pr_debug("PD_IOCG_SRIO_DMA_COMB_STAT %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_SRIO_DMA_COMB_NPKTS:
+			if ( !srio_dma_comb )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_SRIO_DMA_COMB_NPKTS %08lx\n", arg);
+			REG_WRITE(&srio_dma_comb->npkts, arg);
+			return 0;
+
+		case PD_IOCG_SRIO_DMA_COMB_NPKTS:
+			if ( !srio_dma_comb )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_comb->npkts);
+			pr_debug("PD_IOCG_SRIO_DMA_COMB_NPKTS %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* SRIO_DMA_SPLIT IOCTLs */
+		case PD_IOCS_SRIO_DMA_SPLIT_CMD:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_SRIO_DMA_SPLIT_CMD %08lx\n", arg);
+			REG_WRITE(&srio_dma_split->cmd, arg);
+			return 0;
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_CMD:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->cmd);
+			pr_debug("PD_IOCG_SRIO_DMA_SPLIT_CMD %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_STAT:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->stat);
+			pr_debug("PD_IOCG_SRIO_DMA_SPLIT_STAT %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_SRIO_DMA_SPLIT_NPKTS:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_SRIO_DMA_SPLIT_NPKTS %08lx\n", arg);
+			REG_WRITE(&srio_dma_split->npkts, arg);
+			return 0;
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_NPKTS:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->npkts);
+			pr_debug("PD_IOCG_SRIO_DMA_SPLIT_NPKTS %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_TUSER:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->tuser);
+			pr_debug("PD_IOCG_SRIO_DMA_SPLIT_TUSER %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
 	}
 
 	pr_err("%s(): unknown cmd %08x\n", __func__, cmd);
@@ -902,6 +1005,13 @@ static int pd_probe (struct platform_device *pdev)
 	if ( !(routing_reg = pd_iomap(pdev, "routing-reg")) )
 		goto fail;
 
+	if ( !(srio_dma_comb = pd_iomap(pdev, "srio-dma-comb")) )
+		goto fail;
+
+	if ( !(srio_dma_split = pd_iomap(pdev, "srio-dma-split")) )
+		goto fail;
+
+
 	if ( (ret = misc_register(&mdev)) < 0 )
 	{
 		pr_err("misc_register() failed\n");
@@ -957,6 +1067,8 @@ fail:
 	if ( swrite_pack[1]     )  devm_iounmap(&pdev->dev, swrite_pack[1]);
 	if ( swrite_unpack      )  devm_iounmap(&pdev->dev, swrite_unpack);
 	if ( routing_reg        )  devm_iounmap(&pdev->dev, routing_reg);
+	if ( srio_dma_comb      )  devm_iounmap(&pdev->dev, srio_dma_comb);
+	if ( srio_dma_split     )  devm_iounmap(&pdev->dev, srio_dma_split);
 
 	return ret;
 }

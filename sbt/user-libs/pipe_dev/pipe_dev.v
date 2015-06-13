@@ -86,6 +86,19 @@ pipe_dev_0.1 {
 		pipe_vita49_unpack_set_strm_id;
 		pipe_vita49_unpack_get_strm_id;
 		pipe_vita49_unpack_get_counts;
+		/* src/lib/srio_dma_comb.c */
+		pipe_srio_dma_comb_set_cmd;
+		pipe_srio_dma_comb_get_cmd;
+		pipe_srio_dma_comb_get_stat;
+		pipe_srio_dma_comb_set_npkts;
+		pipe_srio_dma_comb_get_npkts;
+		/* src/lib/srio_dma_comb.c */
+		pipe_srio_dma_comb_set_cmd;
+		pipe_srio_dma_comb_get_cmd;
+		pipe_srio_dma_comb_get_stat;
+		pipe_srio_dma_comb_set_npkts;
+		pipe_srio_dma_comb_get_npkts;
+		pipe_srio_dma_comb_get_tuser;
 	local:
 		*;
 };

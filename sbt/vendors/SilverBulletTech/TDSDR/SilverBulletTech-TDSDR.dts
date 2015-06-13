@@ -187,7 +187,7 @@ status = "disabled";
 		axi_dma_1: axi-dma@52300000 {
 			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupts = < 0 59 4 0 58 4 >;
+			interrupts = < 0 57 4 0 56 4 >;
 			reg = < 0x52300000 0x10000 >;
 			xlnx,family = "zynq";
 			xlnx,include-sg = <0x1>;
@@ -204,6 +204,29 @@ status = "disabled";
 				interrupts = <0 56 4 >; // IRQ 88
 				xlnx,datawidth = <0x40>;
 				xlnx,device-id = <0x1>;
+			};
+		};
+
+		axi_dma_2: axi-dma@52500000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 34 4 0 33 4 >;
+			reg = < 0x52500000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52500030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 34 4 >; // IRQ 66
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x2>;
+			};
+			dma-channel@52500000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 33 4 >; // IRQ 65
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x2>;
 			};
 		};
 
@@ -269,6 +292,8 @@ status = "disabled";
 			reg = <
 				0x52000000 0x00001000  /* adi2axis_0            */
 				0x52200000 0x00001000  /* adi2axis_1            */
+				0x52600000 0x00001000  /* srio_dma_comb_0       */
+				0x52700000 0x00001000  /* srio_dma_split_0      */
 				0x53000000 0x00001000  /* vita49_clk            */
 				0x53100000 0x00001000  /* axis_vita49_pack_0    */
 				0x53200000 0x00001000  /* axis_vita49_pack_1    */
@@ -289,6 +314,8 @@ status = "disabled";
 			reg-names =
 				"adi2axis-0",
 				"adi2axis-1",
+				"srio-dma-comb",
+				"srio-dma-split",
 				"vita49-clk",
 				"vita49-pack-0",
 				"vita49-pack-1",

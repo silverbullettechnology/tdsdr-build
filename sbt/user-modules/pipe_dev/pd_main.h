@@ -34,6 +34,10 @@
 #define PD_VITA49_CLK_CTRL_ENABLE   0x00000001 /* enable clock                */
 #define PD_VITA49_CLK_CTRL_RESET    0x00000002 /* reset clock                 */
 #define PD_VITA49_CLK_CTRL_SET_INT  0x00000004 /* set integer seconds counter */
+#define PD_VITA49_CLK_CTRL_ZERO_0   0x00000008 /* zero tsf_0 counter */
+#define PD_VITA49_CLK_CTRL_ZERO_1   0x00000010 /* zero tsf_1 counter */
+#define PD_VITA49_CLK_CTRL_T2R2_0   0x00000020 /* channel 0 sample mode: 0:1t1r, 1:2t2r */
+#define PD_VITA49_CLK_CTRL_T2R2_1   0x00000040 /* channel 1 sample mode: 0:1t1r, 1:2t2r */
 
 /* VITA49_PACK bits */
 #define PD_VITA49_PACK_CTRL_ENABLE    0x00000001 /* enable module       */
@@ -68,8 +72,35 @@
 #define PD_SWRITE_UNPACK_CTRL_RESET  0x00000002  /* reset module        */
 
 /* ROUTING_REG bits */
-#define PD_ROUTING_REG_ADC_SW_DEST_0  0x00000001  /* route to SRIO */
-#define PD_ROUTING_REG_ADC_SW_DEST_1  0x00000002  /* route to SRIO */
+#define PD_ROUTING_REG_ADC_SW_DEST_0   0x00000001  /* if enabled adi_0 rx data stream will be routed to ddr (otherwise srio) */
+#define PD_ROUTING_REG_ADC_SW_DEST_1   0x00000002  /* if enabled adi_1 rx data stream will be routed to ddr (otherwise srio) */
+#define PD_ROUTING_REG_DMA_LOOPBACK_0  0x00000004  /* axi_dma_0 loopback test */
+#define PD_ROUTING_REG_DMA_LOOPBACK_1  0x00000008  /* axi_dma_1 loopback test */
+#define PD_ROUTING_REG_SWRITE_MASK     0x00000030  /* swrite_bypass mask */
+#define PD_ROUTING_REG_SWRITE_ADI      0x00000000  /* swrites get sent to adi chain */
+#define PD_ROUTING_REG_SWRITE_FIFO     0x00000010  /* swrites get sent to srio_fifo */
+#define PD_ROUTING_REG_SWRITE_DMA      0x00000020  /* swrites get sent to srio_dma  */
+
+/* SRIO_DMA_COMB bits */
+#define PD_SRIO_DMA_COMB_CMD_ENABLE   0x00000001  /* enable   */
+#define PD_SRIO_DMA_COMB_CMD_RESET    0x00000002  /* reset    */
+#define PD_SRIO_DMA_COMB_STAT_DONE    0x00000001  /* done bit */
+
+/* SRIO_DMA_SPLIT bits */
+#define PD_SRIO_DMA_SPLIT_CMD_ENABLE  0x00000001  /* enable   */
+#define PD_SRIO_DMA_SPLIT_CMD_RESET   0x00000002  /* reset    */
+#define PD_SRIO_DMA_SPLIT_STAT_DONE   0x00000001  /* done bit */
+
+/* ADI_DMA_COMB bits */
+#define PD_ADI_DMA_COMB_CMD_ENABLE    0x00000001  /* enable   */
+#define PD_ADI_DMA_COMB_CMD_RESET     0x00000002  /* reset    */
+#define PD_ADI_DMA_COMB_STAT_DONE     0x00000001  /* done bit */
+
+/* ADI_DMA_SPLIT bits */
+#define PD_ADI_DMA_SPLIT_CMD_ENABLE   0x00000001  /* enable   */
+#define PD_ADI_DMA_SPLIT_CMD_RESET    0x00000002  /* reset    */
+#define PD_ADI_DMA_SPLIT_STAT_DONE    0x00000001  /* done bit */
+
 
 /* Access control bits */
 #define PD_ACCESS_AD1_RX  0x00000001  /* RX path on AD1 */
@@ -225,6 +256,21 @@ struct pd_vita49_unpack
 /* ROUTING_REG IOCTLs */
 #define  PD_IOCS_ROUTING_REG_ADC_SW_DEST  _IOW(PD_IOCTL_MAGIC, 160, unsigned long)
 #define  PD_IOCG_ROUTING_REG_ADC_SW_DEST  _IOR(PD_IOCTL_MAGIC, 161, unsigned long *)
+
+/* SRIO_DMA_COMB IOCTLs */
+#define  PD_IOCS_SRIO_DMA_COMB_CMD    _IOW(PD_IOCTL_MAGIC, 170, unsigned long)
+#define  PD_IOCG_SRIO_DMA_COMB_CMD    _IOR(PD_IOCTL_MAGIC, 171, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_COMB_STAT   _IOR(PD_IOCTL_MAGIC, 172, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_COMB_NPKTS  _IOW(PD_IOCTL_MAGIC, 173, unsigned long)
+#define  PD_IOCG_SRIO_DMA_COMB_NPKTS  _IOR(PD_IOCTL_MAGIC, 174, unsigned long *)
+
+/* SRIO_DMA_SPLIT IOCTLs */
+#define  PD_IOCS_SRIO_DMA_SPLIT_CMD    _IOW(PD_IOCTL_MAGIC, 180, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_CMD    _IOR(PD_IOCTL_MAGIC, 181, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_SPLIT_STAT   _IOR(PD_IOCTL_MAGIC, 182, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_SPLIT_NPKTS  _IOW(PD_IOCTL_MAGIC, 183, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_NPKTS  _IOR(PD_IOCTL_MAGIC, 184, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_SPLIT_TUSER  _IOR(PD_IOCTL_MAGIC, 185, unsigned long *)
 
 
 #endif /* _INCLUDE_PD_MAIN_H */
