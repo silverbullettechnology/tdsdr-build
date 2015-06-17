@@ -29,6 +29,8 @@ format_0.1 {
 		format_write;
 		format_size_data_from_buff;
 		format_size_buff_from_data;
+		format_num_packets_from_buff;
+		format_num_packets_from_data;
 		format_error_setup;
 		format_debug_setup;
 	local:

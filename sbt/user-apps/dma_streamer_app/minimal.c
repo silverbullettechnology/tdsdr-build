@@ -83,7 +83,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = posix_getopt(argc, argv, "?hic:s:S:t:n:N:")) > -1 )
+	while ( (opt = getopt(argc, argv, "+?hic:s:S:t:n:N:")) > -1 )
 		switch ( opt )
 		{
 			case 'i': opt_interact = 1;

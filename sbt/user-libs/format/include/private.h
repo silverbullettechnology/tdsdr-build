@@ -132,4 +132,10 @@ extern struct format_class format_bit;
 extern struct format_class format_nul;
 
 
+/* Internals of some formats, exposed for debugging. */
+void hexdump_line (FILE *fp, const unsigned char *ptr, int len);
+void hexdump_buff (FILE *fp, const void *buf, int len);
+void smpdump (FILE *fp, void *buff, size_t size);
+
+
 #endif // _INCLUDE_PRIVATE_H_

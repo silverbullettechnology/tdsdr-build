@@ -72,8 +72,8 @@
 #define PD_SWRITE_UNPACK_CTRL_RESET  0x00000002  /* reset module        */
 
 /* ROUTING_REG bits */
-#define PD_ROUTING_REG_ADC_SW_DEST_0   0x00000001  /* if enabled adi_0 rx data stream will be routed to ddr (otherwise srio) */
-#define PD_ROUTING_REG_ADC_SW_DEST_1   0x00000002  /* if enabled adi_1 rx data stream will be routed to ddr (otherwise srio) */
+#define PD_ROUTING_REG_ADC_SW_DEST_0   0x00000001  /* adi_0 rx routing: 0:DMA, 1:SRIO */
+#define PD_ROUTING_REG_ADC_SW_DEST_1   0x00000002  /* adi_1 rx routing: 0:DMA, 1:SRIO */
 #define PD_ROUTING_REG_DMA_LOOPBACK_0  0x00000004  /* axi_dma_0 loopback test */
 #define PD_ROUTING_REG_DMA_LOOPBACK_1  0x00000008  /* axi_dma_1 loopback test */
 #define PD_ROUTING_REG_SWRITE_MASK     0x00000030  /* swrite_bypass mask */

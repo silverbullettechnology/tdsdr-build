@@ -33,6 +33,7 @@
 #include "sd_mesg.h"
 
 #include "srio-tool.h"
+#include "common.h"
 
 #define  DEV_NODE "/dev/" SD_USER_DEV_NODE
 #define  PERIOD 5
@@ -79,62 +80,6 @@ static void signal_fatal (int signum)
 }
 
 
-static void hexdump_line (const unsigned char *ptr, const unsigned char *org, int len)
-{
-	char  buff[80];
-	char *p = buff;
-	int   i;
-
-	p += sprintf (p, "%04x: ", (unsigned)(ptr - org));
-
-	for ( i = 0; i < len; i++ )
-		p += sprintf (p, "%02x ", ptr[i]);
-
-	for ( ; i < 16; i++ )
-	{
-		*p++ = ' ';
-		*p++ = ' ';
-		*p++ = ' ';
-	}
-
-	for ( i = 0; i < len; i++ )
-		*p++ = isprint(ptr[i]) ? ptr[i] : '.';
-	*p = '\0';
-
-	printf("%s\n", buff);
-}
-
-static void hexdump_buff (const void *buf, int len)
-{
-	const unsigned char *org = buf;
-	const unsigned char *ptr = buf;
-	unsigned char        dup[16];
-	int                  sup = 0;
-
-	while ( len >= 16 )
-	{
-		if ( memcmp(dup, ptr, 16) )
-		{
-			if ( sup )
-			{
-				printf("* (%d duplicates)\n", sup);
-				sup = 0;
-			}
-			hexdump_line(ptr, org, 16);
-			memcpy(dup, ptr, 16);
-		}
-		else
-			sup++;
-		ptr += 16;
-		len -= 16;
-	}
-	if ( sup )
-		printf("* (%d duplicates)\n", sup);
-	if ( len )
-		hexdump_line(ptr, org, len);
-}
-
-
 void usage (void)
 {
 	printf("Usage: %s [-L devid] [-R devid]\n"
@@ -162,7 +107,11 @@ void menu (void)
 	       "4 - Ping peer with a DBELL\n"
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
 	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
-	       "7 - Send a Vita49 DISCO message (40 bytes)\n\n");
+	       "7 - Send a Vita49 DISCO message (40 bytes)\n"
+	       "8 - Send a burst of 2 SWRITEs, 256 bytes each\n"
+	       "9 - Send a burst of 4 SWRITEs, 256 bytes each\n"
+	       "0 - Send a burst of 8 SWRITEs, 256 bytes each\n"
+	       "\n");
 }
 
 
@@ -300,6 +249,7 @@ int main (int argc, char **argv)
 
 	/* RX CM_CTRL buffer */
 	struct sd_user_cm_ctrl cm_ctrl;
+	int                    swrite_burst;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
@@ -367,8 +317,8 @@ int main (int argc, char **argv)
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
 		{
+			memset(buff, 0xEE, sizeof(buff));
 			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
-			memset(buff, 0, sizeof(buff));
 			if ( (size = read(dev, buff, sizeof(buff))) < 0 )
 			{
 				perror("read() from driver");
@@ -425,6 +375,7 @@ int main (int argc, char **argv)
 
 					default:
 						printf("type %d invalid\n", mesg->type);
+						hexdump_buff(mesg, 512);
 				}
 			}
 			else
@@ -457,6 +408,7 @@ int main (int argc, char **argv)
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
+			swrite_burst = 2;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -547,6 +499,43 @@ int main (int argc, char **argv)
 					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
+				// note: depends on swrite_burst being reset to 2 before switch
+				case '0':
+					swrite_burst <<= 1; // fall-through
+				case '9':
+					swrite_burst <<= 1; // fall-through
+				case '8':
+				{
+					int        slot, byte;
+					uint16_t   paint;
+					uint16_t  *word;
+					for ( slot = 0; slot < swrite_burst; slot++ )
+					{
+						mesg   = (struct sd_mesg *)&buff[slot * 128];
+						swrite = &mesg->mesg.swrite;
+
+						mesg->type     = 6;
+						mesg->size     = 256;
+						mesg->size    += offsetof(struct sd_mesg,        mesg);
+						mesg->size    += offsetof(struct sd_mesg_swrite, data);
+						mesg->src_addr = opt_loc_addr;
+						mesg->dst_addr = opt_rem_addr;
+						swrite->addr   = 0;
+
+						word  = (uint16_t *)swrite->data;
+						paint = slot << 8;
+						for ( byte = 0; byte < 128; byte++ )
+							*word++ = paint++;
+					}
+
+					size = mesg->size;
+					for ( slot = 0; slot < swrite_burst; slot++ )
+						if ( (ret = write(dev, &buff[slot * 128], size)) < size )
+							perror("write() to driver");
+					size = 0;
+					break;
+				}
+
 
 				case 'p':
 					if ( periodic < 0 )
@@ -634,12 +623,12 @@ int main (int argc, char **argv)
 				default:
 					menu();
 			}
-			mesg->size = size;
 		}
 
 		// data from buffer to driver
 		if ( size )
 		{
+			mesg->size = size;
 			clock_gettime(CLOCK_MONOTONIC, &send_ts);
 			if ( (ret = write(dev, buff, size)) < size )
 			{
@@ -648,8 +637,6 @@ int main (int argc, char **argv)
 			}
 			size = 0;
 		}
-		else if ( size )
-			printf("Driver write blocked\n");
 	}
 
 	st_term_cleanup();

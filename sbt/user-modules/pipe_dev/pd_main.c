@@ -674,7 +674,7 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 				return -ENODEV;
 
 			pr_debug("PD_IOCS_SWRITE_PACK_%d_ADDR %08lx\n", dev, arg);
-			REG_WRITE(&swrite_pack[dev]->cmd, arg);
+			REG_WRITE(&swrite_pack[dev]->addr, arg);
 			return 0;
 
 
@@ -694,7 +694,7 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 				return -ENODEV;
 
 			pr_debug("PD_IOCS_SWRITE_PACK_%d_SRCDEST %08lx\n", dev, arg);
-			REG_WRITE(&swrite_pack[dev]->cmd, arg);
+			REG_WRITE(&swrite_pack[dev]->srcdest, arg);
 			return 0;
 
 
@@ -1019,7 +1019,7 @@ static int pd_probe (struct platform_device *pdev)
 		goto fail;
 	}
 
-	// initial setup: enable the pipeline for local passthru access
+	// initial setup: reset pipeline and leave idle
 	REG_WRITE(&vita49_clk->ctrl, PD_VITA49_CLK_CTRL_RESET);
 	msleep(1);
 	REG_WRITE(&vita49_clk->ctrl, 0);
@@ -1042,6 +1042,10 @@ static int pd_probe (struct platform_device *pdev)
 		REG_WRITE(&vita49_assem[dev]->cmd,     0);
 		msleep(1);
 	}
+
+	// route SWRITEs to FIFO for now
+	REG_WRITE(&routing_reg->adc_sw_dest, PD_ROUTING_REG_SWRITE_FIFO);
+
 
 	spin_lock_init(&pd_lock);
 	INIT_LIST_HEAD(&pd_users);

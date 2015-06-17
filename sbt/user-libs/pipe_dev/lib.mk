@@ -33,6 +33,8 @@ OBJS := \
 	src/lib/vita49_trig_adc.o \
 	src/lib/vita49_trig_dac.o \
 	src/lib/vita49_unpack.o \
+	src/lib/srio_dma_comb.o \
+	src/lib/srio_dma_split.o \
 	src/lib/dev.o
 
 CFLAGS += -Wall -Werror -fpic

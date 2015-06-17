@@ -58,7 +58,7 @@ int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = posix_getopt(argc, argv, "?hqvs:S:f:t:D:A:p:l:")) > -1 )
+	while ( (opt = getopt(argc, argv, "+?hqvs:S:f:t:D:A:p:l:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -254,7 +254,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 		sxx = ident;
 
 	optind = 1;
-	while ( (ret = posix_getopt(argc, argv, "zZs:S:f:")) > -1 )
+	while ( (ret = getopt(argc, argv, "+zZs:S:f:")) > -1 )
 	{
 		switch ( ret )
 		{
@@ -555,7 +555,7 @@ for ( ret = 0; ret <= argc; ret++ )
 
 	//
 	optind = 1;
-	while ( (ret = posix_getopt(argc, argv, "fsSMeucp")) > -1 )
+	while ( (ret = getopt(argc, argv, "+fsSMeucp")) > -1 )
 		switch ( ret )
 		{
 			case 'f': fifo  = 1; break;

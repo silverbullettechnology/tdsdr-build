@@ -110,28 +110,6 @@ uint64_t dsnk_sum (void *buff, size_t size, int dsxx)
 	return sum;
 }
 
-int posix_getopt (int argc, char **argv, const char *optstring)
-{
-	static int first = 1;
-	int        ret;
-
-	if ( first )
-	{
-		if ( putenv("POSIXLY_CORRECT=1") < 0 )
-			stop("putenv(POSIXLY_CORRECT=1)");
-		first = 0;
-	}
-
-	if ( (ret = getopt(argc, argv, optstring)) < 0 )
-	{
-		unsetenv("POSIXLY_CORRECT");
-		first = 1;
-	}
-
-	return ret;
-}
-
-
 /** Find a leaf filename in a colon-separated path list and return a full path
  *
  *  This tries a leaf filename against each element in a colon-separated path string,

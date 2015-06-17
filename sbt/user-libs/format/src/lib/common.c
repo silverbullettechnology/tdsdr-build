@@ -53,6 +53,69 @@ static int bits_set (unsigned long  channels)
 }
 
 
+/** Calculate number of packets from a given buffer size
+ *
+ *  \param  opt   Format options pointer
+ *  \param  buff  Size of buffer in bytes
+ *
+ *  \return  Number of packets in the buffer, or 0 on error
+ */
+size_t format_num_packets_from_buff (struct format_options *opt, size_t buff)
+{
+	if ( !opt || !opt->packet )
+	{
+		LOG_DEBUG("%s: no packet, return 0\n", __func__);
+		return 0;
+	}
+	LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__, 
+	          opt->packet, opt->head, opt->data, opt->foot);
+
+	/* number of full-size packets, based on packet size */
+	size_t num  = buff / opt->packet;
+	buff -= num * opt->packet;
+	LOG_DEBUG("%s: num %zu, %zu in full packets, remainder %zu\n", __func__,
+	          num, num * opt->packet, buff);
+
+	/* partial packet if there's enough for data */
+	if ( buff && buff > (opt->head + opt->foot) )
+		num++;
+
+	LOG_DEBUG("%s: final num %zu\n", __func__, num);
+	return num;
+}
+
+/** Calculate number of packets from a given payload data size
+ *
+ *  \param  opt   Format options pointer
+ *  \param  data  Size of payload data in bytes
+ *
+ *  \return  Number of packets in the buffer, or 0 on error
+ */
+size_t format_num_packets_from_data (struct format_options *opt, size_t data)
+{
+	if ( !opt || !opt->packet )
+	{
+		LOG_DEBUG("%s: no packet, return 0\n", __func__);
+		return data;
+	}
+	LOG_DEBUG("%s: packet %zu, head %zu, data %zu, foot %zu\n", __func__, 
+	          opt->packet, opt->head, opt->data, opt->foot);
+
+	/* number of full-size packets, based on payload size */
+	size_t num = data / opt->data;
+	data -= (num * opt->data);
+	LOG_DEBUG("%s: num %zu, %zu in full packets, remainder %zu\n", __func__,
+	          num, num * opt->packet, data);
+
+	/* partial packet */
+	if ( data )
+		num++;
+
+	LOG_DEBUG("%s: final num %zu\n", __func__, num);
+	return num;
+}
+
+
 /** Calculate payload data size from a given buffer size
  *
  *  This mostly calculates and subtracts the packet overhead according to the given
@@ -387,7 +450,6 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 	size_t               skip = 0;
 	void                *dst;
 	size_t               ret;
-	int                  cycles = 5;
 
 	if ( !fmt || !fmt->read_block )
 	{
@@ -474,8 +536,10 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 
 		data = format_size_data_from_buff(opt, size);
 		dst  = buff;
+		LOG_DEBUG("%s: pass %d: start: data %zu from buff size %zu\n", __func__,
+		          state.cur_pass, data, size);
 
-		while ( data && cycles-- )
+		while ( data )
 		{
 			// constrain want to size of data left
 			if ( (want = page) > data )
@@ -497,6 +561,8 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 				}
 				return 0;
 			}
+			LOG_DEBUG("%s: format_%s_read_block(dst +%d, want %zu): ret %zu\n", __func__,
+			          fmt->name, dst - buff, want, ret);
 			state.new_pass = 0;
 
 			data -= ret;

@@ -247,6 +247,25 @@ size_t format_size_data_from_buff (struct format_options *opt, size_t buff);
 size_t format_size_buff_from_data (struct format_options *opt, size_t data);
 
 
+/** Calculate number of packets from a given buffer size
+ *
+ *  \param  opt   Format options pointer
+ *  \param  buff  Size of buffer in bytes
+ *
+ *  \return  Number of packets in the buffer, or 0 on error
+ */
+size_t format_num_packets_from_buff (struct format_options *opt, size_t buff);
+
+/** Calculate number of packets from a given payload data size
+ *
+ *  \param  opt   Format options pointer
+ *  \param  data  Size of payload data in bytes
+ *
+ *  \return  Number of packets in the buffer, or 0 on error
+ */
+size_t format_num_packets_from_data (struct format_options *opt, size_t data);
+
+
 /** Setup the output FILE handle for error messages
  * 
  *  \note  if set to NULL the library will try to use stderr to print an error message.
@@ -264,13 +283,6 @@ void format_error_setup (FILE *fp);
  *  \param  fp  FILE pointer
  */
 void format_debug_setup (FILE *fp);
-
-
-/* Internals of some formats, exposed for debugging.  Will go away for release */
-void hexdump_line (FILE *fp, const unsigned char *ptr, int len);
-void hexdump_buff (FILE *fp, const void *buf, int len);
-void smpdump (FILE *fp, void *buff, size_t size);
-
 
 
 #endif /* _INCLUDE_FORMAT_H_ */
