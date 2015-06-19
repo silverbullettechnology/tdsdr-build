@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include <sd_user.h>
 #include <pipe_dev.h>
@@ -48,6 +49,7 @@ size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 FILE       *opt_debug    = NULL;
+uint32_t    opt_sid      = 0;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
@@ -70,7 +72,7 @@ struct send_packet
 
 static struct format_options sd_fmt_opts =
 {
-	.channels = 1,
+	.channels = 3,
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
@@ -83,20 +85,23 @@ static struct format_options sd_fmt_opts =
 
 static void usage (void)
 {
-	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-t timeout] [-n npkts]\n"
-	       "                 [-L local] [-R remote] in-file\n"
+	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-n npkts] [-L local] [-R remote] in-file stream-id\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-d remote   SRIO destination device-ID (default %d)\n"
 	       "-L local    SRIO local device-ID (if not auto-probed)\n"
 	       "-c channel  DMA channel to use (default %d)\n"
-	       "-s bytes    Set payload size in bytes (default size of in-file)\n"
+	       "-S sammples Set payload size in samples (K or M optional)\n"
+	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
+	       "stream-id is a required value, and must match the expected stream-id on the\n"
+	       "receiver side, if that receiver implements stream-ID filtering.\n"
 	       "\n", 
 		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
 }
@@ -144,6 +149,9 @@ int main (int argc, char **argv)
 	unsigned long          routing;
 	unsigned long          reg;
 	unsigned long          tuser;
+	uint32_t               hdr;
+	uint32_t               smp = 0;
+	char                  *format;
 	FILE                  *in_fp = NULL;
 	void                  *buff;
 	int                    srio_dev;
@@ -153,7 +161,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:t:n:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -163,9 +171,18 @@ int main (int argc, char **argv)
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
-			case 's': opt_data    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
+
+			case 's':
+				opt_data = (size_bin(optarg) + 7) & ~7;
+				break;
+
+			case 'S':
+				opt_data  = size_dec(optarg);
+				opt_data *= DSM_BUS_WIDTH;
+				break;
+
 
 			default:
 				usage();
@@ -185,57 +202,54 @@ int main (int argc, char **argv)
 		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
 	}
 
-	if ( optind < argc )
+	if ( (argc - optind) < 2 )
 	{
-		char *format = argv[optind];
-
-		printf("try to identify '%s'\n", format);
-
-		if ( (opt_in_file = strchr(format, ':')) )
-		{
-			*opt_in_file++ = '\0';
-			opt_in_fmt = format_class_find(format);
-		}
-		else if ( (opt_in_fmt = format_class_find(format)) )
-			opt_in_file = "-";
-		else if ( (opt_in_fmt = format_class_guess(format)) )
-			opt_in_file = format;
-
-		if ( !opt_in_fmt )
-		{
-			printf("Couldn't identify format\n");
-			usage();
-			return 1;
-		}
-
-		if ( !opt_data )
-		{
-			if ( !(in_fp = fopen(opt_in_file, "r")) )
-				perror(opt_in_file);
-			else if ( !(opt_buff = format_size(opt_in_fmt, &sd_fmt_opts, in_fp)) )
-				perror("format_size");
-			else
-				opt_data = format_size_data_from_buff(&sd_fmt_opts, opt_data);
-
-			if ( !in_fp || !opt_buff )
-			{
-				fclose(in_fp);
-				return 1;
-			}
-		}
-	}
-
-	if ( !opt_buff && !(opt_buff = format_size_buff_from_data(&sd_fmt_opts, opt_data)) )
-	{
-		perror("format_size_buff_from_data");
-		if ( in_fp )
-			fclose(in_fp);
+		usage();
 		return 1;
 	}
+
+	format = argv[optind];
+	if ( (opt_in_file = strchr(format, ':')) )
+	{
+		*opt_in_file++ = '\0';
+		opt_in_fmt = format_class_find(format);
+	}
+	else if ( (opt_in_fmt = format_class_find(format)) )
+		opt_in_file = "-";
+	else if ( (opt_in_fmt = format_class_guess(format)) )
+		opt_in_file = format;
+
+	if ( !opt_in_fmt )
+	{
+		printf("Couldn't identify format\n");
+		usage();
+		return 1;
+	}
+
+	if ( !opt_data )
+	{
+		if ( !(in_fp = fopen(opt_in_file, "r")) )
+			perror(opt_in_file);
+		else if ( !(opt_buff = format_size(opt_in_fmt, &sd_fmt_opts, in_fp)) )
+			perror("format_size");
+		else
+			opt_data = format_size_data_from_buff(&sd_fmt_opts, opt_buff);
+
+		if ( !in_fp || !opt_buff )
+		{
+			fclose(in_fp);
+			return 1;
+		}
+	}
+
 	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_buff(&sd_fmt_opts, opt_buff);
+		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff = opt_npkts * sd_fmt_opts.packet;
 
 	printf("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
+
+	opt_sid = strtoul(argv[optind + 1], NULL, 0);
+
 
 	opt_remote &= 0xFFFF;
 	if ( !opt_remote || opt_remote >= 0xFFFF )
@@ -346,7 +360,7 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 20);
+	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
 
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
@@ -368,11 +382,23 @@ int main (int argc, char **argv)
 	pkt = buff;
 	for ( idx = 0; idx < opt_npkts; idx++ )
 	{
+		// SRIO header
 		pkt->tuser    = tuser;
 		pkt->padding  = 0xFFFFFFFF;
 		pkt->hello[1] = 0x00600000;
-		pkt->hello[0] = 0x0000dea8;
+		pkt->hello[0] = opt_sid;
+
+		// VITA49 header / trailer
+		hdr = ((idx & 0xf) << 16) | 0x10F00040;
+		pkt->v49_hdr  = ntohl(hdr);
+		pkt->v49_sid  = ntohl(opt_sid);
+		pkt->v49_tsi  = 0;
+		pkt->v49_tsf1 = 0;
+		pkt->v49_tsf2 = ntohl(smp);
+		pkt->v49_trailer = 0xaaaaaaaa;
+
 		pkt++;
+		smp += 29;
 	}
 
 	if ( opt_debug )

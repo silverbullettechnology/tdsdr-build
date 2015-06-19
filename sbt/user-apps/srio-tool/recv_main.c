@@ -35,7 +35,7 @@
 
 
 unsigned    opt_chan     = 4;
-size_t      opt_data     = 2048;
+size_t      opt_data     = 8000000;
 size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
@@ -64,7 +64,7 @@ struct recv_packet
 
 static struct format_options sd_fmt_opts =
 {
-	.channels = 1,
+	.channels = 3,
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
@@ -77,11 +77,13 @@ static struct format_options sd_fmt_opts =
 
 static void usage (void)
 {
-	printf("Usage: srio-recv [-v] [-c channel] [-s bytes] [-t timeout] [-n npkts] [out-file]\n"
+	printf("Usage: srio-recv [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-n npkts] [out-file]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-c channel  DMA channel to use\n"
-	       "-s bytes    Set payload size in bytes\n"
+	       "-S sammples Set payload size in samples (K or M optional)\n"
+	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
 	       "-n npkts    Set number of packets for combiner\n"
 	       "-o rawfile  Write raw buffer to rawfile (with packet headers)\n"
@@ -140,7 +142,7 @@ int main (int argc, char **argv)
 	int                    idx;
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvc:s:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvc:s:S:t:n:o:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -149,10 +151,18 @@ int main (int argc, char **argv)
 				break;
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
-			case 's': opt_data    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
+
+			case 's':
+				opt_data = (size_bin(optarg) + 7) & ~7;
+				break;
+
+			case 'S':
+				opt_data  = size_dec(optarg);
+				opt_data *= DSM_BUS_WIDTH;
+				break;
 
 			default:
 				usage();
@@ -213,9 +223,12 @@ int main (int argc, char **argv)
 		goto exit_pipe;
 	}
 
-	opt_buff = format_size_buff_from_data(&sd_fmt_opts, opt_data);
 	if ( !opt_npkts )
 		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+
+	// size buffer in total number of packets, since swrite block rounds up... TBD whether
+	// this is a good idea or not
+	opt_buff = opt_npkts * sd_fmt_opts.packet;
 
 	// validate buffer size against width and channel / total limits
 	if ( opt_buff % DSM_BUS_WIDTH || 
@@ -254,7 +267,7 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 20);
+	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
 	memset(buff, 0, opt_buff);
 
 	// hand buffer to kernelspace driver and build scatterlist
@@ -342,6 +355,8 @@ int main (int argc, char **argv)
 		sd_fmt_opts.prog_func = progress;
 		sd_fmt_opts.prog_step = opt_buff / 100;
 
+		opt_buff = format_size_buff_from_data(&sd_fmt_opts, opt_data);
+
 		FILE *fp = fopen(opt_out_file, "w");
 		if ( !fp )
 			perror(opt_out_file);
@@ -370,7 +385,7 @@ int main (int argc, char **argv)
 			size_t  left = opt_buff;
 			int     ret;
 
-			while ( left )
+			while ( left >= 4096 )
 			{
 				if ( (ret = write(fd, walk, 4096)) < 0 )
 				{
@@ -380,6 +395,8 @@ int main (int argc, char **argv)
 				walk += ret;
 				left -= ret;
 			}
+			if ( left && (ret = write(fd, walk, left)) < 0 )
+				perror("write");
 			close(fd);
 		}
 		else

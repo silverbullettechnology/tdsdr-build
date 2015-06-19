@@ -35,7 +35,7 @@
 #include "common.h"
 
 uint16_t    opt_remote   = 2;
-size_t      opt_data     = 2048;
+size_t      opt_data     = 8000000;
 unsigned    opt_timeout  = 1500;
 uint32_t    opt_adi      = 0;
 uint32_t    opt_sid      = 0;
@@ -44,11 +44,12 @@ FILE       *opt_debug    = NULL;
 
 static void usage (void)
 {
-	printf("Usage: srio-recv [-v] [-R dest] [-s bytes] [-t timeout] adi stream-id\n"
+	printf("Usage: pipe-sample [-v] [-R dest] [-s bytes] [-t timeout] adi stream-id\n"
 	       "Where:\n"
 	       "-R dest     SRIO destination address (default 2)\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-s bytes    Set payload size in bytes\n"
+	       "-s bytes    Set payload size in bytes (K or M optional)\n"
+	       "-S samples  Set payload size in samples (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
 	       "\n"
 	       "adi is required value, and be 0 or 1 for the ADI chain to use (T2R2 mode only,\n"
@@ -61,16 +62,13 @@ static void usage (void)
 
 int main (int argc, char **argv)
 {
-//	unsigned long          routing;
-	unsigned long          tuser;
-	unsigned long          reg;
-//	void                  *buff;
-	int                    srio_dev;
-	int                    ret = 0;
-	int                    opt;
-//	int                    idx;
+	unsigned long  tuser;
+	unsigned long  reg;
+	int            srio_dev;
+	int            ret = 0;
+	int            opt;
 
-	while ( (opt = getopt(argc, argv, "?hvs:t:R:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvs:S:t:R:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -78,15 +76,22 @@ int main (int argc, char **argv)
 				break;
 
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
-			case 's': opt_data    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
+
+			case 's':
+				opt_data = (size_bin(optarg) + 7) & 7;
+				break;
+
+			case 'S':
+				opt_data  = size_dec(optarg);
+				opt_data *= 8;
+				break;
 
 			default:
 				usage();
 				return 1;
 		}
 
-	printf("optind %d, argc %d\n", optind, argc);
 	if ( (argc - optind) < 2 )
 	{
 		usage();
@@ -151,10 +156,10 @@ int main (int argc, char **argv)
 	}
 
 	// clamp timeout 
-	if ( opt_timeout < 1 )
-		opt_timeout = 1;
-	else if ( opt_timeout > 60 )
-		opt_timeout = 60;
+	if ( opt_timeout < 100 )
+		opt_timeout = 100;
+	else if ( opt_timeout > 6000 )
+		opt_timeout = 6000;
 
 
 	// reset blocks in the PL
@@ -215,6 +220,7 @@ int main (int argc, char **argv)
 
 
 	// using legacy fixed-length mode
+	printf("Expecting to sample %zu samples / %zu bytes\n", opt_data / 8, opt_data);
 	pipe_adi2axis_set_bytes(opt_adi, opt_data);
 	pipe_adi2axis_set_ctrl(opt_adi,  PD_ADI2AXIS_CTRL_LEGACY);
 
@@ -224,9 +230,9 @@ int main (int argc, char **argv)
 	// wait for complete or timeout
 	do
 	{
+		usleep(10000);
 		pipe_adi2axis_get_stat(opt_adi, &reg);
-		printf("%4u: %08x\n", opt_timeout--, reg);
-		sleep(1);
+		opt_timeout--;
 	}
 	while ( opt_timeout && !(reg & PD_ADI2AXIS_STAT_COMPLETE) );
 

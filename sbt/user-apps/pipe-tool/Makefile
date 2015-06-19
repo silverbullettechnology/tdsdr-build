@@ -1,6 +1,6 @@
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
-APP      := pipe-sample # pipe-transmit
+APP      := pipe-sample pipe-transmit
 
 PIPE_TRANSMIT_OBJS := pipe-transmit.o common.o
 PIPE_SAMPLE_OBJS   := pipe-sample.o common.o
