@@ -83,6 +83,7 @@ pipe_dev_0.1 {
 		pipe_vita49_unpack_set_ctrl;
 		pipe_vita49_unpack_get_ctrl;
 		pipe_vita49_unpack_get_stat;
+		pipe_vita49_unpack_get_rcvd;
 		pipe_vita49_unpack_set_strm_id;
 		pipe_vita49_unpack_get_strm_id;
 		pipe_vita49_unpack_get_counts;

@@ -128,6 +128,7 @@ int pipe_vita49_trig_dac_get_ts   (int dev, struct pd_vita49_ts *buf);
 int pipe_vita49_unpack_set_ctrl    (int dev, unsigned long  reg);
 int pipe_vita49_unpack_get_ctrl    (int dev, unsigned long *reg);
 int pipe_vita49_unpack_get_stat    (int dev, unsigned long *reg);
+int pipe_vita49_unpack_get_rcvd    (int dev, unsigned long *reg);
 int pipe_vita49_unpack_set_strm_id (int dev, unsigned long  reg);
 int pipe_vita49_unpack_get_strm_id (int dev, unsigned long *reg);
 int pipe_vita49_unpack_get_counts  (int dev, struct pd_vita49_unpack *buf);

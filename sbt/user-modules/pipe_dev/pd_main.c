@@ -419,8 +419,8 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			if ( !vita49_unpack[dev] )
 				return -ENODEV;
 
-			pr_debug("PD_IOCS_VITA49_UNPACK_%d_TRAILER %08lx\n", dev, arg);
-			REG_WRITE(&vita49_pack[dev]->trailer, arg);
+			pr_debug("PD_IOCS_VITA49_UNPACK_%d_CTRL %08lx\n", dev, arg);
+			REG_WRITE(&vita49_unpack[dev]->ctrl, arg);
 			return 0;
 
 
@@ -440,7 +440,18 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 				return -ENODEV;
 
 			reg = REG_READ(&vita49_unpack[dev]->stat);
-			pr_debug("PD_IOCG_VITA49_UNPACK_%d_STATE %08lx\n", dev, reg);
+			pr_debug("PD_IOCG_VITA49_UNPACK_%d_STAT %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_VITA49_UNPACK_0_RCVD:
+		case PD_IOCG_VITA49_UNPACK_1_RCVD:
+			if ( !vita49_unpack[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&vita49_unpack[dev]->pkt_rcv_cnt);
+			if ( reg )
+				pr_debug("PD_IOCG_VITA49_UNPACK_%d_RCVD %08lx\n", dev, reg);
 			return put_user(reg, (unsigned long *)arg);
 
 
@@ -449,8 +460,8 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			if ( !vita49_unpack[dev] )
 				return -ENODEV;
 
-			pr_debug("PD_IOCS_VITA49_UNPACK_%d_TRAILER %08lx\n", dev, arg);
-			REG_WRITE(&vita49_pack[dev]->trailer, arg);
+			pr_debug("PD_IOCS_VITA49_UNPACK_%d_STRM_ID %08lx\n", dev, arg);
+			REG_WRITE(&vita49_unpack[dev]->streamid, arg);
 			return 0;
 
 
@@ -1022,7 +1033,7 @@ static int pd_probe (struct platform_device *pdev)
 	// initial setup: reset pipeline and leave idle
 	REG_WRITE(&vita49_clk->ctrl, PD_VITA49_CLK_CTRL_RESET);
 	msleep(1);
-	REG_WRITE(&vita49_clk->ctrl, 0);
+	REG_WRITE(&vita49_clk->ctrl, PD_VITA49_CLK_CTRL_ENABLE);
 	for ( dev = 0; dev < 2; dev++ )
 	{
 		// reset blocks in the PL

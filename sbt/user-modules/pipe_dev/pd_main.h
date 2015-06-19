@@ -68,8 +68,8 @@
 #define PD_SWRITE_PACK_CMD_RESET  0x00000002  /* reset module */
 
 /* SWRITE_UNPACK bits */
-#define PD_SWRITE_UNPACK_CTRL_START  0x00000001  /* start module       */
-#define PD_SWRITE_UNPACK_CTRL_RESET  0x00000002  /* reset module        */
+#define PD_SWRITE_UNPACK_CMD_START  0x00000001  /* start module       */
+#define PD_SWRITE_UNPACK_CMD_RESET  0x00000002  /* reset module        */
 
 /* ROUTING_REG bits */
 #define PD_ROUTING_REG_ADC_SW_DEST_0   0x00000001  /* adi_0 rx routing: 0:DMA, 1:SRIO */
@@ -191,12 +191,14 @@ struct pd_vita49_unpack
 #define  PD_IOCG_VITA49_UNPACK_1_CTRL     _IOR(PD_IOCTL_MAGIC, 63, unsigned long *)
 #define  PD_IOCG_VITA49_UNPACK_0_STAT     _IOR(PD_IOCTL_MAGIC, 64, unsigned long *)
 #define  PD_IOCG_VITA49_UNPACK_1_STAT     _IOR(PD_IOCTL_MAGIC, 65, unsigned long *)
-#define  PD_IOCS_VITA49_UNPACK_0_STRM_ID  _IOW(PD_IOCTL_MAGIC, 66, unsigned long)
-#define  PD_IOCS_VITA49_UNPACK_1_STRM_ID  _IOW(PD_IOCTL_MAGIC, 67, unsigned long)
-#define  PD_IOCG_VITA49_UNPACK_0_STRM_ID  _IOR(PD_IOCTL_MAGIC, 68, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_1_STRM_ID  _IOR(PD_IOCTL_MAGIC, 69, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_0_COUNTS   _IOR(PD_IOCTL_MAGIC, 70, struct pd_vita49_unpack *)
-#define  PD_IOCG_VITA49_UNPACK_1_COUNTS   _IOR(PD_IOCTL_MAGIC, 71, struct pd_vita49_unpack *)
+#define  PD_IOCG_VITA49_UNPACK_0_RCVD     _IOR(PD_IOCTL_MAGIC, 66, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_RCVD     _IOR(PD_IOCTL_MAGIC, 67, unsigned long *)
+#define  PD_IOCS_VITA49_UNPACK_0_STRM_ID  _IOW(PD_IOCTL_MAGIC, 68, unsigned long)
+#define  PD_IOCS_VITA49_UNPACK_1_STRM_ID  _IOW(PD_IOCTL_MAGIC, 69, unsigned long)
+#define  PD_IOCG_VITA49_UNPACK_0_STRM_ID  _IOR(PD_IOCTL_MAGIC, 70, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_STRM_ID  _IOR(PD_IOCTL_MAGIC, 71, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_0_COUNTS   _IOR(PD_IOCTL_MAGIC, 72, struct pd_vita49_unpack *)
+#define  PD_IOCG_VITA49_UNPACK_1_COUNTS   _IOR(PD_IOCTL_MAGIC, 73, struct pd_vita49_unpack *)
 
 /* VITA49_ASSEM IOCTLs */
 #define  PD_IOCS_VITA49_ASSEM_0_CMD      _IOW(PD_IOCTL_MAGIC, 80, unsigned long)
