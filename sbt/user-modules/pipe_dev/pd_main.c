@@ -61,6 +61,8 @@ static struct pd_swrite_unpack_regs __iomem *swrite_unpack;
 static struct pd_routing_reg        __iomem *routing_reg;
 static struct pd_srio_dma_comb      __iomem *srio_dma_comb;
 static struct pd_srio_dma_split     __iomem *srio_dma_split;
+static struct pd_adi_dma_comb       __iomem *adi_dma_comb[2];
+static struct pd_adi_dma_split      __iomem *adi_dma_split[2];
 
 
 /******** Userspace interface ********/
@@ -895,6 +897,120 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			reg = REG_READ(&srio_dma_split->tuser);
 			pr_debug("PD_IOCG_SRIO_DMA_SPLIT_TUSER %08lx\n", reg);
 			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* ADI_DMA_COMB IOCTLs */
+		case PD_IOCS_ADI_DMA_COMB_0_CMD:
+		case PD_IOCS_ADI_DMA_COMB_1_CMD:
+			if ( !adi_dma_comb[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_ADI_DMA_COMB_%d_CMD %08lx\n", dev, arg);
+			REG_WRITE(&adi_dma_comb[dev]->cmd, arg);
+			return 0;
+
+
+		case PD_IOCG_ADI_DMA_COMB_0_CMD:
+		case PD_IOCG_ADI_DMA_COMB_1_CMD:
+			if ( !adi_dma_comb[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_comb[dev]->cmd);
+			pr_debug("PD_IOCG_ADI_DMA_COMB_%d_CMD %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_ADI_DMA_COMB_0_STAT:
+		case PD_IOCG_ADI_DMA_COMB_1_STAT:
+			if ( !adi_dma_comb[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_comb[dev]->stat);
+			pr_debug("PD_IOCG_ADI_DMA_COMB_%d_STAT %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_ADI_DMA_COMB_0_NPKTS:
+		case PD_IOCS_ADI_DMA_COMB_1_NPKTS:
+			if ( !adi_dma_comb[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_ADI_DMA_COMB_%d_NPKTS %08lx\n", dev, arg);
+			REG_WRITE(&adi_dma_comb[dev]->npkts, arg);
+			return 0;
+
+
+		case PD_IOCG_ADI_DMA_COMB_0_NPKTS:
+		case PD_IOCG_ADI_DMA_COMB_1_NPKTS:
+			if ( !adi_dma_comb[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_comb[dev]->npkts);
+			pr_debug("PD_IOCG_ADI_DMA_COMB_%d_NPKTS %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* ADI_DMA_SPLIT IOCTLs */
+		case PD_IOCS_ADI_DMA_SPLIT_0_CMD:
+		case PD_IOCS_ADI_DMA_SPLIT_1_CMD:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_ADI_DMA_SPLIT_%d_CMD %08lx\n", dev, arg);
+			REG_WRITE(&adi_dma_split[dev]->cmd, arg);
+			return 0;
+
+
+		case PD_IOCG_ADI_DMA_SPLIT_0_CMD:
+		case PD_IOCG_ADI_DMA_SPLIT_1_CMD:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_split[dev]->cmd);
+			pr_debug("PD_IOCG_ADI_DMA_SPLIT_%d_CMD %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_ADI_DMA_SPLIT_0_STAT:
+		case PD_IOCG_ADI_DMA_SPLIT_1_STAT:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_split[dev]->stat);
+			pr_debug("PD_IOCG_ADI_DMA_SPLIT_%d_STAT %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_ADI_DMA_SPLIT_0_NPKTS:
+		case PD_IOCS_ADI_DMA_SPLIT_1_NPKTS:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_ADI_DMA_SPLIT_%d_NPKTS %08lx\n", dev, arg);
+			REG_WRITE(&adi_dma_split[dev]->npkts, arg);
+			return 0;
+
+
+		case PD_IOCG_ADI_DMA_SPLIT_0_NPKTS:
+		case PD_IOCG_ADI_DMA_SPLIT_1_NPKTS:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_split[dev]->npkts);
+			pr_debug("PD_IOCG_ADI_DMA_SPLIT_%d_NPKTS %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_ADI_DMA_SPLIT_0_PSIZE:
+		case PD_IOCG_ADI_DMA_SPLIT_1_PSIZE:
+			if ( !adi_dma_split[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&adi_dma_split[dev]->psize);
+			pr_debug("PD_IOCG_ADI_DMA_SPLIT_%d_PSIZE %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
 	}
 
 	pr_err("%s(): unknown cmd %08x\n", __func__, cmd);
@@ -1022,6 +1138,18 @@ static int pd_probe (struct platform_device *pdev)
 	if ( !(srio_dma_split = pd_iomap(pdev, "srio-dma-split")) )
 		goto fail;
 
+	if ( !(adi_dma_comb[0] = pd_iomap(pdev, "adi-dma-comb-0")) )
+		goto fail;
+
+	if ( !(adi_dma_comb[1] = pd_iomap(pdev, "adi-dma-comb-1")) )
+		goto fail;
+
+	if ( !(adi_dma_split[0] = pd_iomap(pdev, "adi-dma-split-0")) )
+		goto fail;
+
+	if ( !(adi_dma_split[1] = pd_iomap(pdev, "adi-dma-split-1")) )
+		goto fail;
+
 
 	if ( (ret = misc_register(&mdev)) < 0 )
 	{
@@ -1084,6 +1212,10 @@ fail:
 	if ( routing_reg        )  devm_iounmap(&pdev->dev, routing_reg);
 	if ( srio_dma_comb      )  devm_iounmap(&pdev->dev, srio_dma_comb);
 	if ( srio_dma_split     )  devm_iounmap(&pdev->dev, srio_dma_split);
+	if ( adi_dma_comb[0]    )  devm_iounmap(&pdev->dev, adi_dma_comb[0]);
+	if ( adi_dma_comb[1]    )  devm_iounmap(&pdev->dev, adi_dma_comb[1]);
+	if ( adi_dma_split[0]   )  devm_iounmap(&pdev->dev, adi_dma_split[0]);
+	if ( adi_dma_split[1]   )  devm_iounmap(&pdev->dev, adi_dma_split[1]);
 
 	return ret;
 }

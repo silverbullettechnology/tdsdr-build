@@ -302,6 +302,10 @@ status = "disabled";
 				0x53400000 0x00001000  /* axis_vita49_unpack_1  */
 				0x53500000 0x00001000  /* vita49_assem_0        */
 				0x53600000 0x00001000  /* vita49_assem_1        */
+				0x52800000 0x00001000  /* adi_dma_comb_0        */
+				0x52900000 0x00001000  /* adi_dma_comb_1        */
+				0x52A00000 0x00001000  /* adi_dma_split_0       */
+				0x52B00000 0x00001000  /* adi_dma_split_1       */
 				0x53700000 0x00001000  /* vita49_trig_adc_0     */
 				0x53800000 0x00001000  /* vita49_trig_adc_1     */
 				0x53900000 0x00001000  /* vita49_trig_dac_0     */
@@ -324,6 +328,10 @@ status = "disabled";
 				"vita49-unpack-1",
 				"vita49-assem-0",
 				"vita49-assem-1",
+				"adi-dma-comb-0",
+				"adi-dma-comb-1",
+				"adi-dma-split-0",
+				"adi-dma-split-1",
 				"vita49-trig-adc-0",
 				"vita49-trig-adc-1",
 				"vita49-trig-dac-0",

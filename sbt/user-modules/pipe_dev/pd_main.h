@@ -94,11 +94,13 @@
 /* ADI_DMA_COMB bits */
 #define PD_ADI_DMA_COMB_CMD_ENABLE    0x00000001  /* enable   */
 #define PD_ADI_DMA_COMB_CMD_RESET     0x00000002  /* reset    */
+#define PD_ADI_DMA_COMB_CMD_PASSTHRU  0x00000004  /* passthru */
 #define PD_ADI_DMA_COMB_STAT_DONE     0x00000001  /* done bit */
 
 /* ADI_DMA_SPLIT bits */
 #define PD_ADI_DMA_SPLIT_CMD_ENABLE   0x00000001  /* enable   */
 #define PD_ADI_DMA_SPLIT_CMD_RESET    0x00000002  /* reset    */
+#define PD_ADI_DMA_SPLIT_CMD_PASSTHRU 0x00000004  /* passthru */
 #define PD_ADI_DMA_SPLIT_STAT_DONE    0x00000001  /* done bit */
 
 
@@ -273,6 +275,32 @@ struct pd_vita49_unpack
 #define  PD_IOCS_SRIO_DMA_SPLIT_NPKTS  _IOW(PD_IOCTL_MAGIC, 183, unsigned long)
 #define  PD_IOCG_SRIO_DMA_SPLIT_NPKTS  _IOR(PD_IOCTL_MAGIC, 184, unsigned long *)
 #define  PD_IOCG_SRIO_DMA_SPLIT_TUSER  _IOR(PD_IOCTL_MAGIC, 185, unsigned long *)
+
+/* ADI_DMA_COMB IOCTLs */
+#define  PD_IOCS_ADI_DMA_COMB_0_CMD    _IOW(PD_IOCTL_MAGIC,  190, unsigned long)
+#define  PD_IOCS_ADI_DMA_COMB_1_CMD    _IOW(PD_IOCTL_MAGIC,  191, unsigned long)
+#define  PD_IOCG_ADI_DMA_COMB_0_CMD    _IOR(PD_IOCTL_MAGIC,  192, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_CMD    _IOR(PD_IOCTL_MAGIC,  193, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_0_STAT   _IOR(PD_IOCTL_MAGIC,  194, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_STAT   _IOR(PD_IOCTL_MAGIC,  195, unsigned long *)
+#define  PD_IOCS_ADI_DMA_COMB_0_NPKTS  _IOW(PD_IOCTL_MAGIC,  196, unsigned long)
+#define  PD_IOCS_ADI_DMA_COMB_1_NPKTS  _IOW(PD_IOCTL_MAGIC,  197, unsigned long)
+#define  PD_IOCG_ADI_DMA_COMB_0_NPKTS  _IOR(PD_IOCTL_MAGIC,  198, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_NPKTS  _IOR(PD_IOCTL_MAGIC,  199, unsigned long *)
+
+/* ADI_DMA_SPLIT IOCTLs */
+#define  PD_IOCS_ADI_DMA_SPLIT_0_CMD    _IOW(PD_IOCTL_MAGIC, 210, unsigned long)
+#define  PD_IOCS_ADI_DMA_SPLIT_1_CMD    _IOW(PD_IOCTL_MAGIC, 211, unsigned long)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_CMD    _IOR(PD_IOCTL_MAGIC, 212, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_CMD    _IOR(PD_IOCTL_MAGIC, 213, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_STAT   _IOR(PD_IOCTL_MAGIC, 214, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_STAT   _IOR(PD_IOCTL_MAGIC, 215, unsigned long *)
+#define  PD_IOCS_ADI_DMA_SPLIT_0_NPKTS  _IOW(PD_IOCTL_MAGIC, 216, unsigned long)
+#define  PD_IOCS_ADI_DMA_SPLIT_1_NPKTS  _IOW(PD_IOCTL_MAGIC, 217, unsigned long)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_NPKTS  _IOR(PD_IOCTL_MAGIC, 218, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_NPKTS  _IOR(PD_IOCTL_MAGIC, 219, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_PSIZE  _IOR(PD_IOCTL_MAGIC, 220, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_PSIZE  _IOR(PD_IOCTL_MAGIC, 221, unsigned long *)
 
 
 #endif /* _INCLUDE_PD_MAIN_H */

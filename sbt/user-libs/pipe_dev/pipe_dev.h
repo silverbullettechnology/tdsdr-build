@@ -155,4 +155,25 @@ int pipe_srio_dma_split_get_npkts (unsigned long *reg);
 int pipe_srio_dma_split_get_tuser (unsigned long *reg);
 
 
+/******* ADI_DMA_COMB IOCTLs *******/
+
+
+int pipe_adi_dma_comb_set_cmd   (int dev, unsigned long  reg);
+int pipe_adi_dma_comb_get_cmd   (int dev, unsigned long *reg);
+int pipe_adi_dma_comb_get_stat  (int dev, unsigned long *reg);
+int pipe_adi_dma_comb_set_npkts (int dev, unsigned long  reg);
+int pipe_adi_dma_comb_get_npkts (int dev, unsigned long *reg);
+
+
+/******* ADI_DMA_SPLIT IOCTLs *******/
+
+
+int pipe_adi_dma_split_set_cmd   (int dev, unsigned long  reg);
+int pipe_adi_dma_split_get_cmd   (int dev, unsigned long *reg);
+int pipe_adi_dma_split_get_stat  (int dev, unsigned long *reg);
+int pipe_adi_dma_split_set_npkts (int dev, unsigned long  reg);
+int pipe_adi_dma_split_get_npkts (int dev, unsigned long *reg);
+int pipe_adi_dma_split_get_psize (int dev, unsigned long *reg);
+
+
 #endif // _INCLUDE_PIPE_DEV_H_

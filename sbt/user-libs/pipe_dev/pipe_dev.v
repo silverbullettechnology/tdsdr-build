@@ -100,6 +100,19 @@ pipe_dev_0.1 {
 		pipe_srio_dma_split_set_npkts;
 		pipe_srio_dma_split_get_npkts;
 		pipe_srio_dma_split_get_tuser;
+		/* src/lib/adi_dma_comb.c */
+		pipe_adi_dma_comb_set_cmd;
+		pipe_adi_dma_comb_get_cmd;
+		pipe_adi_dma_comb_get_stat;
+		pipe_adi_dma_comb_set_npkts;
+		pipe_adi_dma_comb_get_npkts;
+   		/* src/lib/adi_dma_split.c */
+		pipe_adi_dma_split_set_cmd;
+		pipe_adi_dma_split_get_cmd;
+		pipe_adi_dma_split_get_stat;
+		pipe_adi_dma_split_set_npkts;
+		pipe_adi_dma_split_get_npkts;
+		pipe_adi_dma_split_get_psize;
 	local:
 		*;
 };

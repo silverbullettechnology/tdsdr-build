@@ -710,6 +710,7 @@ for ( ret = 0; ret <= argc; ret++ )
 					pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_RESET);
 					pipe_vita49_trig_adc_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
 					pipe_adi2axis_set_ctrl(dev,        PD_ADI2AXIS_CTRL_RESET);
+					pipe_adi_dma_comb_set_cmd(dev,     PD_ADI_DMA_COMB_CMD_RESET);
 
 					// V49 packer experiments
 					if ( dsa_opt_v49_len )
@@ -731,8 +732,11 @@ for ( ret = 0; ret <= argc; ret++ )
 						pipe_routing_reg_set_adc_sw_dest(reg);
 					}
 
+					// bypass the DMA combiner
+					pipe_adi_dma_comb_set_cmd(dev, PD_ADI_DMA_COMB_CMD_PASSTHRU);
+
+
 					// TODO: overhead for packet headers
-//					if ( dsa_opt_v49_len )
 					len = dsa_evt.rx[dev]->len * DSM_BUS_WIDTH;
 
 					// enable legacy timing - no triggers
@@ -744,10 +748,12 @@ for ( ret = 0; ret <= argc; ret++ )
 					// reset blocks in the PL
 					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_RESET);
 					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_RESET);
+					pipe_adi_dma_split_set_cmd(dev,    PD_ADI_DMA_SPLIT_CMD_RESET);
 
 					// enable passthru
 					pipe_vita49_unpack_set_ctrl(dev,   PD_VITA49_UNPACK_CTRL_PASSTHRU);
 					pipe_vita49_trig_dac_set_ctrl(dev, PD_VITA49_TRIG_CTRL_PASSTHRU);
+					pipe_adi_dma_split_set_cmd(dev,    PD_ADI_DMA_SPLIT_CMD_PASSTHRU);
 
 					if ( dsa_evt.tx[dev]->len * DSM_BUS_WIDTH > len )
 						len = dsa_evt.tx[dev]->len * DSM_BUS_WIDTH;

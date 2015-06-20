@@ -850,7 +850,7 @@ static long fd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			}
 			if ( !(priv->granted & need) )
 			{
-				pr_err("register access withou grant, stop.\n");
+				pr_err("register access without grant, stop.\n");
 				return -EPERM;
 			}
 
