@@ -22,8 +22,8 @@
 #include <sbt_common/mbuf.h>
 #include <sbt_common/clocks.h>
 
-#include <common/vita49/common.h>
-#include <common/vita49/control.h>
+#include <vita49/common.h>
+#include <vita49/control.h>
 
 
 /* Message test typedefs for the entries in expect_map.  A function should return 0 if

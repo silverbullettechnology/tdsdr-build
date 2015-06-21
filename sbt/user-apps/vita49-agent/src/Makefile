@@ -50,16 +50,12 @@ DAEMON_OBJS += \
 
 # Common application code used in daemon
 DAEMON_OBJS += \
-	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/control.o \
-	common/vita49/types.o \
-	common/vita49/common.o
+	common/resource.o
 
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
 	-lsbt_common \
+	-lvita49 \
 	-lrt \
 	-lconfig
 
@@ -74,15 +70,12 @@ WORKER_OBJS += \
 
 # Common application code used in worker
 WORKER_OBJS += \
-	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/types.o \
-	common/vita49/common.o
+	common/resource.o
 
 # Worker library code - never cleaned 
 WORKER_LIBS := \
 	-lsbt_common \
+	-lvita49 \
 	-lrt \
 	-lconfig
 
@@ -95,11 +88,6 @@ TEST_STUB_OBJS := \
 # Control tool
 CONTROL_OBJS := \
 	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/control.o \
-	common/vita49/types.o \
-	common/vita49/common.o \
 	tool/control/config.o \
 	tool/control/expect.o \
 	tool/control/socket.o \
@@ -115,6 +103,7 @@ CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
 	-lsbt_common \
+	-lvita49 \
 	-lrt \
 	-lconfig
 

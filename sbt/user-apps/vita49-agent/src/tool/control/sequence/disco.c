@@ -22,8 +22,8 @@
 
 #include <common/default.h>
 #include <common/control/local.h>
-#include <common/vita49/common.h>
-#include <common/vita49/command.h>
+#include <vita49/common.h>
+#include <vita49/command.h>
 
 #include <tool/control/sequence.h>
 #include <tool/control/expect.h>

@@ -17,28 +17,14 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_DAEMON_RESOURCE_H
-#define INCLUDE_DAEMON_RESOURCE_H
 #include <stdint.h>
+#include <string.h>
 
-#include <sbt_common/growlist.h>
+#include <sbt_common/log.h>
 
-#include <vita49/resource.h>
-
-
-extern char *resource_config_path;
-
-extern struct growlist  resource_list;
+#include <vita49/types.h>
 
 
-/** Read resource database from file
- *
- *  \param path  Path to resource config file
- *
- *  \return 0 on success, !0 on failure
- */
-int resource_config (const char *path);
+LOG_MODULE_STATIC("vita49_types", LOG_LEVEL_INFO);
 
-
-#endif // INCLUDE_DAEMON_RESOURCE_H
 

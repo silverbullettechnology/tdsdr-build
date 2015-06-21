@@ -26,10 +26,10 @@
 #include <sbt_common/mqueue.h>
 #include <sbt_common/growlist.h>
 
-#include <common/vita49/common.h>
-#include <common/vita49/command.h>
-#include <common/vita49/context.h>
-#include <common/vita49/control.h>
+#include <vita49/common.h>
+#include <vita49/command.h>
+#include <vita49/context.h>
+#include <vita49/control.h>
 
 
 LOG_MODULE_STATIC("vita49_common", LOG_LEVEL_INFO);

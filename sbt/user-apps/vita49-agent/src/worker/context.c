@@ -21,9 +21,9 @@
 #include <sbt_common/timer.h>
 #include <sbt_common/growlist.h>
 
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
-#include <common/vita49/context.h>
+#include <vita49/types.h>
+#include <vita49/common.h>
+#include <vita49/context.h>
 
 #include <worker/context.h>
 

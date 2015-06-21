@@ -26,7 +26,7 @@
 #include <sbt_common/mqueue.h>
 #include <sbt_common/growlist.h>
 
-#include <common/vita49/types.h>
+#include <vita49/types.h>
 
 #define V49_CMD_DEF_PRIORITY 0x00010000
 

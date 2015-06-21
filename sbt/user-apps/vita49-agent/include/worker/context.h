@@ -20,8 +20,8 @@
 #ifndef INCLUDE_WORKER_CONTEXT_H
 #define INCLUDE_WORKER_CONTEXT_H
 
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
+#include <vita49/types.h>
+#include <vita49/common.h>
 
 
 /** Receive a context packet for config purposes
