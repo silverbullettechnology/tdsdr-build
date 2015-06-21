@@ -21,10 +21,10 @@
 #include <sbt_common/mbuf.h>
 
 #include <common/default.h>
-#include <vita49/resource.h>
 #include <common/control/local.h>
-#include <vita49/common.h>
-#include <vita49/command.h>
+#include <v49_message/resource.h>
+#include <v49_message/common.h>
+#include <v49_message/command.h>
 
 #include <tool/control/sequence.h>
 #include <tool/control/expect.h>

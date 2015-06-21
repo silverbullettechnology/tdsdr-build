@@ -64,15 +64,15 @@ $(LDNAME): $(OUTPUT)
 romfs: install
 	# Install shared libraries to rootfs
 	mkdir -p "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(SHARED) "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(SONAME) "$(ROMFSDIR)/usr/lib"
-	cp -a $(STAGEDIR)/usr/lib/$(LDNAME) "$(ROMFSDIR)/usr/lib"
-ifeq ($(CONFIG_USER_LIBS_PIPE_DEV_STATIC),y)
-	cp -a $(STAGEDIR)/usr/lib/$(ANAME)  "$(ROMFSDIR)/usr/lib"
+	cp -va $(OUTPUT) "$(ROMFSDIR)/usr/lib"
+	cp -va $(SONAME) "$(ROMFSDIR)/usr/lib"
+	cp -va $(LDNAME) "$(ROMFSDIR)/usr/lib"
+ifeq ($(CONFIG_USER_LIBS_CONFIG_STATIC),y)
+	cp -va $(ANAME)  "$(ROMFSDIR)/usr/lib"
 endif
-ifeq ($(CONFIG_USER_LIBS_PIPE_DEV_INCLUDES),y)
+ifeq ($(CONFIG_USER_LIBS_CONFIG_INCLUDES),y)
 	mkdir -p "$(ROMFSDIR)/usr/include"
-	cp -a $(NAME).h  "$(ROMFSDIR)/usr/include"
+	cp -va include/$(NAME).h  "$(ROMFSDIR)/usr/include/$(NAME)"
 endif
 	true
 

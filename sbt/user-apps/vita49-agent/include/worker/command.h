@@ -20,8 +20,8 @@
 #ifndef INCLUDE_WORKER_COMMAND_H
 #define INCLUDE_WORKER_COMMAND_H
 
-#include <vita49/types.h>
-#include <vita49/common.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
 
 
 /** Receive a command packet from a client

@@ -22,9 +22,9 @@
 #include <sbt_common/mqueue.h>
 
 #include <common/default.h>
-#include <vita49/types.h>
-#include <vita49/common.h>
-#include <vita49/command.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/command.h>
 
 #include <worker/worker.h>
 #include <worker/message.h>

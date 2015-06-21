@@ -25,9 +25,9 @@
 #include <sbt_common/mqueue.h>
 #include <sbt_common/growlist.h>
 
-#include <vita49/types.h>
-#include <vita49/command.h>
-#include <vita49/context.h>
+#include <v49_message/types.h>
+#include <v49_message/command.h>
+#include <v49_message/context.h>
 
 
 // Class Identifier values

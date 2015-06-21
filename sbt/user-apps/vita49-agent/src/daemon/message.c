@@ -21,11 +21,11 @@
 #include <sbt_common/timer.h>
 #include <sbt_common/growlist.h>
 
-#include <vita49/types.h>
-#include <vita49/common.h>
-#include <vita49/command.h>
-#include <vita49/context.h>
-#include <vita49/control.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/command.h>
+#include <v49_message/context.h>
+#include <v49_message/control.h>
 
 #include <daemon/worker.h>
 #include <daemon/control.h>

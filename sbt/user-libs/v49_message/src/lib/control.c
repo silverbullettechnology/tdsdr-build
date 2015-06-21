@@ -25,9 +25,9 @@
 #include <sbt_common/mqueue.h>
 #include <sbt_common/growlist.h>
 
-#include <vita49/types.h>
-#include <vita49/common.h>
-#include <vita49/control.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/control.h>
 
 
 LOG_MODULE_STATIC("vita49_control", LOG_LEVEL_INFO);

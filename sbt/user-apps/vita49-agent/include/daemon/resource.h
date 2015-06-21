@@ -23,7 +23,7 @@
 
 #include <sbt_common/growlist.h>
 
-#include <vita49/resource.h>
+#include <v49_message/resource.h>
 
 
 extern char *resource_config_path;

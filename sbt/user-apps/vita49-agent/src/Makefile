@@ -51,7 +51,7 @@ DAEMON_OBJS += \
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
 	-lsbt_common \
-	-lvita49 \
+	-lv49_message \
 	-lrt \
 	-lconfig
 
@@ -67,7 +67,7 @@ WORKER_OBJS += \
 # Worker library code - never cleaned 
 WORKER_LIBS := \
 	-lsbt_common \
-	-lvita49 \
+	-lv49_message \
 	-lrt \
 	-lconfig
 
@@ -94,7 +94,7 @@ CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
 	-lsbt_common \
-	-lvita49 \
+	-lv49_message \
 	-lrt \
 	-lconfig
 

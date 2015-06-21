@@ -27,7 +27,7 @@
 #include <sbt_common/growlist.h>
 
 #include <common/default.h>
-#include <vita49/resource.h>
+#include <v49_message/resource.h>
 
 #include <daemon/resource.h>
 

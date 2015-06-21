@@ -20,27 +20,11 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <config/config.h>
-
 #include <sbt_common/log.h>
-#include <sbt_common/uuid.h>
-#include <sbt_common/growlist.h>
 
-#include <vita49/resource.h>
+#include <v49_message/types.h>
 
 
-LOG_MODULE_STATIC("resource", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("vita49_types", LOG_LEVEL_INFO);
 
 
-
-void resource_dump (int level, const char *msg, struct resource_info *res)
-{
-	LOG_MESSAGE(level, "%suuid %s txch %u rxch %u rate %u.%03u min %u max %u\n",
-	            msg, uuid_to_str(&res->uuid),
-	            res->txch, res->rxch,
-	            res->rate_q8 >> 8, (1000 * (res->rate_q8 & 255)) >> 8,
-	            res->min, res->max);
-}
-
-
-/* Ends */

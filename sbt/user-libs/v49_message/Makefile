@@ -21,7 +21,7 @@ export MINOR_VERSION := 1
 export PATCH_VERSION := 0
 
 # output names
-export NAME   := vita49
+export NAME   := v49_message
 export ANAME  := lib$(NAME).a
 export LDNAME := lib$(NAME).so
 export SONAME := $(LDNAME).$(MAJOR_VERSION)
