@@ -28,8 +28,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "lib/util.h"
-#include "lib/log.h"
+#include "sbt_common/util.h"
+#include "sbt_common/log.h"
 
 
 /** Set minimum log level for this module

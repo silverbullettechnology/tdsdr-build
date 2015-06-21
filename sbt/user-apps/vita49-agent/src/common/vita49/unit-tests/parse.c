@@ -25,8 +25,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
 
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>

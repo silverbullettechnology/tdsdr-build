@@ -17,10 +17,10 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/util.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/util.h>
 
 #include <common/default.h>
 #include <common/control/local.h>

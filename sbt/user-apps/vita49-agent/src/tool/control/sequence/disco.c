@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/mbuf.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
 
 #include <common/default.h>
 #include <common/control/local.h>

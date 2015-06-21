@@ -19,8 +19,6 @@
  */
 #ifndef INCLUDE_WORKER_WORKER_H
 #define INCLUDE_WORKER_WORKER_H
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
 
 
 void worker_shutdown (void);

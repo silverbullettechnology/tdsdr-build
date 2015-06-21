@@ -17,9 +17,9 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/timer.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/timer.h>
+#include <sbt_common/growlist.h>
 
 #include <common/vita49/types.h>
 #include <common/vita49/common.h>

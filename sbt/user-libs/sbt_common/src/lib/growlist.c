@@ -22,9 +22,9 @@
 #include <string.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/gen.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/gen.h>
+#include <sbt_common/growlist.h>
 
 
 LOG_MODULE_STATIC("lib_growlist", LOG_LEVEL_WARN);

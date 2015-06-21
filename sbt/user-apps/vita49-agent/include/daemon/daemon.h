@@ -19,7 +19,7 @@
  */
 #ifndef INCLUDE_DAEMON_DAEMON_H
 #define INCLUDE_DAEMON_DAEMON_H
-#include <lib/mbuf.h>
+#include <sbt_common/mbuf.h>
 
 
 extern char *daemon_opt_config;

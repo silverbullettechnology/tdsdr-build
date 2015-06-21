@@ -21,10 +21,10 @@
 #define INCLUDE_COMMON_VITA49_COMMAND_H
 #include <stdint.h>
 
-#include <lib/uuid.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/growlist.h>
+#include <sbt_common/uuid.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/growlist.h>
 
 #include <common/vita49/types.h>
 

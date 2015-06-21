@@ -37,8 +37,8 @@
 
 #include <config/include/config.h>
 
-#include <lib/log.h>
-#include <lib/clocks.h>
+#include <sbt_common/log.h>
+#include <sbt_common/clocks.h>
 #include <common/default.h>
 #include <common/control/local.h>
 #include <common/vita49/types.h>

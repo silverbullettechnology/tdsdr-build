@@ -25,8 +25,8 @@
 #include <errno.h>
 #include <ctype.h>
 
-#include <lib/log.h>
-#include <lib/buffer.h>
+#include <sbt_common/log.h>
+#include <sbt_common/buffer.h>
 
 
 LOG_MODULE_STATIC("lib_buffer", LOG_LEVEL_WARN);

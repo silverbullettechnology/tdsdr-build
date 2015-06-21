@@ -25,9 +25,9 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/genlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/genlist.h>
 
 
 LOG_MODULE_STATIC("lib_mbuf", LOG_LEVEL_WARN);

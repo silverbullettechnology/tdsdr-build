@@ -19,10 +19,10 @@
  */
 #include <limits.h>
 
-#include <lib/genlist.h>
-#include <lib/mqueue.h>
-#include <lib/mbuf.h>
-#include <lib/log.h>
+#include <sbt_common/genlist.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/log.h>
 
  
 LOG_MODULE_STATIC("lib_mbuf", LOG_LEVEL_WARN);

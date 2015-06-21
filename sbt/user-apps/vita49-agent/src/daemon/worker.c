@@ -20,8 +20,8 @@
 #include <sys/select.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 #include <daemon/worker.h>
 
 

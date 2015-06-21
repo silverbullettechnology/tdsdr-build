@@ -21,8 +21,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/genlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/genlist.h>
 
 
 LOG_MODULE_STATIC("lib_genlist", LOG_LEVEL_WARN);

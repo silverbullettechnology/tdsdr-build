@@ -24,15 +24,20 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-#include <lib/log.h> /* include our logging first here to get the various things it    */
-#undef LOG_INFO      /* defines, then undefine the macros it defines for the rest of   */
-#undef LOG_DEBUG     /* the application to use; they conflict with syslog.h            */
-#include <syslog.h>  /* include the actual syslog.h after undef'ing conflicting macros */
 
-#include <lib/util.h>
-#include <lib/clocks.h>
-#include <lib/descript.h>
-#include <lib/packlist.h>
+/* include our logging first here to get the various things it defines, then undefine the
+ * macros it defines for the application to use, which conflict with syslog.h */
+#include <sbt_common/log.h> 
+#undef LOG_INFO             
+#undef LOG_DEBUG            
+
+/* include the actual syslog.h after undef'ing conflicting macros */
+#include <syslog.h>
+
+#include <sbt_common/util.h>
+#include <sbt_common/clocks.h>
+#include <sbt_common/descript.h>
+#include <sbt_common/packlist.h>
 
 
 LOG_MODULE_STATIC("log_core", LOG_LEVEL_DEBUG);
@@ -70,11 +75,9 @@ static int   log_print_trace = 0;
 #endif
 
 
-#ifdef LOG_CALL
 #define LOG_FUNC_SIZE 8
 static const char *log_func_list[LOG_FUNC_SIZE];
 static signed      log_func_curs = 0;
-#endif
 
 
 /** Open a logfile with fopen() and use it for logging.
@@ -605,7 +608,6 @@ char **log_get_module_list (void)
 }
 
 
-#ifdef LOG_CALL
 void log_call_enter (const char *func)
 {
 	log_func_curs++;
@@ -625,7 +627,6 @@ void log_call_leave (const char *func)
 	if ( log_func_curs < 0 )
 		log_func_curs = LOG_FUNC_SIZE - 1;
 }
-#endif
 
 
 /** Get a list of the last few functions which called ENTER() without calling one
@@ -648,7 +649,6 @@ void log_call_leave (const char *func)
  */
 int log_call_trace (char **buff, size_t size)
 {
-#ifdef LOG_CALL
 	signed  i = log_func_curs;
 	size_t  j = 0;
 	int     c = 0;
@@ -668,10 +668,6 @@ int log_call_trace (char **buff, size_t size)
 	while ( i != log_func_curs );
 
 	return c;
-#else
-	errno = ENOSYS;
-	return -1;
-#endif
 }
 
 

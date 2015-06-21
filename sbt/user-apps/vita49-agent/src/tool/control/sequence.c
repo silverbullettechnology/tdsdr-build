@@ -19,7 +19,7 @@
  */
 #include <string.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 
 #include <tool/control/sequence.h>
 

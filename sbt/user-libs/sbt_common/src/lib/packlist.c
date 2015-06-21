@@ -35,8 +35,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/packlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/packlist.h>
 
 
 LOG_MODULE_STATIC("lib_packlist", LOG_LEVEL_WARN);

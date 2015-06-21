@@ -19,7 +19,7 @@
  */
 #include <stdio.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 
 #include <common/control/local.h>
 

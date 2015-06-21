@@ -19,8 +19,8 @@
  */
 #ifndef INCLUDE_WORKER_MESSAGE_H
 #define INCLUDE_WORKER_MESSAGE_H
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
 
 
 

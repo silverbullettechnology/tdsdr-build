@@ -21,8 +21,7 @@
 #define INCLUDE_DAEMON_RESOURCE_H
 #include <stdint.h>
 
-#include <lib/uuid.h>
-#include <lib/growlist.h>
+#include <sbt_common/growlist.h>
 
 #include <common/resource.h>
 

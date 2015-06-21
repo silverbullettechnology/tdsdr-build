@@ -19,7 +19,7 @@
  */
 #ifndef INCLUDE_LIB_GROWLIST_H
 #define INCLUDE_LIB_GROWLIST_H
-#include <lib/gen.h>
+#include <sbt_common/gen.h>
 
 struct growlist
 {

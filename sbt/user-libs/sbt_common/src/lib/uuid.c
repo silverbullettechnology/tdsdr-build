@@ -22,8 +22,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <lib/log.h>
-#include <lib/uuid.h>
+#include <sbt_common/log.h>
+#include <sbt_common/uuid.h>
 
 
 LOG_MODULE_STATIC("lib_uuid", LOG_LEVEL_DEBUG);

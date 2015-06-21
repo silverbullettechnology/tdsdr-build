@@ -20,7 +20,7 @@
 #ifndef INCLUDE_LIB_TIMER_H
 #define INCLUDE_LIB_TIMER_H
 
-#include "lib/clocks.h"
+#include "sbt_common/clocks.h"
 
 
 #define TIMER_LIST_EMPTY 0xFFFFFFFFFFFFFFFFULL

@@ -25,9 +25,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/util.h>
-#include <lib/descript.h>
+#include <sbt_common/log.h>
+#include <sbt_common/util.h>
+#include <sbt_common/descript.h>
 
 #include <common/control/local.h>
 #include <tool/control/socket.h>

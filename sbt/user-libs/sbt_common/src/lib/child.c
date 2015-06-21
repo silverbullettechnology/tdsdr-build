@@ -27,9 +27,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <lib/log.h>
-#include <lib/packlist.h>
-#include <lib/child.h>
+#include <sbt_common/log.h>
+#include <sbt_common/packlist.h>
+#include <sbt_common/child.h>
 
 
 LOG_MODULE_STATIC("lib_child", LOG_LEVEL_WARN);

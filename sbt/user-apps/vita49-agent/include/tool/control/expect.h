@@ -19,8 +19,8 @@
  */
 #ifndef INCLUDE_TOOL_CONTROL_EXPECT_H
 #define INCLUDE_TOOL_CONTROL_EXPECT_H
-#include <lib/mbuf.h>
-#include <lib/clocks.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/clocks.h>
 
 #include <common/vita49/common.h>
 #include <common/vita49/control.h>

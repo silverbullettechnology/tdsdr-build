@@ -23,11 +23,11 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/util.h>
-#include <lib/timer.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
+#include <sbt_common/log.h>
+#include <sbt_common/util.h>
+#include <sbt_common/timer.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
 
 #include <common/default.h>
 

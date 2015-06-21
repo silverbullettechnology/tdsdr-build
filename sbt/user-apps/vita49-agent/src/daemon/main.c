@@ -23,11 +23,11 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/util.h>
-#include <lib/timer.h>
-#include <lib/growlist.h>
-#include <lib/packlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/util.h>
+#include <sbt_common/timer.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/packlist.h>
 
 #include <common/default.h>
 #include <common/resource.h>

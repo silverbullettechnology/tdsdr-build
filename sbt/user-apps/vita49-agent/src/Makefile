@@ -57,24 +57,9 @@ DAEMON_OBJS += \
 	common/vita49/types.o \
 	common/vita49/common.o
 
-# Common library code used in daemon
-DAEMON_OBJS += \
-	lib/buffer.o \
-	lib/child.o \
-	lib/clocks.o \
-	lib/descript.o \
-	lib/log.o \
-	lib/growlist.o \
-	lib/packlist.o \
-	lib/genlist.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/timer.o \
-	lib/uuid.o \
-	lib/util.o
-
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
+	-lsbt_common \
 	-lrt \
 	-lconfig
 
@@ -95,22 +80,9 @@ WORKER_OBJS += \
 	common/vita49/types.o \
 	common/vita49/common.o
 
-# Common library code used in worker
-WORKER_OBJS += \
-	lib/clocks.o \
-	lib/descript.o \
-	lib/genlist.o \
-	lib/growlist.o \
-	lib/log.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/packlist.o \
-	lib/timer.o \
-	lib/uuid.o \
-	lib/util.o
-
-# Daemon library code - never cleaned 
+# Worker library code - never cleaned 
 WORKER_LIBS := \
+	-lsbt_common \
 	-lrt \
 	-lconfig
 
@@ -122,16 +94,6 @@ TEST_STUB_OBJS := \
 
 # Control tool
 CONTROL_OBJS := \
-	lib/log.o \
-	lib/descript.o \
-	lib/packlist.o \
-	lib/clocks.o \
-	lib/genlist.o \
-	lib/growlist.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/util.o \
-	lib/uuid.o \
 	common/resource.o \
 	common/vita49/command.o \
 	common/vita49/context.o \
@@ -152,6 +114,7 @@ CONTROL_OBJS += tool/control/sequence/access.o
 CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
+	-lsbt_common \
 	-lrt \
 	-lconfig
 
@@ -180,19 +143,19 @@ tests: $(BINS)
 
 ../bin/vita49-agent-daemon: $(DAEMON_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(DAEMON_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(DAEMON_LIBS) -o $@
 
 ../bin/vita49-agent-worker: $(WORKER_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(WORKER_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(WORKER_LIBS) -o $@
 
 ../bin/vita49-agent: $(CONTROL_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(CONTROL_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(CONTROL_LIBS) -o $@
 
 ../bin/test-stub: $(TEST_STUB_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(TEST_STUB_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(TEST_STUB_LIBS) -o $@
 
 
 install:

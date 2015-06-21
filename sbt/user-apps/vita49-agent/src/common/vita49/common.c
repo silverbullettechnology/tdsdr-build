@@ -21,10 +21,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/growlist.h>
 
 #include <common/vita49/common.h>
 #include <common/vita49/command.h>

@@ -21,10 +21,10 @@
 #define INCLUDE_DAEMON_CONTROL_H
 #include <sys/select.h>
 
-#include <lib/growlist.h>
-#include <lib/descript.h>
-#include <lib/mqueue.h>
-#include <lib/mbuf.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/descript.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/mbuf.h>
 #include <daemon/worker.h>
 
 #include <config/include/config.h>

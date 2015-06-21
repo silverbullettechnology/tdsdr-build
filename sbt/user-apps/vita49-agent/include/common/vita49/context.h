@@ -21,9 +21,9 @@
 #define INCLUDE_COMMON_VITA49_CONTEXT_H
 #include <stdint.h>
 
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/growlist.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/growlist.h>
 
 
 #define V49_CTX_PAYLOAD_FMT_1  0x00000000

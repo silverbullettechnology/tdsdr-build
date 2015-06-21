@@ -28,17 +28,19 @@ endif
 CC     ?= $(CROSS_COMPILE)gcc
 CFLAGS += -Iinclude -I../include -I../lib
 CFLAGS += -I$(PETALINUX)/software/user-modules/srio_dev
-LFLAGS += -L../lib/config
+CFLAGS += -I$(PETALINUX)/software/user-libs/sbt_common/include
+LDFLAGS += -L../lib/config
+LDFLAGS += -L$(STAGEDIR)/usr/lib
 
 # Compile with debugging
 CFLAGS += -g
-#LFLAGS += -s 
+#LDFLAGS += -s 
 
 # Minimal JPL-style checking
 CFLAGS += -Wall -Werror -std=gnu99
 # -pedantic
 
-export CC CFLAGS LFLAGS
+export CC CFLAGS LDFLAGS
 
 # quick and dirty path setup
 ifneq ($(DESTDIR),)
@@ -47,6 +49,7 @@ endif
 export DESTDIR
 
 all install clean:
+	set
 	$(MAKE) -C lib       $@
 	$(MAKE) -C src       $@
 	$(MAKE) -C script    $@

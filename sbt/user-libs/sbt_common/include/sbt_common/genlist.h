@@ -20,8 +20,9 @@
 #ifndef INCLUDE_LIB_GENLIST_H
 #define INCLUDE_LIB_GENLIST_H
 #include <string.h>
-#include <lib/gen.h>
-#include <lib/log.h>
+
+#include <sbt_common/gen.h>
+#include <sbt_common/log.h>
 
 /* Generic list head/tail struct */
 struct genlist

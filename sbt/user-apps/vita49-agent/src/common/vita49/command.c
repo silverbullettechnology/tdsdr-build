@@ -20,11 +20,11 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/uuid.h>
-#include <lib/mqueue.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/uuid.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/growlist.h>
 
 #include <common/resource.h>
 #include <common/vita49/types.h>

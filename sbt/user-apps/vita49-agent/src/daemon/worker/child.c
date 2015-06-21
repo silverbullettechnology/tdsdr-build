@@ -20,11 +20,11 @@
 #include <sys/select.h>
 #include <limits.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/child.h>
-#include <lib/packlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/child.h>
+#include <sbt_common/packlist.h>
 
 #include <common/default.h>
 

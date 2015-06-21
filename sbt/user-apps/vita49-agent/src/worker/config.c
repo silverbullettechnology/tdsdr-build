@@ -19,8 +19,8 @@
  */
 #include <config/include/config.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 
 #include <worker/config.h>
 

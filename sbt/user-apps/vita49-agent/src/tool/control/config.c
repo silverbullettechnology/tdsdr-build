@@ -37,7 +37,7 @@
 
 #include <config/include/config.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 
 #include <tool/control/control.h>
 

@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 
 #include <common/vita49/types.h>
 

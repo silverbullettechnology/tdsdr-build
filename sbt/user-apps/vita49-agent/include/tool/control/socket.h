@@ -21,10 +21,10 @@
 #define INCLUDE_TOOL_CONTROL_SOCKET_H
 #include <sys/select.h>
 
-#include <lib/growlist.h>
-#include <lib/descript.h>
-#include <lib/mqueue.h>
-#include <lib/mbuf.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/descript.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/mbuf.h>
 
 #include <config/include/config.h>
 

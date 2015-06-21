@@ -21,9 +21,9 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "lib/util.h"
-#include "lib/timer.h"
-#include "lib/log.h"
+#include "sbt_common/util.h"
+#include "sbt_common/timer.h"
+#include "sbt_common/log.h"
 
 
 LOG_MODULE_STATIC("lib_timer", LOG_LEVEL_WARN);

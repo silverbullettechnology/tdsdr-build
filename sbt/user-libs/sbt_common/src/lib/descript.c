@@ -19,8 +19,8 @@
  */
 #include <string.h>
 
-#include <lib/log.h>
-#include <lib/descript.h>
+#include <sbt_common/log.h>
+#include <sbt_common/descript.h>
 
 
 LOG_MODULE_STATIC("lib_descript", LOG_LEVEL_WARN);

@@ -19,8 +19,8 @@
  */
 #include <sys/select.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 #include <tool/control/socket.h>
 
 

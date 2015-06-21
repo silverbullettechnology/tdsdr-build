@@ -21,8 +21,8 @@
 #define INCLUDE_COMMON_RESOURCE_H
 #include <stdint.h>
 
-#include <lib/uuid.h>
-#include <lib/growlist.h>
+#include <sbt_common/uuid.h>
+#include <sbt_common/growlist.h>
 
 
 struct resource_info

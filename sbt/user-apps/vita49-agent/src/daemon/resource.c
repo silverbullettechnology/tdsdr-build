@@ -22,9 +22,9 @@
 
 #include <config/include/config.h>
 
-#include <lib/log.h>
-#include <lib/uuid.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/uuid.h>
+#include <sbt_common/growlist.h>
 
 #include <common/default.h>
 #include <common/resource.h>

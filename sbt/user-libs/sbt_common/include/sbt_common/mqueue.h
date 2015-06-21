@@ -21,9 +21,9 @@
 #define INCLUDE_LIB_MQUEUE_H
 #include <limits.h>
 
-#include <lib/genlist.h>
-#include <lib/mbuf.h>
-#include <lib/log.h>
+#include <sbt_common/genlist.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/log.h>
 
 
 /** Queue object uses a genlist for head/tail, plus a size/used pair for enforcing max

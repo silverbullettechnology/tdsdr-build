@@ -23,8 +23,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "lib/log.h"
-#include "lib/clocks.h"
+#include "sbt_common/log.h"
+#include "sbt_common/clocks.h"
 
 
 clocks_t get_clocks (void)
