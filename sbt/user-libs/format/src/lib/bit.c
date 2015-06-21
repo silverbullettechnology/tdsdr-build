@@ -41,6 +41,9 @@ static size_t format_bit_write (struct format_state *fs, const void *buff, size_
 	int             ch, iq;
 	int             digs = (fs->opt->bits + 3) / 4;
 	int             eol = '\0';
+	int             iqb = fs->opt->flags & FO_IQ_SWAP ?  1 : 0;
+	int             iqe = fs->opt->flags & FO_IQ_SWAP ? -1 : 2;
+	int             iqs = fs->opt->flags & FO_IQ_SWAP ? -1 : 1;
 
 	while ( rows-- )
 	{
@@ -48,9 +51,12 @@ static size_t format_bit_write (struct format_state *fs, const void *buff, size_
 
 		for ( ch = 0; (1 << ch) <= fs->opt->channels; ch++ )
 			if ( (1 << ch) & fs->opt->channels )
-				for ( iq = 0; iq < 2; iq++ )
+				for ( iq = iqb; iq != iqe; iq += iqs )
 				{
-					val = type[(ch * 2) + iq] & mask;
+					val = type[(ch * 2) + iq];
+					if ( fs->opt->flags & FO_ENDIAN )
+						val = (val << 8) | (val >> 8);
+					val &= mask;
 
 					if ( eol )
 						fputc(eol, fp);
@@ -65,6 +71,8 @@ static size_t format_bit_write (struct format_state *fs, const void *buff, size_
 		eol = '\n';
 		samp += fs->opt->sample;
 	}
+	if ( eol )
+		fputc(eol, fp);
 
 	return samp - buff;
 }

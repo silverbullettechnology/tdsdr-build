@@ -133,6 +133,7 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 	uint16_t *type;
 
 	int       ch;
+	int       iq = fs->opt->flags & FO_IQ_SWAP ? 1 - fs->cur_pass : fs->cur_pass;
 	int       ret;
 
 	if ( !tmp )
@@ -159,6 +160,7 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 
 			// consecutive Q samples follow consecutive I samples:
 			// H,I,I,I,I,I,Q,Q,Q,Q,Q
+			// not affected by IQ swapping, this controls position within the file
 			if ( fs->cur_pass )
 				offs += fs->iqw.rows;
 
@@ -214,14 +216,18 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 		if ( val2 < 0 )
 			val3 |= sign;
 
+		if ( fs->opt->flags & FO_ENDIAN )
+			val3 = (val3 << 8) | (val3 >> 8);
+
 		LOG_DEBUG("%s: sample %g -> %ld -> %04x -> ", __func__, *val1, val2, val3);
 
 		type = samp;
 		for ( ch = 0; (1 << ch) <= fs->opt->channels; ch++ )
 			if ( (1 << ch) & fs->opt->channels )
 			{
-				LOG_DEBUG("%d.%d ", ch, fs->cur_pass);
-				type[(ch * 2) + fs->cur_pass] = val3;
+				// I/Q modified by swap flag
+				LOG_DEBUG("%d.%d ", ch, iq);
+				type[(ch * 2) + iq] = val3;
 			}
 
 		LOG_DEBUG("\n");
@@ -275,11 +281,13 @@ static size_t format_iqw_write_block (struct format_state *fs, const void *buff,
 	size_t          rows = size / fs->opt->sample;
 	const void     *samp = buff;
 	const uint16_t *type;
-	long            val2;
-	float           val3;
+	uint16_t        val2;
+	long            val3;
+	float           val4;
 	long            sign = 1 << (fs->opt->bits - 1);
 	long            mask = sign - 1;
 	int             ch;
+	int             iq = fs->opt->flags & FO_IQ_SWAP ? 1 - fs->cur_pass : fs->cur_pass;
 	int             ret;
 
 	if ( format_debug )
@@ -291,18 +299,24 @@ static size_t format_iqw_write_block (struct format_state *fs, const void *buff,
 			if ( (1 << ch) & fs->opt->channels )
 			{
 				type  = samp;
-				type += (ch * 2) + fs->cur_pass;
+				type += (ch * 2) + iq;
 				LOG_DEBUG("%04x -> ", *type);
 
-				val2 = *type & mask;
-				if ( *type & sign )
-					val2 -= sign;
+				val2 = *type;
+				if ( fs->opt->flags & FO_ENDIAN )
+					val2 = (val2 << 8) | (val2 >> 8);
 
-				val3  = val2;
-				val3 /= sign;
+				val3 = val2 & mask;
+				LOG_DEBUG("%04x -> %04lx -> ", val2, val3);
+				if ( val2 & sign )
+					val3 -= sign;
+				LOG_DEBUG("%ld -> ", val3);
 
-				LOG_DEBUG("%ld -> %g ", val2, val3);
-				if ( (ret = fwrite(&val3, 1, sizeof(val3), fp)) < sizeof(val3) )
+				val4  = val3;
+				val4 /= sign;
+				LOG_DEBUG("%g ", val4);
+
+				if ( (ret = fwrite(&val4, 1, sizeof(val4), fp)) < sizeof(val4) )
 				{
 					LOG_DEBUG("%s: fwrite: %s\n", __func__, strerror(errno));
 					return 0;
@@ -310,22 +324,7 @@ static size_t format_iqw_write_block (struct format_state *fs, const void *buff,
 				LOG_DEBUG("(%d)\n", ret);
 				break;
 			}
-#if 0
-			s = d[i] & 0x7FF;
-			if ( d[i] & 0x800 )
-				s -= 0x800;
 
-			f  = s;
-			f /= 2048.0;
-			// TODO: endian swap f if necessary
-
-			if ( fwrite(&f, 1, sizeof(f), fp) < sizeof(f) )
-				return -1;
-
-			d += DSM_BUS_WIDTH / sizeof(uint16_t);
-			if ( (every++ & 0x1ffff) == 0x1ffff )
-				spin();
-#endif
 		samp += fs->opt->sample;
 	}
 

@@ -68,12 +68,16 @@ static size_t format_dec_read (struct format_state *fs, void *buff, size_t size,
 	void     *samp = buff;
 	uint16_t *type;
 	char     *ptr;
-	long      val;
+	long      val1;
+	uint16_t  val2;
 	long      sign = 1 << (fs->opt->bits - 1);
 	long      max  = sign - 1;
 	long      min  = 0 - sign;
 	int       empty = 0;
 	int       ch, iq;
+	int       iqb = fs->opt->flags & FO_IQ_SWAP ?  1 : 0;
+	int       iqe = fs->opt->flags & FO_IQ_SWAP ? -1 : 2;
+	int       iqs = fs->opt->flags & FO_IQ_SWAP ? -1 : 1;
 
 
 	if ( !line )
@@ -109,23 +113,26 @@ static size_t format_dec_read (struct format_state *fs, void *buff, size_t size,
 			if ( (1 << ch) > fs->opt->channels )
 				break;
 
-			for ( iq = 0; iq < 2; iq++ )
+			for ( iq = iqb; iq != iqe; iq += iqs )
 			{
-				LOG_DEBUG("'%s' -> ", ptr);
-				val = strtol(ptr, &ptr, 0);
-				if ( val < min || val > max )
+				val1 = strtol(ptr, &ptr, 0);
+				if ( val1 < min || val1 > max )
 				{
-					LOG_DEBUG("%s: val %ld out of range %ld..%ld\n", __func__,
-					          val, min, max);
+					LOG_DEBUG("%s: val1 %ld out of range %ld..%ld\n", __func__,
+					          val1, min, max);
 					return 0;
 				}
-				LOG_DEBUG("%ld -> ", val);
+				LOG_DEBUG("%ld -> ", val1);
 
-				type[(ch * 2) + iq] = (uint16_t)val & max;
-				if ( val < 0 )
-					type[(ch * 2) + iq] |= sign;
+				val2 = (uint16_t)val1 & max;
+				if ( val1 < 0 )
+					val2 |= sign;
 
-				LOG_DEBUG("%x\n", type[(ch * 2) + iq]);
+				if ( fs->opt->flags & FO_ENDIAN )
+					val2 = (val2 << 8) | (val2 >> 8);
+
+				type[(ch * 2) + iq] = val2;
+				LOG_DEBUG("%04x\n", type[(ch * 2) + iq]);
 			}
 
 			for ( ; isspace(*ptr); ptr++ ) ;
@@ -147,11 +154,15 @@ static size_t format_dec_write (struct format_state *fs, const void *buff, size_
 	size_t          rows = size / fs->opt->sample;
 	const void     *samp = buff;
 	const uint16_t *type;
-	long            val;
+	uint16_t        val1;
+	long            val2;
 	long            sign = 1 << (fs->opt->bits - 1);
 	long            mask = sign - 1;
 	int             ch, iq;
 	int             eol = '\0';
+	int             iqb = fs->opt->flags & FO_IQ_SWAP ?  1 : 0;
+	int             iqe = fs->opt->flags & FO_IQ_SWAP ? -1 : 2;
+	int             iqs = fs->opt->flags & FO_IQ_SWAP ? -1 : 1;
 
 	while ( rows-- )
 	{
@@ -159,15 +170,20 @@ static size_t format_dec_write (struct format_state *fs, const void *buff, size_
 
 		for ( ch = 0; (1 << ch) <= fs->opt->channels; ch++ )
 			if ( (1 << ch) & fs->opt->channels )
-				for ( iq = 0; iq < 2; iq++ )
+				for ( iq = iqb; iq != iqe; iq += iqs )
 				{
-					val = type[(ch * 2) + iq] & mask;
-					if ( type[(ch * 2) + iq] & sign )
-						val -= sign;
+					val1 = type[(ch * 2) + iq];
+
+					if ( fs->opt->flags & FO_ENDIAN )
+						val1 = (val1 << 8) | (val1 >> 8);
+
+					val2 = val1 & mask;
+					if ( val1 & sign )
+						val2 -= sign;
 
 					if ( eol )
 						fputc(eol, fp);
-					fprintf(fp, "%6ld", val);
+					fprintf(fp, "%6ld", val2);
 					eol = '\t';
 				}
 

@@ -60,6 +60,7 @@ struct format_options  default_opts =
 	.head     = 0,
 	.data     = 0,
 	.foot     = 0,
+	.flags    = 0,
 };
 
 
@@ -99,14 +100,19 @@ static void usage (void)
 	       "in-file options for straight format conversion, or may differ to isolate/copy\n"
 	       "sample data.\n"
 	       "\n"
-	       "File options: [-12345678a] [-b bits] [-p spec]\n"
+	       "File options: [-12345678aieq] [-b bits] [-p spec]\n"
 	       "-1-8     Operate on numbered channel (default all)\n"
 	       "-a       Operate on all channels\n"
+	       "-i       Invert I and Q order\n"
+	       "-e       Swapp endian on samples\n"
 	       "-q       Quiet - do not show progresss\n"
 	       "-b bits  Number of significant bits (default 12)\n"
 	       "-p spec  Packetize or depacketize according to spec, a set of 4 comma-separated\n"
 	       "         values in bytes: packet,head,data,foot\n"
-	       "If out-file is not given or '-' then write to stdout\n",
+	       "If out-file is '-' then write to stdout.  Note that 1-8, a, i, and e options\n"
+	       "reset between input and output, since they modify load/save operations. The\n"
+	       "s, S, c, b, and p options are not reset, since they modify the data buffer\n"
+	       "and sample data format.\n",
 	       argv0);
 
 	printf("in-format and out-format should be one of:\n");
@@ -136,9 +142,10 @@ int main (int argc, char **argv)
 		if ( dir > 0 )
 			opts[dir] = opts[dir - 1];
 		cur->fmt_opts.channels = 0;
+		cur->fmt_opts.flags    = 0;
 
 		optind = 1;
-		while ( (opt = getopt(argc, argv, "+vs:S:c:12345678ab:ixXp:")) != -1 )
+		while ( (opt = getopt(argc, argv, "+vs:S:c:12345678aieqb:p:")) != -1 )
 			switch ( opt )
 			{
 				case 'v':
@@ -182,6 +189,14 @@ int main (int argc, char **argv)
 
 				case 'a':
 					cur->fmt_opts.channels = (1 << (cur->fmt_opts.sample / cur->fmt_opts.single)) - 1;
+					break;
+
+				case 'e':
+					cur->fmt_opts.flags |= FO_ENDIAN;
+					break;
+
+				case 'i':
+					cur->fmt_opts.flags |= FO_IQ_SWAP;
 					break;
 
 				case 'q':
@@ -253,7 +268,6 @@ int main (int argc, char **argv)
 			fprintf(debug, "%s: format '%s' and file '%s'\n", dirs[dir],
 			        format_class_name(opts[dir].fmt_class), opts[dir].file);
 
-		// TODO: check channels against 
 		if ( !cur->fmt_opts.channels )
 			cur->fmt_opts.channels = channels;
 		else if ( cur->fmt_opts.channels & ~channels )

@@ -80,6 +80,7 @@ static struct format_options sd_fmt_opts =
 	.head     = 36,
 	.data     = 232,
 	.foot     = 4,
+	.flags    = FO_ENDIAN,
 };
 
 

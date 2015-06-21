@@ -24,6 +24,11 @@
 typedef void (* format_progress_fn) (size_t done, size_t size);
 
 
+/* Bits for flags bitmap */
+#define  FO_ENDIAN   0x00000001  /* Swap sample endian on load/save    */
+#define  FO_IQ_SWAP  0x00000002  /* Swap order of I and Q on load/save */
+
+
 /* Options struct describes an application's requirements for how samples are arranged in
  * the data buffer.  If an options struct is not passed to one of the functions below, a
  * default struct is used which describes a 2-channel buffer of 16-bit subsamples, I,Q
@@ -74,6 +79,9 @@ struct format_options
 	 */
 	format_progress_fn  prog_func;
 	size_t              prog_step;
+
+	/* Bitmap of FO_* flags above */
+	unsigned long  flags;
 };
 
 

@@ -561,8 +561,8 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 				}
 				return 0;
 			}
-			LOG_DEBUG("%s: format_%s_read_block(dst +%d, want %zu): ret %zu\n", __func__,
-			          fmt->name, dst - buff, want, ret);
+			LOG_DEBUG("%s: format_%s_read_block(dst +%ld, want %zu): ret %zu\n", __func__,
+			          fmt->name, (long)(dst - buff), want, ret);
 			state.new_pass = 0;
 
 			data -= ret;
