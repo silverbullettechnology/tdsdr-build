@@ -80,11 +80,6 @@ TEST_STUB_OBJS := \
 # Control tool
 CONTROL_OBJS := \
 	tool/control/config.o \
-	tool/control/expect.o \
-	tool/control/socket.o \
-	tool/control/socket/srio.o \
-	tool/control/socket/unix.o \
-	tool/control/sequence.o \
 	tool/control/main.o
 
 CONTROL_OBJS += tool/control/sequence/disco.o
@@ -94,6 +89,7 @@ CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
 	-lsbt_common \
+	-lv49_client \
 	-lv49_message \
 	-lrt \
 	-lconfig

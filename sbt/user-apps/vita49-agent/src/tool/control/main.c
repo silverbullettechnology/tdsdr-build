@@ -45,9 +45,8 @@
 #include <v49_message/common.h>
 #include <v49_message/control.h>
 
-#include <tool/control/socket.h>
-#include <tool/control/control.h>
-#include <tool/control/sequence.h>
+#include <v49_client/socket.h>
+#include <v49_client/sequence.h>
 
 
 LOG_MODULE_STATIC("control_main", LOG_LEVEL_INFO);
@@ -71,6 +70,7 @@ int   send_size = 0;
 char  recv_buff[CONTROL_LOCAL_BUFF_SIZE];
 int   recv_size;
 
+struct socket *sock;
 
 
 
@@ -144,6 +144,7 @@ int main (int argc, char **argv)
 		argv0 = *argv;
 
 	// defaults
+	log_init_module_list();
 	log_dupe(stderr);
 
 	// basic arguments parsing
@@ -247,6 +248,12 @@ int main (int argc, char **argv)
 		sequence_list(LOG_LEVEL_ERROR);
 		return 1;
 	}
+	else if ( !strcmp(map->name, "list") )
+	{
+		LOG_FOCUS("Available commands:\n");
+		sequence_list(LOG_LEVEL_FOCUS);
+		return 0;
+	}
 	LOG_DEBUG("Command '%s' matched: %s\n", map->name, map->desc);
 
 	// open connection to daemon
@@ -262,7 +269,7 @@ int main (int argc, char **argv)
 
 	long rep = 0;
 	while ( rep++ < opt_reps && main_loop )
-		if ( (ret = map->func(cmd_argc, cmd_argv)) < 0 )
+		if ( (ret = map->func(sock, cmd_argc, cmd_argv)) < 0 )
 		{
 			LOG_ERROR("%s: %d: %s\n", map->name, ret, strerror(errno));
 			ret = 1;

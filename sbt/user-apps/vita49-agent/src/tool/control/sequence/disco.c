@@ -25,8 +25,9 @@
 #include <v49_message/common.h>
 #include <v49_message/command.h>
 
-#include <tool/control/sequence.h>
-#include <tool/control/expect.h>
+#include <v49_client/socket.h>
+#include <v49_client/sequence.h>
+#include <v49_client/expect.h>
 
 
 LOG_MODULE_STATIC("control_sequence_disco", LOG_LEVEL_INFO);
@@ -87,7 +88,7 @@ struct expect_map disco_map[] =
 };
 
 
-static int sequence_disco (int argc, char **argv)
+static int sequence_disco (struct socket *sock, int argc, char **argv)
 {
 	struct mbuf *mbuf;
 	uuid_t      *ptr;
@@ -139,9 +140,9 @@ static int sequence_disco (int argc, char **argv)
 		mbuf_deref(mbuf);
 		RETURN_VALUE("%d", -1);
 	}
-	expect_send(mbuf);
+	expect_send(sock, mbuf);
 
-	ret = expect_loop(disco_map, s_to_clocks(5));
+	ret = expect_loop(sock, disco_map, s_to_clocks(5));
 
 out:
 	RETURN_ERRNO_VALUE(0, "%d", ret);

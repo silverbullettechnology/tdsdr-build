@@ -314,20 +314,40 @@ struct log_module_map_t
 	int        *var;
 };
 
+void _log_init_module_list (struct log_module_map_t *start, struct log_module_map_t *stop);
+
+
+/** Initialize library with calling program's module list
+ *
+ *  \note The calling program must call this function to expose modules in the calling
+ *        program to the library, before calling the list-related functions below.
+ *
+ *  \return A packlist of module names, or NULL on error
+ */
+static inline void log_init_module_list (void)
+{
+	/** Linker-generated symbols for modules inside the application */
+	extern struct log_module_map_t __start_log_module_map;
+	extern struct log_module_map_t  __stop_log_module_map;
+
+	_log_init_module_list(&__start_log_module_map, &__stop_log_module_map);
+}
+
 
 /** Set all modules' verbosity level
  *
- *  \note This is implemented with a linker-generated list.
+ *  \note The calling program must call log_init_module_list() before using this function,
+ *        to expose modules in the calling program to the library.
  *
  *  \param level  LOG_LEVEL_* value
  */
-#define log_set_global_level(level)	_log_set_global_level(level, __FILE__, __LINE__)
+#define log_set_global_level(level) _log_set_global_level(level, __FILE__, __LINE__)
 int _log_set_global_level (int level, const char *file, int line);
-
 
 /** Set a module's verbosity level by name
  *
- *  \note This is implemented with a linker-generated list.
+ *  \note The calling program must call log_init_module_list() before using this function,
+ *        to expose modules in the calling program to the library.
  *
  *  \param module symbolic name of the module
  *  \param level  LOG_LEVEL_* value
@@ -335,10 +355,11 @@ int _log_set_global_level (int level, const char *file, int line);
 #define log_set_module_level(module,level) _log_set_module_level(module, level, __FILE__, __LINE__)
 int _log_set_module_level (const char *module, int level, const char *file, int line);
 
-
 /** Get a packlist of all modules compiled in
  *
  *  \note Caller must free() the result
+ *  \note The calling program must call log_init_module_list() before using this function,
+ *        to expose modules in the calling program to the library.
  *
  *  \return A packlist of module names, or NULL on error
  */

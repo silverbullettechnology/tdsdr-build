@@ -94,6 +94,7 @@ sbt_common_0.1 {
 		log_hexdump_line;
 		log_hexdump;
 		log_printf;
+		_log_init_module_list;
 		_log_set_global_level;
 		_log_set_module_level;
 		log_get_module_list;

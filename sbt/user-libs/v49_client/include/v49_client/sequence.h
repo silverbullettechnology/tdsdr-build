@@ -20,8 +20,10 @@
 #ifndef INCLUDE_TOOL_CONTROL_SEQUENCE_H
 #define INCLUDE_TOOL_CONTROL_SEQUENCE_H
 
+#include <v49_client/socket.h>
 
-typedef int (* sequence_fn) (int argc, char **argv);
+
+typedef int (* sequence_fn) (struct socket *sock, int argc, char **argv);
 
 
 struct sequence_map
@@ -38,9 +40,30 @@ struct sequence_map
 	     = { name, func, desc };
 
 
-struct sequence_map *sequence_find (const char *name);
+struct sequence_map *sequence_find_lib (struct sequence_map *start_map_app,
+                                        struct sequence_map *stop_map_app,
+                                        const char *name);
 
-void sequence_list (int level);
+void sequence_list_lib (struct sequence_map *start_map_app,
+                        struct sequence_map *stop_map_app,
+                        int level);
+
+static inline struct sequence_map *sequence_find (const char *name)
+{
+	/** Linker-generated symbols for the map - in calling program */
+	extern struct sequence_map __start_sequence_map;
+	extern struct sequence_map  __stop_sequence_map;
+
+	return sequence_find_lib(&__start_sequence_map, &__stop_sequence_map, name);
+}
+
+static inline void sequence_list (int level)
+{
+	/** Linker-generated symbols for the map - in calling program */
+	extern struct sequence_map __start_sequence_map;
+	extern struct sequence_map  __stop_sequence_map;
+	sequence_list_lib(&__start_sequence_map, &__stop_sequence_map, level);
+}
 
 
 #endif // INCLUDE_TOOL_CONTROL_SEQUENCE_H

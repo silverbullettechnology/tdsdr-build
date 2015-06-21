@@ -29,8 +29,11 @@
 #include <sbt_common/util.h>
 #include <sbt_common/descript.h>
 
-#include <common/control/local.h>
-#include <tool/control/socket.h>
+#include <v49_client/socket.h>
+
+#ifndef CONTROL_LOCAL_BUFF_SIZE
+#define CONTROL_LOCAL_BUFF_SIZE 4096
+#endif
 
 
 LOG_MODULE_STATIC("socket_unix", LOG_LEVEL_INFO);
@@ -61,11 +64,6 @@ static struct socket *socket_unix_alloc (void)
 		RETURN_VALUE("%p", NULL);
 
 	memset (priv, 0, sizeof(struct socket_unix_priv));
-	if ( !(priv->path = strdup(CONTROL_LOCAL_SOCKET_PATH)) )
-	{
-		LOG_ERROR("Failed to strdup() socket path\n");
-		RETURN_VALUE("%p", NULL);
-	}
 	priv->desc = -1;
 
 	RETURN_ERRNO_VALUE(0, "%p", (struct socket *)priv);

@@ -509,9 +509,20 @@ int log_config (const char *section, const char *tag, const char *val,
 }
 
 
-/** Linker-generated symbols for the map */
+/** Linker-generated symbols for modules inside the library */
 extern struct log_module_map_t __start_log_module_map;
 extern struct log_module_map_t  __stop_log_module_map;
+
+static struct log_module_map_t *log_module_map_app_start = NULL;
+static struct log_module_map_t *log_module_map_app_stop  = NULL;
+
+void _log_init_module_list (struct log_module_map_t *start,
+                            struct log_module_map_t *stop)
+{
+	log_module_map_app_start = start;
+	log_module_map_app_stop  = stop;
+}
+
 
 /** Set all modules' verbosity level
  *
@@ -531,6 +542,11 @@ int _log_set_global_level (int level, const char *file, int line)
 	}
 
 	struct log_module_map_t *map;
+
+	if ( log_module_map_app_start && log_module_map_app_stop )
+		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+			*(map->var) = level;
+
 	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
 		*(map->var) = level;
 
@@ -560,6 +576,18 @@ int _log_set_module_level (const char *module, int level, const char *file, int 
 
 	struct log_module_map_t *map;
 	int                      cnt = 0;
+
+	if ( log_module_map_app_start && log_module_map_app_stop )
+		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+			if ( strmatch(map->mod, module) )
+			{
+				*(map->var) = level;
+				cnt++;
+				log_printf(LOG_LEVEL_INFO, module_level, file, line,
+				           "Module %s debug level set to %s\n",
+				           map->mod, log_label_for_level(level));
+			}
+
 	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
 		if ( strmatch(map->mod, module) )
 		{
@@ -592,6 +620,9 @@ char **log_get_module_list (void)
 	char                    **ret;
 
 	memset(&pl, 0, sizeof(struct packlist));
+	if ( log_module_map_app_start && log_module_map_app_stop )
+		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+			packlist_size (&pl, map->mod, -1);
 	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
 		packlist_size (&pl, map->mod, -1);
 	packlist_size (&pl, NULL, 0);
@@ -600,6 +631,9 @@ char **log_get_module_list (void)
 	if ( !(ret = packlist_alloc(&pl)) )
 		RETURN_VALUE("%p", NULL);
 
+	if ( log_module_map_app_start && log_module_map_app_stop )
+		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+			packlist_data (&pl, map->mod, -1);
 	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
 		packlist_data (&pl, map->mod, -1);
 	packlist_data (&pl, NULL, 0);

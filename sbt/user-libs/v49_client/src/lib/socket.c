@@ -21,13 +21,10 @@
 
 #include <sbt_common/log.h>
 #include <sbt_common/growlist.h>
-#include <tool/control/socket.h>
+#include <v49_client/socket.h>
 
 
 LOG_MODULE_STATIC("socket", LOG_LEVEL_INFO);
-
-
-struct socket *sock = NULL;
 
 
 /** Linker-generated symbols for the map */

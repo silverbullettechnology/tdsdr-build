@@ -29,6 +29,12 @@
 #include <config/config.h>
 
 
+/* Currently sized for a maximum-length SRIO type 11 (message) packet with sd_user header
+ * size reserved */
+#define DEFAULT_MBUF_SIZE  5120
+#define DEFAULT_MBUF_HEAD   256
+
+
 /** Allocate a socket instance, usually a private which starts with a socket struct for
  *  casting.  The function should zero the memory, and is responsible for allocating and
  *  setting to default values any fields within the private structure.  It should not
@@ -131,10 +137,6 @@ struct socket
 	const struct socket_class  *class;
 	struct mqueue               queue;
 };
-
-
-/** List of all sockets allocated with socket_alloc */
-extern struct socket *sock;
 
 
 /** Allocate a new, idle instance of the class

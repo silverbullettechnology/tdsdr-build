@@ -21,19 +21,26 @@
 
 #include <sbt_common/log.h>
 
-#include <tool/control/sequence.h>
+#include <v49_client/sequence.h>
 
 
 LOG_MODULE_STATIC("control_sequence", LOG_LEVEL_INFO);
 
 
-/** Linker-generated symbols for the map */
+/** Linker-generated symbols for the map - inside library */
 extern struct sequence_map __start_sequence_map;
 extern struct sequence_map  __stop_sequence_map;
 
-struct sequence_map *sequence_find (const char *name)
+struct sequence_map *sequence_find_lib (struct sequence_map *start_map_app,
+                                        struct sequence_map *stop_map_app,
+                                        const char *name)
 {
 	struct sequence_map *map;
+
+	for ( map = start_map_app; map != stop_map_app; map++ )
+		if ( !strcmp(map->name, name) )
+			return map;
+
 	for ( map = &__start_sequence_map; map != &__stop_sequence_map; map++ )
 		if ( !strcmp(map->name, name) )
 			return map;
@@ -42,14 +49,23 @@ struct sequence_map *sequence_find (const char *name)
 }
 
 
-void sequence_list (int level)
+void sequence_list_lib (struct sequence_map *start_map_app,
+                        struct sequence_map *stop_map_app,
+                        int level)
 {
 	struct sequence_map *map;
 	int                  len = 0;
 
+	for ( map = start_map_app; map != stop_map_app; map++ )
+		if ( strlen(map->name) > len )
+			len = strlen(map->name);
+
 	for ( map = &__start_sequence_map; map != &__stop_sequence_map; map++ )
 		if ( strlen(map->name) > len )
 			len = strlen(map->name);
+
+	for ( map = start_map_app; map != stop_map_app; map++ )
+		LOG_MESSAGE(level, "  %*s  %s\n", 0 - len, map->name, map->desc);
 
 	for ( map = &__start_sequence_map; map != &__stop_sequence_map; map++ )
 		LOG_MESSAGE(level, "  %*s  %s\n", 0 - len, map->name, map->desc);
@@ -57,9 +73,9 @@ void sequence_list (int level)
 
 
 /** Temporary to ensure list is not empty */
-static int _sequence_list (int argc, char **argv)
+static int _sequence_list (struct socket *sock, int argc, char **argv)
 {
-	ENTER("argc %d, argv [%s,...]", argc, argv[0]);
+	ENTER("sock %p, argc %d, argv [%s,...]", sock, argc, argv[0]);
 
 	sequence_list(LOG_LEVEL_INFO);
 

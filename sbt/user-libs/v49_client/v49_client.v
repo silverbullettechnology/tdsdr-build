@@ -1,4 +1,4 @@
-/** \file      vita49.v
+/** \file      v49_client.v
  *  \brief     Shared-library exports and version control
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -15,43 +15,23 @@
  *
  * vim:ts=4:noexpandtab
  */
-vita49_0.1 {
+v49_client_0.1 {
 	global:
-		/* src/lib/command.c */
-		v49_command_reset;
-		v49_command_parse;
-		v49_command_format;
-		v49_command_role;
-		v49_command_result;
-		v49_command_request;
-		v49_command_indicator;
-		v49_command_tstamp_int;
-		v49_command_return_desc;
-		v49_command_dump;
-		/* src/lib/common.c */
-		v49_reset;
-		v49_common_parse;
-		v49_parse;
-		v49_format;
-		v49_return_desc;
-		v49_type;
-		v49_dump_hdr;
-		v49_dump;
-		/* src/lib/context.c */
-		v49_context_reset;
-		v49_context_parse;
-		v49_context_format;
-		v49_context_indicator;
-		v49_context_return_desc;
-		v49_context_dump;
-		/* src/lib/control.c */
-		v49_control_parse;
-		v49_control_format_shutdown;
-		v49_control_format_start;
-		v49_control_format_stop;
-		v49_control_format_list;
-		/* src/lib/resource.c */
-		resource_dump;
+		/* src/lib/expect.c */
+		expect_send;
+		expect_common;
+		expect_mbuf;
+		expect_loop;
+		/* src/lib/sequence.c */
+		sequence_find_lib;
+		sequence_list_lib;
+		/* src/lib/socket.c */
+		socket_alloc;
+		socket_config_inst;
+		socket_config_common;
+		socket_enqueue;
+		socket_dequeue;
+		socket_free;
 	local:
 		*;
 };

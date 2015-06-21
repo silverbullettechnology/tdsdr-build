@@ -37,10 +37,12 @@
 #include <sbt_common/mbuf.h>
 #include <sbt_common/mqueue.h>
 
-#include <common/default.h>
-#include <common/control/srio.h>
+#include <sd_user.h>
 
-#include <tool/control/socket.h>
+#define CONTROL_SRIO_NODE_PATH  "/dev/srio"
+#define CONTROL_SRIO_BUFF_SIZE  ((sizeof(struct sd_mesg) + 0x000003FF) & 0xFFFFFC00)
+
+#include <v49_client/socket.h>
 
 
 LOG_MODULE_STATIC("socket_srio", LOG_LEVEL_INFO);

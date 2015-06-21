@@ -130,6 +130,7 @@ int main (int argc, char **argv)
 
 	// not sure we use random stuff in this project...
 	srand(time(NULL));
+	log_init_module_list();
 	log_dupe(stderr);
 
 	// basic arguments parsing

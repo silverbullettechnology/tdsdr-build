@@ -1,4 +1,4 @@
-/** \file      vita49.v
+/** \file      v49_message.v
  *  \brief     Shared-library exports and version control
  *  \copyright Copyright 2015 Silver Bullet Technology
  *
@@ -15,7 +15,7 @@
  *
  * vim:ts=4:noexpandtab
  */
-vita49_0.1 {
+v49_message_0.1 {
 	global:
 		/* src/lib/command.c */
 		v49_command_reset;

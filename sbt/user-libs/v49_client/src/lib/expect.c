@@ -21,11 +21,8 @@
 
 #include <sbt_common/log.h>
 
-#include <common/control/local.h>
-
-#include <tool/control/socket.h>
-#include <tool/control/control.h>
-#include <tool/control/expect.h>
+#include <v49_client/socket.h>
+#include <v49_client/expect.h>
 
 
 LOG_MODULE_STATIC("control_expect", LOG_LEVEL_INFO);
@@ -33,11 +30,12 @@ LOG_MODULE_STATIC("control_expect", LOG_LEVEL_INFO);
 
 /** Enqueue an mbuf to send to the daemon
  *
+ *  \param  sock  Socket to daemon
  *  \param  mbuf  Message buffer to send
  *
  *  \return >= 0 on success, <0 on error
  */
-int expect_send (struct mbuf *mbuf)
+int expect_send (struct socket *sock, struct mbuf *mbuf)
 {
 	return socket_enqueue(sock, mbuf);
 }
@@ -88,10 +86,11 @@ int expect_mbuf (struct mbuf *mbuf, struct expect_map *map)
 /** Transmit any enqueued mbufs to the daemon, the run an expect loop on received messages
  *  until one matches or a fatal error or timeout occurs
  *
+ *  \param  sock     Socket to daemon
  *  \param  map      Array of expect_map entries to test the message against
  *  \param  timeout  Timeout in clocks
  */
-int expect_loop (struct expect_map *map, clocks_t timeout)
+int expect_loop (struct socket *sock, struct expect_map *map, clocks_t timeout)
 {
 	struct timeval  tv_cur;
 	fd_set          rfds;

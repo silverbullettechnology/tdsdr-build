@@ -25,8 +25,9 @@
 #include <v49_message/common.h>
 #include <v49_message/command.h>
 
-#include <tool/control/sequence.h>
-#include <tool/control/expect.h>
+#include <v49_client/socket.h>
+#include <v49_client/sequence.h>
+#include <v49_client/expect.h>
 
 
 LOG_MODULE_STATIC("control_sequence_release", LOG_LEVEL_INFO);
@@ -68,7 +69,7 @@ struct expect_map release_map[] =
 };
 
 
-static int sequence_release (int argc, char **argv)
+static int sequence_release (struct socket *sock, int argc, char **argv)
 {
 	struct mbuf *mbuf;
 	int          ret;
@@ -94,9 +95,9 @@ static int sequence_release (int argc, char **argv)
 		LOG_ERROR("v49_format(release_req) failed: %s\n", v49_return_desc(ret));
 		mbuf_deref(mbuf);
 	}
-	expect_send(mbuf);
+	expect_send(sock, mbuf);
 
-	ret = expect_loop(release_map, s_to_clocks(5));
+	ret = expect_loop(sock, release_map, s_to_clocks(5));
 	RETURN_ERRNO_VALUE(0, "%d", ret);
 }
 SEQUENCE_MAP("release", sequence_release, "Release request");
