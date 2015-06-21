@@ -27,7 +27,7 @@
 #include <sbt_common/mbuf.h>
 #include <daemon/worker.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
 
 /** Allocate a control instance, usually a private which starts with a control struct for

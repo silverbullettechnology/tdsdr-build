@@ -26,10 +26,9 @@ endif
 
 # cross-compile friendly
 CC     ?= $(CROSS_COMPILE)gcc
-CFLAGS += -Iinclude -I../include -I../lib
+CFLAGS += -Iinclude -I../include
 CFLAGS += -I$(PETALINUX)/software/user-modules/srio_dev
 CFLAGS += -I$(PETALINUX)/software/user-libs/sbt_common/include
-LDFLAGS += -L../lib/config
 LDFLAGS += -L$(STAGEDIR)/usr/lib
 
 # Compile with debugging
@@ -50,12 +49,10 @@ export DESTDIR
 
 all install clean:
 	set
-	$(MAKE) -C lib       $@
 	$(MAKE) -C src       $@
 	$(MAKE) -C script    $@
 
 tests:
-	$(MAKE) -C lib       all
 	$(MAKE) -C src       $@
 
 ifneq ($(PETALINUX),)

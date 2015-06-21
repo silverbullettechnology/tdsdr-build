@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
 #include <sbt_common/log.h>
 #include <sbt_common/uuid.h>

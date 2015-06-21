@@ -28,7 +28,7 @@
 #include <sbt_common/mbuf.h>
 #include <sbt_common/uuid.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
 
 extern char *worker_exec_path;

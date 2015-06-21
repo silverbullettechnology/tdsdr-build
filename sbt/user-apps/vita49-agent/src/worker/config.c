@@ -17,7 +17,7 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <config/include/config.h>
+#include <config/config.h>
 
 #include <sbt_common/log.h>
 #include <sbt_common/growlist.h>

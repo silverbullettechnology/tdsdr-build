@@ -48,10 +48,6 @@ DAEMON_OBJS += \
 	daemon/manager/control.o \
 	daemon/manager/message.o
 
-# Common application code used in daemon
-DAEMON_OBJS += \
-	common/resource.o
-
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
 	-lsbt_common \
@@ -68,10 +64,6 @@ WORKER_OBJS += \
 	worker/message.o \
 	worker/main.o
 
-# Common application code used in worker
-WORKER_OBJS += \
-	common/resource.o
-
 # Worker library code - never cleaned 
 WORKER_LIBS := \
 	-lsbt_common \
@@ -87,7 +79,6 @@ TEST_STUB_OBJS := \
 
 # Control tool
 CONTROL_OBJS := \
-	common/resource.o \
 	tool/control/config.o \
 	tool/control/expect.o \
 	tool/control/socket.o \

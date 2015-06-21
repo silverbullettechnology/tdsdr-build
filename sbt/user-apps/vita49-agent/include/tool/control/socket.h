@@ -26,7 +26,7 @@
 #include <sbt_common/mqueue.h>
 #include <sbt_common/mbuf.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
 
 /** Allocate a socket instance, usually a private which starts with a socket struct for
