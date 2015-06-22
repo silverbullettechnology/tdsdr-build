@@ -19,7 +19,6 @@
 #define _INCLUDE_APP_MAIN_H_
 
 
-extern char *argv0;
 extern int   opt_soft_fail;
 extern char *opt_lib_dir;
 

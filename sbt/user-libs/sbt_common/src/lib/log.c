@@ -42,7 +42,6 @@
 
 LOG_MODULE_STATIC("log_core", LOG_LEVEL_DEBUG);
 
-extern char *argv0;
 
 static struct descript log_level_descript[] =
 {
@@ -451,6 +450,7 @@ int log_config (const char *section, const char *tag, const char *val,
 
 				int   opt = LOG_NDELAY|LOG_PID;
 				int   fac = LOG_DAEMON;
+				char *arg = NULL;
 				char *tok = strtok(buf, ",");
 				while ( tok )
 				{
@@ -463,11 +463,13 @@ int log_config (const char *section, const char *tag, const char *val,
 					}
 					else if ( (idx = descript_value_for_label(facility_lut, tok)) > -1 )
 						fac = idx;
+					else if ( !arg )
+						arg = tok;
 
 					tok = strtok(NULL, ",");
 				}
 				free(buf);
-				log_openlog(argv0, opt, fac);
+				log_openlog(arg && *arg ? arg : "???", opt, fac);
 			}
 			RETURN_ERRNO_VALUE(0, "%d", 0);
 

@@ -37,8 +37,6 @@
 #include <time.h>
 
 
-char *argv0;
-
 char  send_buff[1024];
 int   send_size = 0;
 

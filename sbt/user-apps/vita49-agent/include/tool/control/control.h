@@ -22,7 +22,6 @@
 
 
 // main.c
-extern char *argv0;
 extern char *opt_log;
 extern char *opt_config;
 extern char *opt_sock_type;

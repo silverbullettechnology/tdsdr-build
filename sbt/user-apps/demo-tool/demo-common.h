@@ -1,4 +1,4 @@
-/** 
+/** Demo tool
  *
  *  \author    Morgan Hughes <morgan.hughes@silver-bullet-tech.com>
  *  \version   v0.0
@@ -17,27 +17,25 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_RESOURCE_H
-#define INCLUDE_COMMON_RESOURCE_H
-#include <stdint.h>
-
+#ifndef _INCLUDE_ST_TERM_H_
+#define _INCLUDE_ST_TERM_H_
 #include <sbt_common/uuid.h>
-//#include <sbt_common/growlist.h>
+#include <v49_client/socket.h>
 
 
-struct resource_info
-{
-	uuid_t    uuid;	// must be first, for casts when searching lists
-	char      name[20];
-	uint8_t   txch;
-	uint8_t   rxch;
-	uint32_t  rate_q8;
-	uint16_t  min;
-	uint16_t  max;
-};
+// st_term.c
+int st_term_setup (void);
+int st_term_cleanup (void);
+
+// access.c
+int seq_access (struct socket *sock, uuid_t *cid, uuid_t *uuid, uint32_t *stream_id);
+
+// release.c
+int seq_release (struct socket *sock, uuid_t *cid, uint32_t stream_id);
+
+// enum.c
+int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char *name);
 
 
-void resource_dump (int level, const char *msg, struct resource_info *res);
 
-
-#endif // INCLUDE_COMMON_RESOURCE_H
+#endif // _INCLUDE_ST_TERM_H_
