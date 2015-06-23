@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_VITA49_TYPES_H
-#define INCLUDE_COMMON_VITA49_TYPES_H
+#ifndef _INCLUDE_V49_MESSAGE_VITA49_TYPES_H_
+#define _INCLUDE_V49_MESSAGE_VITA49_TYPES_H_
 #include <stdint.h>
 
 
@@ -36,5 +36,5 @@ v49_type_t;
 struct v49_common;
 
 
-#endif /* INCLUDE_COMMON_VITA49_TYPES_H */
+#endif /* _INCLUDE_V49_MESSAGE_VITA49_TYPES_H_ */
 /* Ends */

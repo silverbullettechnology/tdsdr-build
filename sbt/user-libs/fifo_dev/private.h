@@ -22,4 +22,4 @@
 extern int  fifo_dev_fd;
 
 
-#endif // _INCLUDE_FIFO_PRIVATE_H_
+#endif /* _INCLUDE_FIFO_PRIVATE_H_ */

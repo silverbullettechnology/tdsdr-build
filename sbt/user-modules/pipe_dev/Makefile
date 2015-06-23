@@ -24,7 +24,7 @@ UCLINUX_BUILD_USER = 1
 KBUILD_NOPEDANTIC=1
 
 # Pick up the special CPU flags from config.arch
-EXTRA_CFLAGS=$(ARCH_CPUFLAGS)
+EXTRA_CFLAGS=$(ARCH_CPUFLAGS) -I$(PETALINUX)/software/user-modules/fifo_dev
 
 export ROMFSDIR=$(ROOTDIR)/romfs
 export ROMFSINST=$(ROOTDIR)/tools/romfs-inst.sh

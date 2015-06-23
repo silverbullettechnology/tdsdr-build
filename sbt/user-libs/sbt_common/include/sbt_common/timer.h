@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_TIMER_H
-#define INCLUDE_LIB_TIMER_H
+#ifndef _INCLUDE_SBT_COMMON_TIMER_H_
+#define _INCLUDE_SBT_COMMON_TIMER_H_
 
 #include "sbt_common/clocks.h"
 
@@ -96,5 +96,5 @@ int timer_head_due_now (void);
 // the correct time to do so.
 void timer_head_call (void);
 
-#endif /* INCLUDE_LIB_TIMER_H */
+#endif /* _INCLUDE_SBT_COMMON_TIMER_H_ */
 /* Ends */

@@ -26,19 +26,6 @@
 #include "dsa/sample.h"
 
 
-#define DC_DEV_AD1  0x01
-#define DC_DEV_AD2  0x02
-#define DC_DIR_TX   0x04
-#define DC_DIR_RX   0x08
-#define DC_CHAN_1   0x10
-#define DC_CHAN_2   0x20
-
-#define DC_DEV_IDX_TO_MASK(i)  (DC_DEV_AD1 << (i))
-#define DC_CHAN_IDX_TO_MASK(i) (DC_CHAN_1  << (i))
-#define DC_CHAN_MASK_TO_IDX(i) (((i) >> 4) - 1)
-
-
-
 // describes the data source / sink for a single channel within a transfer
 struct dsa_channel_sxx
 {
@@ -68,13 +55,11 @@ struct dsa_channel_event
 extern int dsa_channel_ensm_wake;
 
 
-int  dsa_channel_ident   (const char *argv0);
 int  dsa_channel_buffer  (struct dsa_channel_event *evt, int ident, size_t len, int paint);
 int  dsa_channel_sxx     (struct dsa_channel_event *evt, int ident, int sxx,
                           struct format_class *fmt, const char *loc);
 void dsa_channel_cleanup (struct dsa_channel_event *evt);
 
-const char *dsa_channel_desc (int ident);
 void dsa_channel_event_dump (struct dsa_channel_event *evt);
 
 // Load all setup channels with data - if lsh is nonzero, shift sample data left by 4 bits

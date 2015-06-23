@@ -64,17 +64,15 @@ struct expect_map map_release[] =
 };
 
 
-int seq_release (struct socket *sock, uuid_t *cid, uint32_t stream_id)
+int seq_release (struct socket *sock, uint32_t stream_id)
 {
 	struct mbuf *mbuf;
 	int          ret;
 
-	ENTER("sock %p, cid %s", sock, uuid_to_str(cid));
+	ENTER("sock %p, sid %u", sock, stream_id);
 
-	memcpy(&req_release.command.cid, cid, sizeof(uuid_t));
 	req_release.sid = stream_id;
-	LOG_DEBUG("Release: CID %s, SID %u\n",
-	           uuid_to_str(&req_release.command.cid), req_release.sid);
+	LOG_DEBUG("Release: SID %u\n", req_release.sid);
 
 	if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0)) )
 	{

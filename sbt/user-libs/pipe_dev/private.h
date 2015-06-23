@@ -22,4 +22,4 @@
 extern int  pipe_dev_fd;
 
 
-#endif // _INCLUDE_PIPE_PRIVATE_H_
+#endif /* _INCLUDE_PIPE_PRIVATE_H_ */

@@ -65,20 +65,40 @@ void worker_command_recv (struct v49_common *req_v49)
 		memcpy(&rsp_v49.command.cid, &req_v49->command.cid, sizeof(uuid_t));
 	}
 
+	rsp_v49.command.role = V49_CMD_ROLE_RESULT;
 	switch ( req_v49->command.request )
 	{
+		case V49_CMD_REQ_OPEN:
+			LOG_DEBUG("%s: got an OPEN request:\n", __func__);
+			worker_command_open(req_v49, &rsp_v49);
+			break;
+
+		case V49_CMD_REQ_START:
+			LOG_DEBUG("%s: got a START request:\n", __func__);
+			worker_command_start(req_v49, &rsp_v49);
+			break;
+
+		case V49_CMD_REQ_STOP:
+			LOG_DEBUG("%s: got a STOP request:\n", __func__);
+			worker_command_stop(req_v49, &rsp_v49);
+			break;
+
+		case V49_CMD_REQ_CLOSE:
+			LOG_DEBUG("%s: got a CLOSE request:\n", __func__);
+			worker_command_close(req_v49, &rsp_v49);
+			break;
+
 		case V49_CMD_REQ_RELEASE:
-			rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+			LOG_DEBUG("Release request for SID %u\n", req_v49->sid);
 			rsp_v49.command.result = V49_CMD_RES_SUCCESS;
 			worker_shutdown();
 			break;
 
-
 		default:
 			LOG_ERROR("Command not (yet) handled: %s\n",
 			          v49_command_request(req_v49->command.request));
-			mbuf_deref(mbuf);
-			RETURN_ERRNO(EBADMSG);
+			rsp_v49.command.result = V49_CMD_RES_UNSPEC;
+			break;
 	}
 
 	LOG_DEBUG("%s: format reply:\n", __func__);

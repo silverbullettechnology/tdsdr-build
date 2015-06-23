@@ -31,8 +31,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_PACKLIST_H
-#define INCLUDE_LIB_PACKLIST_H
+#ifndef _INCLUDE_SBT_COMMON_PACKLIST_H_
+#define _INCLUDE_SBT_COMMON_PACKLIST_H_
 
 
 /** packlist structure is used by the functions below while assembling the packlist; once
@@ -83,5 +83,5 @@ char **packlist_alloc (struct packlist *pl);
 void packlist_data (struct packlist *pl, const char *obj, int len);
 
 
-#endif /* INCLUDE_LIB_PACKLIST_H */
+#endif /* _INCLUDE_SBT_COMMON_PACKLIST_H_ */
 /* Ends */

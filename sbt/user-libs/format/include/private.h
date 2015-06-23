@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_PRIVATE_H_
-#define _INCLUDE_PRIVATE_H_
+#ifndef _INCLUDE_FORMAT_PRIVATE_H_
+#define _INCLUDE_FORMAT_PRIVATE_H_
 #include <stdio.h>
 
 
@@ -138,4 +138,4 @@ void hexdump_buff (FILE *fp, const void *buf, int len);
 void smpdump (FILE *fp, void *buff, size_t size);
 
 
-#endif // _INCLUDE_PRIVATE_H_
+#endif /* _INCLUDE_FORMAT_PRIVATE_H_ */

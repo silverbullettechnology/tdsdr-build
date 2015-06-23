@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_GENLIST_H
-#define INCLUDE_LIB_GENLIST_H
+#ifndef _INCLUDE_SBT_COMMON_GENLIST_H_
+#define _INCLUDE_SBT_COMMON_GENLIST_H_
 #include <string.h>
 
 #include <sbt_common/gen.h>
@@ -269,5 +269,5 @@ static inline void *genlist_contains (struct genlist *list, void *node)
 void *genlist_next (struct genlist *list);
 
 
-#endif /* INCLUDE_LIB_GENLIST_H */
+#endif /* _INCLUDE_SBT_COMMON_GENLIST_H_ */
 /* Ends */

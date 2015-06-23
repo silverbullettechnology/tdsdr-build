@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_TOOL_CONTROL_SEQUENCE_H
-#define INCLUDE_TOOL_CONTROL_SEQUENCE_H
+#ifndef _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_SEQUENCE_H_
+#define _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_SEQUENCE_H_
 
 #include <v49_client/socket.h>
 
@@ -66,5 +66,5 @@ static inline void sequence_list (int level)
 }
 
 
-#endif // INCLUDE_TOOL_CONTROL_SEQUENCE_H
+#endif /* _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_SEQUENCE_H_ */
 

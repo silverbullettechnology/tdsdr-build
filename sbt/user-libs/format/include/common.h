@@ -56,4 +56,4 @@ char *path_match (char *dst, size_t max, const char *search, const char *leaf);
 unsigned long pow10_32 (unsigned e);
 
 
-#endif // _INCLUDE_COMMON_H_
+#endif /* _INCLUDE_COMMON_H_ */

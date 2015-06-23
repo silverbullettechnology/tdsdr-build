@@ -38,4 +38,4 @@ int execute (char *line);
 
 int command (int argc, char **argv);
 
-#endif // _INCLUDE_APP_MAIN_H_
+#endif /* _INCLUDE_APP_MAIN_H_ */

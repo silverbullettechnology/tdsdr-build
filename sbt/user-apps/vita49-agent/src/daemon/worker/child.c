@@ -239,6 +239,7 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 				worker->state = WS_READY;
 				RETURN_VALUE("%d", worker->state);
 			}
+			LOG_INFO("%s: child spawned with PID %d, goto NORMAL\n", worker->name, priv->child.pid);
 			worker->state = WS_NORMAL;
 			// fall-through
 
@@ -305,8 +306,8 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 				LOG_DEBUG("%s: rate-limited, waiting...\n", worker->name);
 				RETURN_ERRNO_VALUE(0, "%d", worker->state);
 			}
-			LOG_INFO("%s: rate-limit done, move to START\n", worker->name);
-			worker->state = WS_START;
+			LOG_INFO("%s: rate-limit done, move to READY\n", worker->name);
+			worker->state = WS_READY;
 			break;
 
 		case WS_ZOMBIE:

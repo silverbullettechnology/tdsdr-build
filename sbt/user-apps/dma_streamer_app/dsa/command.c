@@ -25,6 +25,7 @@
 #include <fifo_dev.h>
 #include <pipe_dev.h>
 #include <dsm.h>
+#include <dsa_util.h>
 
 #include "dsa/main.h"
 #include "dsa/sample.h"
@@ -231,7 +232,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 		LOG_DEBUG("  argv[%d]: '%s'\n", ret, argv[ret]);
 
 	LOG_DEBUG("  argv[0] '%s' ", argv[0]);
-	if ( (ident = dsa_channel_ident(argv[0])) < 1 )
+	if ( (ident = dsa_util_spec_parse(argv[0])) < 1 )
 	{
 		if ( ident < 0 )
 			LOG_ERROR("%s is malformed\n", argv[0]);
@@ -239,7 +240,7 @@ int dsa_command_setup (int sxx, int argc, char **argv)
 			LOG_DEBUG("%s is not a channel-desc\n", argv[0]);
 		return ident;
 	}
-	LOG_DEBUG("  argv[0] '%s' -> %s\n", argv[0], dsa_channel_desc(ident));
+	LOG_DEBUG("  argv[0] '%s' -> %s\n", argv[0], dsa_util_chan_desc(ident));
 
 	// check the requested buffer mask is supported by the active channels in the
 	// ADI9361(s)

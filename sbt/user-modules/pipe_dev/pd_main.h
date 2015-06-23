@@ -104,13 +104,6 @@
 #define PD_ADI_DMA_SPLIT_STAT_DONE    0x00000001  /* done bit */
 
 
-/* Access control bits */
-#define PD_ACCESS_AD1_RX  0x00000001  /* RX path on AD1 */
-#define PD_ACCESS_AD2_RX  0x00000002  /* RX path on AD2 */
-#define PD_ACCESS_AD1_TX  0x00000004  /* TX path on AD1 */
-#define PD_ACCESS_AD2_TX  0x00000008  /* TX path on AD2 */
-#define PD_ACCESS_MASK    0x0000000F  /* Bitmask for all bits */
-
 /* Integer + Fractional timestamp struct */
 struct pd_vita49_ts
 {
@@ -140,7 +133,8 @@ struct pd_vita49_unpack
  *   grep _1 | rev | cut -d, -f2- | rev | grep '[02468]$'
  */
 
-/* Access control IOCTLs */
+/* Access control IOCTLs - note, the bits to use are the FD_ACCESS_* bits defined in
+ * fd_main.h of the fifo_dev module */
 #define  PD_IOCG_ACCESS_AVAIL    _IOR(PD_IOCTL_MAGIC, 0, unsigned long *)
 #define  PD_IOCS_ACCESS_REQUEST  _IOW(PD_IOCTL_MAGIC, 1, unsigned long)
 #define  PD_IOCS_ACCESS_RELEASE  _IOW(PD_IOCTL_MAGIC, 2, unsigned long)

@@ -21,13 +21,23 @@
 #include <unistd.h>
 #include <time.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <errno.h>
+
+#include <sd_user.h>
+#include <fifo_dev.h>
+#include <pipe_dev.h>
 
 #include <sbt_common/log.h>
 #include <sbt_common/util.h>
 #include <sbt_common/timer.h>
 #include <sbt_common/mbuf.h>
 #include <sbt_common/mqueue.h>
+#include <sbt_common/growlist.h>
+
+#include <v49_message/resource.h>
 
 #include <common/default.h>
 
@@ -45,7 +55,14 @@ char           *worker_opt_section = NULL;
 struct timeval  worker_opt_tv_min  = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  worker_opt_tv_max  = { .tv_sec = 1, .tv_usec = 0 };
 int             worker_opt_timer   = 5;
-unsigned        worker_sid;
+int             worker_opt_remote  = 5;
+
+struct resource_info  worker_res;
+uuid_t                worker_rid;
+unsigned              worker_sid;
+unsigned long         worker_tuser;
+time_t                worker_tsi;
+size_t                worker_tsf;
 
 
 /** control for main loop for orderly shutdown */
@@ -108,11 +125,13 @@ static void signal_alarm (int signum)
 
 static void usage (void)
 {
-	printf ("Usage: %s [-f] [-d lvl] [-l log] [-c config] SID\n\n"
+	printf ("Usage: %s [-f] [-d lvl] [-l log] [-c config] [-R remote] RID SID\n\n"
 	        "Where:\n"
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
 	        "-c config     Specify a different config file (default %s)\n"
+	        "-R remote     Specify SRIO address of client node\n"
+			"RID           Specifies the UUID of the resource this worker manages\n"
 			"SID           Specifies the numeric Stream-ID assigned to this worker\n",
 	        argv0, DEF_CONFIG_PATH);
 	        
@@ -122,6 +141,10 @@ static void usage (void)
 
 int main (int argc, char **argv)
 {
+	struct resource_info *res;
+	int                   srio_dev;
+	int                   ret;
+
 	// same as basename(), but works reliably under uClibc
 	if ( (argv0 = strrchr(argv[0], '/')) && argv0[1] )
 		argv0++;
@@ -136,7 +159,7 @@ int main (int argc, char **argv)
 	// basic arguments parsing
 	int   opt;
 	char *ptr;
-	while ( (opt = getopt(argc, argv, "fd:l:c:")) != -1 )
+	while ( (opt = getopt(argc, argv, "fd:l:c:R:")) != -1 )
 		switch ( opt )
 		{
 			case 'l': worker_opt_log    = optarg;  break;
@@ -174,15 +197,23 @@ int main (int argc, char **argv)
 				log_trace(1);
 				break;
 
+			case 'R':
+				worker_opt_remote = strtoul(optarg, NULL, 0);
+				break;
+
 			default:
 				usage();
 		}
 	
-	if ( optind >= argc || !(worker_sid = strtoul(argv[optind], NULL, 0)) )
+	// check for enough args, convert and validate args
+	if ( argc - optind < 2 || uuid_from_str(&worker_rid, argv[optind]) ||
+	     !(worker_sid = strtoul(argv[optind + 1], NULL, 0)) )
 		usage();
-	LOG_DEBUG("Section: %u\n", worker_sid);
+
+	LOG_DEBUG("RID: %s, SID: 0x%x\n", uuid_to_str(&worker_rid), worker_sid);
 
     // Global config first, and learn names of the module instances
+	resource_config_path = strdup(DEF_RESOURCE_CONFIG_PATH);
 	if ( worker_config(worker_opt_config, worker_opt_section) )
 	{
 		LOG_ERROR ("Initial config failed: %s\n", strerror(errno));
@@ -195,6 +226,22 @@ int main (int argc, char **argv)
 		return 1;
 	}
 	LOG_CALL_ENTER("main");
+
+    // Resource config next - load DB and search for configured UUID
+	if ( resource_config(resource_config_path) )
+	{
+		LOG_ERROR("Resource config failed: %s\n", strerror(errno));
+		return 1;
+	}
+	growlist_reset(&resource_list);
+	if ( !(res = growlist_search(&resource_list, uuid_cmp, &worker_rid)) )
+	{
+		LOG_ERROR("Resource %s not found: %s\n",
+		          uuid_to_str(&worker_rid), strerror(errno));
+		return 1;
+	}
+	memcpy(&worker_res, res, sizeof(worker_res));
+
 
 	// have to init this before using any timers
 	clock_rate_init();
@@ -209,6 +256,44 @@ int main (int argc, char **argv)
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 
+
+	// open SRIO dev, get local address
+	if ( (srio_dev = open("/dev/" SD_USER_DEV_NODE, O_RDWR|O_NONBLOCK)) < 0 )
+	{
+		LOG_ERROR("SRIO dev open(%s): %s\n", "/dev/" SD_USER_DEV_NODE, strerror(errno));
+		return 1;
+	}
+	if ( (ret = ioctl(srio_dev, SD_USER_IOCG_LOC_DEV_ID, &worker_tuser)) )
+	{
+		LOG_ERROR("SD_USER_IOCG_LOC_DEV_ID: %s\n", strerror(errno));
+		goto exit_srio;
+	}
+	if ( !worker_tuser || worker_tuser >= 0xFFFF )
+	{
+		LOG_ERROR("Local Device-ID invalid, wait for discovery to complete\n");
+		ret = 1;
+		goto exit_srio;
+	}
+	worker_tuser <<= 16;
+	worker_tuser  |= worker_opt_remote;
+	LOG_DEBUG("tuser word: 0x%08lx\n", worker_tuser);
+
+
+	// open and access for FIFO dev
+	if ( (ret = fifo_dev_reopen("/dev/" FD_DRIVER_NODE)) )
+	{
+		LOG_ERROR("fifo_dev_reopen(%s): %s\n", "/dev/" PD_DRIVER_NODE, strerror(errno));
+		goto exit_srio;
+	}
+
+	// open and access for pipe-dev
+	if ( (ret = pipe_dev_reopen("/dev/" PD_DRIVER_NODE)) )
+	{
+		LOG_ERROR("pipe_dev_reopen(%s): %s\n", "/dev/" PD_DRIVER_NODE, strerror(errno));
+		goto exit_fifo;
+	}
+
+
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
 	struct mbuf    *mbuf;
@@ -217,7 +302,6 @@ int main (int argc, char **argv)
 	fd_set          wfds;
 	int             nfds;
 	int             sel;
-	int             ret;
 	char            buff[256];
 
 	/* Primary select/poll loop, with dispatch following */
@@ -311,7 +395,18 @@ int main (int argc, char **argv)
 		signal_trace();
 	}
 
-	LOG_ERROR("Shutting down\n");
-	return 0;
+	LOG_DEBUG("Shutting down\n");
+
+	pipe_access_release(~0);
+	pipe_dev_close();
+
+exit_fifo:
+	fifo_access_release(~0);
+	fifo_dev_close();
+
+exit_srio:
+	close(srio_dev);
+
+	return ret;
 }
 

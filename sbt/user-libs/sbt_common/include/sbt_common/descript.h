@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_DESCRIPT_H
-#define INCLUDE_LIB_DESCRIPT_H
+#ifndef _INCLUDE_SBT_COMMON_DESCRIPT_H_
+#define _INCLUDE_SBT_COMMON_DESCRIPT_H_
 
 
 /** Defines a mapping between a numeric and string value */
@@ -62,5 +62,5 @@ void __descript_dump_labels (struct descript *map, int level, const char *sep,
                              const char *file, int line);
 
 
-#endif /* INCLUDE_LIB_DESCRIPT_H */
+#endif /* _INCLUDE_SBT_COMMON_DESCRIPT_H_ */
 /* Ends */

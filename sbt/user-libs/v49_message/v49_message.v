@@ -51,6 +51,9 @@ v49_message_0.1 {
 		v49_control_format_stop;
 		v49_control_format_list;
 		/* src/lib/resource.c */
+		resource_config_path;
+		resource_list;
+		resource_config;
 		resource_dump;
 	local:
 		*;

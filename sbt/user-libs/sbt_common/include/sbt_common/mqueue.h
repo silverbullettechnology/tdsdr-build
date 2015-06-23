@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_MQUEUE_H
-#define INCLUDE_LIB_MQUEUE_H
+#ifndef _INCLUDE_SBT_COMMON_MQUEUE_H_
+#define _INCLUDE_SBT_COMMON_MQUEUE_H_
 #include <limits.h>
 
 #include <sbt_common/genlist.h>
@@ -142,5 +142,5 @@ int mqueue_enqueue (struct mqueue *mq, struct mbuf *mbuf);
 struct mbuf *mqueue_dequeue (struct mqueue *mq);
 
 
-#endif /* INCLUDE_LIB_MQUEUE_H */
+#endif /* _INCLUDE_SBT_COMMON_MQUEUE_H_ */
 /* Ends */

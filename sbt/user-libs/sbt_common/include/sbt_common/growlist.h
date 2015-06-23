@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_GROWLIST_H
-#define INCLUDE_LIB_GROWLIST_H
+#ifndef _INCLUDE_SBT_COMMON_GROWLIST_H_
+#define _INCLUDE_SBT_COMMON_GROWLIST_H_
 #include <sbt_common/gen.h>
 
 struct growlist
@@ -324,5 +324,5 @@ int growlist_intersect (struct growlist *result, struct growlist *source,
                         struct growlist *filter, gen_comp_fn      comp);
 
 
-#endif /* INCLUDE_LIB_GROWLIST_H */
+#endif /* _INCLUDE_SBT_COMMON_GROWLIST_H_ */
 /* Ends */

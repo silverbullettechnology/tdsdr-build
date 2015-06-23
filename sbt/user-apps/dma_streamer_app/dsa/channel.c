@@ -29,6 +29,7 @@
 #include <pipe_dev.h>
 #include <format.h>
 #include <dsm.h>
+#include <dsa_util.h>
 
 #include "dsa/main.h"
 #include "dsa/sample.h"
@@ -75,128 +76,7 @@ static void dsa_channel_progress (size_t done, size_t size)
 }
 
 
-const char *dsa_channel_desc (int ident)
-{
-	static char buff[64];
-
-	snprintf(buff, sizeof(buff), "%02x { %s%s%s%s%s%s}", ident,
-	         ident & DC_DEV_AD1 ? "DC_DEV_AD1 " : "",
-	         ident & DC_DEV_AD2 ? "DC_DEV_AD2 " : "",
-	         ident & DC_DIR_TX  ? "DC_DIR_TX "  : "",
-	         ident & DC_DIR_RX  ? "DC_DIR_RX "  : "",
-	         ident & DC_CHAN_1  ? "DC_CHAN_1 "  : "",
-	         ident & DC_CHAN_2  ? "DC_CHAN_2 "  : "");
-
-	return buff;
-}
-
-
-// Parse and validate a chip/direction/channel into an ident bitmask:
-//   AD 12 T 12
-//   ^^ ^^ ^ ^^-- Channel: 1 or 2 for single, 12 or omit for both
-//   |  |  `----- Direction: T for TX, R for RX, never both
-//   |  `-------- ADI device: 1 or 2 for single, 12 or omit for both
-//   `----------- "AD" prefix: required
-int dsa_channel_ident (const char *argv0)
-{
-	const char *ptr = argv0 + 2;
-	int         ret = DC_DEV_AD1|DC_DEV_AD2|DC_CHAN_1|DC_CHAN_2;
-
-	// if the string starts with "AD" in any case it's parsed, otherwise it's passed over
-	errno = 0;
-	if ( tolower(argv0[0]) != 'a' || tolower(argv0[1]) != 'd' )
-	{
-		// allow DS for data source/sink module instead, but not mixed with AD ident
-		if ( tolower(argv0[0]) != 'd' || tolower(argv0[1]) != 's' )
-			return 0;
-		dsa_dsxx = 1;
-	}
-	else if ( dsa_dsxx )
-		return -1;
-
-	// skip punctation
-	while ( *ptr && !isalnum(*ptr) )
-		ptr++;
-
-	// device specifier digits after the "AD" are optional: if present then clear default
-	// "both" default and check digits.  "AD12" is legal and equivalent to the default.
-	if ( isdigit(*ptr) )
-	{
-		ret &= ~(DC_DEV_AD1|DC_DEV_AD2);
-		while ( isdigit(*ptr) )
-		{
-			switch ( *ptr )
-			{
-				case '1':
-					ret |= DC_DEV_AD1;
-					break;
-				case '2':
-					ret |= DC_DEV_AD2;
-					break;
-				default:
-					errno = EINVAL;
-					return -1;
-			}
-
-			// skip punctation
-			do
-				ptr++;
-			while ( *ptr && !isalnum(*ptr) );
-		}
-	}
-
-	// direction char follows and is mandatory
-	switch ( tolower(*ptr) )
-	{
-		case 't': ret |= DC_DIR_TX; break;
-		case 'r': ret |= DC_DIR_RX; break;
-		default:
-			errno = EINVAL;
-			return -1;
-	}
-
-	// skip punctation
-	do
-		ptr++;
-	while ( *ptr && !isalnum(*ptr) );
-
-	// channel specifier digits after the "T" or "R" are optional: if present then clear
-	// default "both" default and check digits.  "T12" is legal and equivalent to the
-	// default.
-	if ( isdigit(*ptr) )
-	{
-		ret &= ~(DC_CHAN_1|DC_CHAN_2);
-		while ( isdigit(*ptr) )
-		{
-			switch ( *ptr )
-			{
-				case '1':
-					ret |= DC_CHAN_1;
-					break;
-				case '2':
-					ret |= DC_CHAN_2;
-					break;
-				default:
-					errno = EINVAL;
-					return -1;
-			}
-
-			// skip punctation
-			do
-				ptr++;
-			while ( *ptr && !isalnum(*ptr) );
-		}
-	}
-
-	// catch garbage after direction and/or channel numbers
-	if ( *ptr && isalpha(*ptr) )
-		return -1;
-
-	return ret;
-}
-
-
-// Maps a user-specified bitmask parsed with dsa_channel_ident() onto the appropriate
+// Maps a user-specified bitmask parsed with dsa_util_spec_parse() onto the appropriate
 // dsa_channel_xfer pointer within the dsa_channel_event struct.  Returns a pointer to the
 // pointer, so the caller can set/clear the pointer.
 static struct dsa_channel_xfer **evt_to_xfer (struct dsa_channel_event *evt, int mask)
@@ -310,7 +190,7 @@ int dsa_channel_buffer (struct dsa_channel_event *evt, int ident, size_t len, in
 // Maps a bitmask containig user-specified channel bits, OR'd with a TX/RX bits selecting
 // the src or snk pointer, onto the appropriate dsa_channel_sxx within the
 // dsa_channel_xfer struct.  Note the TX/RX bits may be distinct from the TX/RX bits in
-// the user ident parsed with dsa_channel_ident(), in unusual cases where the user wants
+// the user ident parsed with dsa_util_spec_parse(), in unusual cases where the user wants
 // to fill an RX buffer before DMA, or write out a TX buffer after, to check for
 // completion/corruption.  Returns a pointer to the pointer, so the caller can set/clear
 // the pointer.
@@ -422,7 +302,7 @@ static struct dsa_channel_sxx *sxx_int (struct format_class *fmt, const char *lo
 
 
 // sets up the data source/sink structs for each combination of device, direction, and
-// channel specified in the ident bitmask, parsed with dsa_channel_ident().  mask should
+// channel specified in the ident bitmask, parsed with dsa_util_spec_parse().  mask should
 // usually be the same as ident, so a TX buffer gets a source spec and an RX gets a sink
 // spec, but may be different to allow for unusual cases (see xfer_to_sxx above).  Returns
 // 0 on success, <0 on error.
@@ -453,7 +333,7 @@ int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
 								return -1;
 
 							LOG_DEBUG("Setup sxx for dev/dir/chan %s: %s:%s\n",
-							          dsa_channel_desc(dev|dir1|chan),
+							          dsa_util_chan_desc(dev|dir1|chan),
 							          format_class_name((*sxx)->fmt),
 							          (*sxx)->loc);
 						}
@@ -490,7 +370,7 @@ int dsa_channel_sxx (struct dsa_channel_event *evt, int ident, int mask,
 					}
 				}
 
-				LOG_DEBUG("OK for dev/dir %s\n", dsa_channel_desc(dev|dir1));
+				LOG_DEBUG("OK for dev/dir %s\n", dsa_util_chan_desc(dev|dir1));
 			}
 
 	return 0;
@@ -586,7 +466,7 @@ unsigned long dsa_channel_timeout (struct dsa_channel_event *evt)
 				time  = (*xfer)->len / rate;
 				time += (time >> 2);
 				LOG_DEBUG("%s: %zu samples @ %u -> %lu jiffies w/+25%%\n", 
-				          dsa_channel_desc(dev|dir), (*xfer)->len, rate * 100, time);
+				          dsa_util_chan_desc(dev|dir), (*xfer)->len, rate * 100, time);
 				if ( time > max )
 					max = time;
 			}
@@ -673,7 +553,7 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						{
 							opt.channels = 3;
 							LOG_DEBUG("Do load src for dev/dir %s: %s:%s (%lu)\n",
-							        dsa_channel_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
+							        dsa_util_chan_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
 							        format_class_name((*sxx)->fmt),
 							        (*sxx)->loc, opt.channels);
 						}
@@ -684,7 +564,7 @@ int dsa_channel_load (struct dsa_channel_event *evt, int lsh)
 						{
 							opt.channels = 1 << DC_CHAN_MASK_TO_IDX(chan);
 							LOG_DEBUG("Do load src for dev/dir/chan %s: %s:%s (%lu)\n",
-							        dsa_channel_desc(dev|dir|chan),
+							        dsa_util_chan_desc(dev|dir|chan),
 							        format_class_name((*sxx)->fmt),
 							        (*sxx)->loc, opt.channels);
 						}
@@ -800,7 +680,7 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 						{
 							opt.channels = 3;
 							LOG_DEBUG("Do save snk for dev/dir %s: %s:%s (%lu)\n",
-							        dsa_channel_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
+							        dsa_util_chan_desc(dev|dir|DC_CHAN_1|DC_CHAN_2),
 							        format_class_name((*sxx)->fmt),
 							        (*sxx)->loc, opt.channels);
 						}
@@ -811,7 +691,7 @@ int dsa_channel_save (struct dsa_channel_event *evt)
 						{
 							opt.channels = 1 << DC_CHAN_MASK_TO_IDX(chan);
 							LOG_DEBUG("Do save snk for dev/dir/chan %s: %s:%s (%lu)\n",
-							        dsa_channel_desc(dev|dir|chan),
+							        dsa_util_chan_desc(dev|dir|chan),
 							        format_class_name((*sxx)->fmt),
 							        (*sxx)->loc, opt.channels);
 						}
@@ -877,7 +757,7 @@ void dsa_channel_calc_exp (struct dsa_channel_event *evt, int reps, int dsxx)
 				for ( rep = 0; rep < reps; rep++ )
 					(*xfer)->exp += exp;
 				LOG_DEBUG("%s: %016llx\n",
-				        dsa_channel_desc(dev|DC_DIR_TX), (*xfer)->exp);
+				        dsa_util_chan_desc(dev|DC_DIR_TX), (*xfer)->exp);
 			}
 
 	LOG_DEBUG("dsa_channel_calc_exp() done\n");
@@ -889,38 +769,27 @@ int dsa_channel_access_request (int ident, unsigned long priority)
 	unsigned long  bits = 0;
 	int            ret;
 
-	if ( (ident & (DC_DIR_TX|DC_DEV_AD1)) == (DC_DIR_TX|DC_DEV_AD1) )
-		bits |= PD_ACCESS_AD1_TX;
-
-	if ( (ident & (DC_DIR_TX|DC_DEV_AD2)) == (DC_DIR_TX|DC_DEV_AD2) )
-		bits |= PD_ACCESS_AD2_TX;
-
-	if ( (ident & (DC_DIR_RX|DC_DEV_AD1)) == (DC_DIR_RX|DC_DEV_AD1) )
-		bits |= PD_ACCESS_AD1_RX;
-
-	if ( (ident & (DC_DIR_RX|DC_DEV_AD2)) == (DC_DIR_RX|DC_DEV_AD2) )
-		bits |= PD_ACCESS_AD2_RX;
+	bits = dsa_util_fd_access(ident);
 
 	if ( (ret = pipe_access_request(bits)) )
 	{
 		LOG_ERROR("Pipe-dev access request for %s (%lx) denied: %s\n",
-		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
+		          dsa_util_chan_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
 				  bits, strerror(errno));
 		return ret;
 	}
 
-	// Note, assumes the PD_ACCESS bits and FD_ACCESS bits are equal (currently true)
 	if ( (ret = fifo_access_request(bits)) )
 	{
 		LOG_ERROR("FIFO-dev access request for %s (%lx) denied: %s\n",
-		          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
+		          dsa_util_chan_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)),
 				  bits, strerror(errno));
 		pipe_access_release(bits);
 		return ret;
 	}
 
 	LOG_ERROR("Access granted to %s\n",
-	          dsa_channel_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)));
+	          dsa_util_chan_desc(ident & (DC_DEV_AD1|DC_DEV_AD2|DC_DIR_TX|DC_DIR_RX)));
 	return 0;
 }
 
@@ -1010,7 +879,7 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 		{
 			LOG_DEBUG("%s: %s\n",
 			          dev ? "AD2" : "AD1",
-			          dsa_channel_desc(DC_DEV_IDX_TO_MASK(dev)|dir));
+			          dsa_util_chan_desc(DC_DEV_IDX_TO_MASK(dev)|dir));
 			if ( (xfer = evt_to_xfer(evt, DC_DEV_IDX_TO_MASK(dev)|dir)) && *xfer )
 			{
 				LOG_DEBUG("xfer %p, *xfer %p\n", xfer, xfer ? *xfer : NULL);
@@ -1019,7 +888,7 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 			else
 				LOG_DEBUG("!xfer || !*xfer\n");
 		}
-		LOG_DEBUG("%s needs %s\n", dev ? "AD2" : "AD1", dsa_channel_desc(need));
+		LOG_DEBUG("%s needs %s\n", dev ? "AD2" : "AD1", dsa_util_chan_desc(need));
 
 		// nothing setup for this ADI: move on
 		if ( !need )
@@ -1031,7 +900,7 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 		LOG_DEBUG("%s is in mode %s, DMA requested is %s\n", 
 		          dev ? "AD2" : "AD1",
 		          ad9361_enum_get_string(ad9361_enum_ensm_mode, mode),
-		          dsa_channel_desc(need));
+		          dsa_util_chan_desc(need));
 
 		switch ( mode )
 		{
@@ -1105,7 +974,7 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 
 	// wait for wakeup: currently checking TX quad cal
 	if ( dsa_channel_ensm_wake )
-		LOG_DEBUG("Waiting for %s...\n", dsa_channel_desc(dsa_channel_ensm_wake));
+		LOG_DEBUG("Waiting for %s...\n", dsa_util_chan_desc(dsa_channel_ensm_wake));
 	for ( wake = dsa_channel_ensm_wake; wake && cycles < 1000; cycles++ )
 	{
 		usleep(2500); // 2.5ms delay
@@ -1126,7 +995,7 @@ int dsa_channel_check_and_wake (struct dsa_channel_event *evt, int no_change)
 	}
 	if ( wake )
 	{
-		LOG_ERROR("Failed to wake up %s\n", dsa_channel_desc(wake));
+		LOG_ERROR("Failed to wake up %s\n", dsa_util_chan_desc(wake));
 		errno = ETIME;
 		return -1;
 	}
@@ -1143,7 +1012,7 @@ int dsa_channel_sleep (void)
 	int  dev;
 	int  ret = 0;
 
-	LOG_DEBUG("Putting %s to sleep\n", dsa_channel_desc(dsa_channel_ensm_wake));
+	LOG_DEBUG("Putting %s to sleep\n", dsa_util_chan_desc(dsa_channel_ensm_wake));
 	for ( dev = 0; dev <= 1; dev++ )
 		if ( dsa_channel_ensm_wake & DC_DEV_IDX_TO_MASK(dev) )
 		{
@@ -1173,7 +1042,7 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			need |= 0x80;
 
 		LOG_DEBUG("dsa_channel_ctrl: %s -> need %02x ( %s%s%s)\n",
-		          dsa_channel_desc(dev|DC_DIR_TX), need,
+		          dsa_util_chan_desc(dev|DC_DIR_TX), need,
 				  need & 0x40 ? "TX1 " : "",
 				  need & 0x80 ? "TX2 " : "",
 				  !need       ? "none " : "");
@@ -1224,7 +1093,7 @@ unsigned long dsa_channel_ctrl (struct dsa_channel_event *evt, int dev, int old)
 			need |= 0x80;
 
 		LOG_DEBUG("dsa_channel_ctrl: %s -> need %02x ( %s%s%s)\n",
-		          dsa_channel_desc(dev|DC_DIR_RX), need,
+		          dsa_util_chan_desc(dev|DC_DIR_RX), need,
 				  need & 0x40 ? "RX1 " : "",
 				  need & 0x80 ? "RX2 " : "",
 				  !need       ? "none " : "");
@@ -1298,7 +1167,7 @@ int main (int argc, char **argv)
 
 	while ( argv[num] )
 	{
-		int ident = dsa_channel_ident(argv[num]);
+		int ident = dsa_util_spec_parse(argv[num]);
 		if ( dsa_channel_buffer(&evt, ident, 1000, 1) < 0 )
 		{
 			perror("dsa_channel_buffer");

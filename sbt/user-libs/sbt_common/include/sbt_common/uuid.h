@@ -17,9 +17,10 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_UUID_H
-#define INCLUDE_LIB_UUID_H
+#ifndef _INCLUDE_SBT_COMMON_UUID_H_
+#define _INCLUDE_SBT_COMMON_UUID_H_
 #include <stdint.h>
+#include <string.h>
 
 
 typedef struct v49_uuid
@@ -44,5 +45,5 @@ int uuid_from_str (uuid_t *uuid, const char *src);
 void uuid_random (uuid_t *uuid);
 
 
-#endif /* INCLUDE_LIB_UUID_H */
+#endif /* _INCLUDE_SBT_COMMON_UUID_H_ */
 /* Ends */

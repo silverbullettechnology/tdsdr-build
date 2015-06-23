@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_BUFFER_H
-#define INCLUDE_LIB_BUFFER_H
+#ifndef _INCLUDE_SBT_COMMON_BUFFER_H_
+#define _INCLUDE_SBT_COMMON_BUFFER_H_
 
 
 struct buffer
@@ -162,5 +162,5 @@ static inline int buffer_used (struct buffer *buff)
 }
 
 
-#endif /* INCLUDE_LIB_BUFFER_H */
+#endif /* _INCLUDE_SBT_COMMON_BUFFER_H_ */
 /* Ends   */

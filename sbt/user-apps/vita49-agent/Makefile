@@ -27,8 +27,9 @@ endif
 # cross-compile friendly
 CC     ?= $(CROSS_COMPILE)gcc
 CFLAGS += -Iinclude -I../include
+CFLAGS += -I$(PETALINUX)/software/user-modules/pipe_dev
+CFLAGS += -I$(PETALINUX)/software/user-modules/fifo_dev
 CFLAGS += -I$(PETALINUX)/software/user-modules/srio_dev
-CFLAGS += -I$(PETALINUX)/software/user-libs/sbt_common/include
 LDFLAGS += -L$(STAGEDIR)/usr/lib
 
 # Compile with debugging

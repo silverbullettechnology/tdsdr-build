@@ -158,9 +158,9 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_fifo;
 	}
-	if ( pipe_access_request(opt_adi ? PD_ACCESS_AD2_TX : PD_ACCESS_AD1_TX) )
+	if ( pipe_access_request(opt_adi ? FD_ACCESS_AD2_TX : FD_ACCESS_AD1_TX) )
 	{
-		printf("pipe_access_request(PD_ACCESS_AD%d_TX): %s\n",
+		printf("pipe_access_request(FD_ACCESS_AD%d_TX): %s\n",
 		       opt_adi + 1, strerror(errno));
 		goto exit_pipe;
 	}

@@ -254,4 +254,4 @@ int fifo_pmon_read  (unsigned long ofs, unsigned long *val);
 int fifo_pmon_write (unsigned long ofs, unsigned long  val);
 
 
-#endif // _INCLUDE_FIFO_DEV_H_
+#endif /* _INCLUDE_FIFO_DEV_H_ */

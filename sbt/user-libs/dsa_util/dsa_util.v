@@ -1,8 +1,6 @@
-/** 
- *
- *  \author    Morgan Hughes <morgan.hughes@silver-bullet-tech.com>
- *  \version   v0.0
- *  \copyright Copyright 2014,2015 Silver Bullet Technology
+/** \file      dsa_util
+ *  \brief     Shared-library exports and version control
+ *  \copyright Copyright 2013,2014 Silver Bullet Technology
  *
  *             Licensed under the Apache License, Version 2.0 (the "License"); you may not
  *             use this file except in compliance with the License.  You may obtain a copy
@@ -15,30 +13,14 @@
  *             License for the specific language governing permissions and limitations
  *             under the License.
  *
- *  vim:ts=4:noexpandtab
+ * vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_DAEMON_RESOURCE_H
-#define INCLUDE_DAEMON_RESOURCE_H
-#include <stdint.h>
-
-#include <sbt_common/growlist.h>
-
-#include <v49_message/resource.h>
-
-
-extern char *resource_config_path;
-
-extern struct growlist  resource_list;
-
-
-/** Read resource database from file
- *
- *  \param path  Path to resource config file
- *
- *  \return 0 on success, !0 on failure
- */
-int resource_config (const char *path);
-
-
-#endif // INCLUDE_DAEMON_RESOURCE_H
-
+dsa_util_0.1 {
+	global:
+		/* dsa_util.c */
+		dsa_util_chan_desc;
+		dsa_util_spec_parse;
+		dsa_util_fd_access;
+	local:
+		*;
+};

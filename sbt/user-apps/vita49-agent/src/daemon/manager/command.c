@@ -27,8 +27,8 @@
 #include <v49_message/types.h>
 #include <v49_message/common.h>
 #include <v49_message/command.h>
+#include <v49_message/resource.h>
 
-#include <daemon/resource.h>
 #include <daemon/worker.h>
 #include <daemon/control.h>
 #include <daemon/manager.h>
@@ -39,7 +39,10 @@ LOG_MODULE_IMPORT(daemon_manager_module_level);
 #define module_level daemon_manager_module_level
 
 
-static unsigned sid_assign;
+#define  SID_ASSIGN_MIN   0x00000010
+#define  SID_ASSIGN_STEP  0x00000010
+#define  SID_ASSIGN_MAX   0x0FFFFFF0
+static unsigned sid_assign = SID_ASSIGN_MIN;
 
 
 void daemon_manager_command_recv (struct v49_common *req_v49, struct message *req_user,
@@ -165,9 +168,16 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 			LOG_DEBUG("ACCESS: req for RID %s:\n", uuid_to_str(rid));
 			resource_dump(LOG_LEVEL_DEBUG, "Resource", res);
 
-			// can't assign the reserved value; may need a smaller max here
+			if ( sid_assign < SID_ASSIGN_MIN )
+				sid_assign = SID_ASSIGN_MIN;
+			else 
+				sid_assign += SID_ASSIGN_STEP;
+
 			if ( sid_assign == V49_CMD_RSVD_SID )
-				sid_assign++;
+				sid_assign += SID_ASSIGN_STEP;
+
+			if ( sid_assign >= SID_ASSIGN_MAX )
+				sid_assign = SID_ASSIGN_MIN;
 
 			// create the new worker struct
 			if ( !(worker = worker_alloc(DEF_WORKER_CLASS, sid_assign++)) )

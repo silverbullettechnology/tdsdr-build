@@ -31,4 +31,33 @@
 void worker_command_recv (struct v49_common *req_v49);
 
 
+/** Open command
+ *
+ *  \param req Request from client
+ *  \param rsp Response to client
+ */
+void worker_command_open (struct v49_common *req, struct v49_common *rsp);
+
+/** start command
+ *
+ *  \param req Request from client
+ *  \param rsp Response to client
+ */
+void worker_command_start (struct v49_common *req, struct v49_common *rsp);
+
+/** stop command
+ *
+ *  \param req Request from client
+ *  \param rsp Response to client
+ */
+void worker_command_stop (struct v49_common *req, struct v49_common *rsp);
+
+/** Close command
+ *
+ *  \param req Request from client
+ *  \param rsp Response to client
+ */
+void worker_command_close (struct v49_common *req, struct v49_common *rsp);
+
+
 #endif // INCLUDE_WORKER_COMMAND_H

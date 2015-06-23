@@ -26,7 +26,7 @@ endif
 
 CFLAGS  += -Wall -Werror
 LDFLAGS += -L$(STAGEDIR)/usr/lib
-LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm -lformat
+LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm -lformat -ldsa_util
 
 all: $(APP)
 

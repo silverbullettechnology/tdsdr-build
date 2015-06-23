@@ -176,4 +176,4 @@ int pipe_adi_dma_split_get_npkts (int dev, unsigned long *reg);
 int pipe_adi_dma_split_get_psize (int dev, unsigned long *reg);
 
 
-#endif // _INCLUDE_PIPE_DEV_H_
+#endif /* _INCLUDE_PIPE_DEV_H_ */

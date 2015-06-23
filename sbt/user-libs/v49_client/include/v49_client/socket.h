@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_TOOL_CONTROL_SOCKET_H
-#define INCLUDE_TOOL_CONTROL_SOCKET_H
+#ifndef _INCLUDE_V49_CLIENT_SOCKET_H_
+#define _INCLUDE_V49_CLIENT_SOCKET_H_
 #include <sys/select.h>
 
 #include <sbt_common/growlist.h>
@@ -352,5 +352,5 @@ static inline const char *socket_name (struct socket *sock)
 }
 
 
-#endif /* INCLUDE_TOOL_CONTROL_SOCKET_H */
+#endif /* _INCLUDE_V49_CLIENT_SOCKET_H_ */
 /* Ends */

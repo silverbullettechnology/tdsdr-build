@@ -19,6 +19,16 @@
  */
 #ifndef INCLUDE_WORKER_WORKER_H
 #define INCLUDE_WORKER_WORKER_H
+#include <v49_message/resource.h>
+#include <sbt_common/uuid.h>
+
+
+extern struct resource_info  worker_res;
+extern uuid_t                worker_rid;
+extern unsigned              worker_sid;
+extern unsigned long         worker_tuser;
+extern time_t                worker_tsi;
+extern size_t                worker_tsf;
 
 
 void worker_shutdown (void);

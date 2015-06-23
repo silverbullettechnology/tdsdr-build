@@ -18,8 +18,13 @@ APPS := \
 	demo-transmit
 
 DEMO_OBJS := \
+	demo-common.o \
 	enum.o \
 	access.o \
+	open.o \
+	start.o \
+	stop.o \
+	close.o \
 	release.o \
 	common.o \
 	st_term.o
@@ -32,11 +37,13 @@ DEMO_LIBS := \
 	-lv49_message \
 	-lv49_client \
 	-lsbt_common \
+	-ldsa_util \
 	-lconfig
 
 
 CFLAGS  += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
 CFLAGS  += -I$(PETALINUX)/software/user-modules/pipe_dev
+CFLAGS  += -I$(PETALINUX)/software/user-modules/srio_dev
 CFLAGS  += -Wall -Werror
 LDFLAGS += -s
 

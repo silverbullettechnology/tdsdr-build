@@ -29,7 +29,7 @@ OBJS := \
 	src/lib/resource.o
 
 CFLAGS += -Wall -Werror -fpic
-CFLAGS += -Iinclude -I$(STAGEDIR)/usr/include
+CFLAGS += -Iinclude
 LFLAGS += -shared -s
 
 all: install

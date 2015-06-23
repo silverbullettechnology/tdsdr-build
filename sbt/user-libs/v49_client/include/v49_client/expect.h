@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_TOOL_CONTROL_EXPECT_H
-#define INCLUDE_TOOL_CONTROL_EXPECT_H
+#ifndef _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_EXPECT_H_
+#define _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_EXPECT_H_
 #include <sbt_common/mbuf.h>
 #include <sbt_common/clocks.h>
 
@@ -87,4 +87,4 @@ int expect_mbuf (struct mbuf *mbuf, struct expect_map *map);
 int expect_loop (struct socket *sock, struct expect_map *map, clocks_t timeout);
 
 
-#endif // INCLUDE_TOOL_CONTROL_EXPECT_H
+#endif /* _INCLUDE_V49_CLIENT_INCLUDE_V49_CLIENT_EXPECT_H_ */

@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_VITA49_COMMAND_H
-#define INCLUDE_COMMON_VITA49_COMMAND_H
+#ifndef _INCLUDE_V49_MESSAGE_VITA49_COMMAND_H_
+#define _INCLUDE_V49_MESSAGE_VITA49_COMMAND_H_
 #include <stdint.h>
 
 #include <sbt_common/uuid.h>
@@ -57,6 +57,7 @@ typedef enum
 	V49_CMD_RES_INVAL   = 0x02,  // Invalid argument/parameter
 	V49_CMD_RES_NOENT   = 0x03,  // Requested ID not found
 	V49_CMD_RES_ALLOC   = 0x04,  // Alloc (usually memory) failed
+	V49_CMD_RES_ACCESS  = 0x04,  // Access denied
 
 	V49_CMD_RES_MAX
 }
@@ -173,5 +174,5 @@ const char *v49_command_return_desc (int err);
 
 void v49_command_dump     (int level, struct v49_command *cmd);
 
-#endif /* INCLUDE_COMMON_VITA49_COMMAND_H */
+#endif /* _INCLUDE_V49_MESSAGE_VITA49_COMMAND_H_ */
 /* Ends */

@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_MBUF_H
-#define INCLUDE_LIB_MBUF_H
+#ifndef _INCLUDE_SBT_COMMON_MBUF_H_
+#define _INCLUDE_SBT_COMMON_MBUF_H_
 #include <stdint.h>
 
 
@@ -407,5 +407,5 @@ void _mbuf_dump (int level, const struct mbuf *mbuf, const char *file, int line,
                  const char *var);
 
 
-#endif /* INCLUDE_LIB_MBUF_H */
+#endif /* _INCLUDE_SBT_COMMON_MBUF_H_ */
 /* Ends */

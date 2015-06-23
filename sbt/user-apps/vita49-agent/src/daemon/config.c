@@ -23,7 +23,6 @@
 #include <common/default.h>
 #include <v49_message/resource.h>
 
-#include <daemon/resource.h>
 #include <daemon/worker.h>
 #include <daemon/control.h>
 #include <daemon/config.h>

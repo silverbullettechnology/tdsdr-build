@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_CLOCKS_H
-#define INCLUDE_LIB_CLOCKS_H
+#ifndef _INCLUDE_SBT_COMMON_CLOCKS_H_
+#define _INCLUDE_SBT_COMMON_CLOCKS_H_
 #include <sys/time.h>
 #include <stdint.h>
 
@@ -41,5 +41,5 @@ void     clocks_to_tv (struct timeval *tv, clocks_t clocks);
 clocks_t tv_to_clocks (struct timeval *tv);
 
 
-#endif /* INCLUDE_LIB_CLOCKS_H */
+#endif /* _INCLUDE_SBT_COMMON_CLOCKS_H_ */
 /* Ends */

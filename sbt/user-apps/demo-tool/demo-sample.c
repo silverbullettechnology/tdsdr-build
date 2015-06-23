@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
 #include <ctype.h>
 
 #include <pipe_dev.h>
@@ -40,7 +41,7 @@
 #include "demo-common.h"
 
 
-LOG_MODULE_STATIC("sample", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("demo-sample", LOG_LEVEL_DEBUG);
 
 
 unsigned    opt_chan     = 4;
@@ -130,7 +131,6 @@ static void dump_channels (void)
 	}
 }
 
-#if 0
 static void progress (size_t done, size_t size)
 {
 	if ( !size )
@@ -147,17 +147,13 @@ static void progress (size_t done, size_t size)
 		LOG_INFO("\b\b\b\b%3llu%%", prog);
 	}
 }
-#endif
 
 int main (int argc, char **argv)
 {
-//	struct dsm_chan_stats *sb;
-	struct resource_info   res;
-	uint32_t               sid;
+	struct dsm_chan_stats *sb;
 //	struct recv_packet    *pkt;
 	unsigned long          routing;
 	unsigned long          reg;
-	char                  *adi_name;
 	char                  *format;
 	char                  *ptr;
 	void                  *buff;
@@ -274,13 +270,17 @@ int main (int argc, char **argv)
 		goto exit_sock;
 	}
 
-	// query server for requested resource, adi_name can be an ASCII UUID or name
-	adi_name = argv[optind];
-	LOG_DEBUG("adi_name '%s'\n", adi_name);
-	if ( seq_enum(sock, NULL, &res, adi_name) < 1 )
+	srand(time(NULL));
+	uuid_random(&demo_cid);
+
+	// query server for requested resource, demo_adi can be an ASCII UUID or name
+	demo_adi = argv[optind];
+	LOG_DEBUG("demo_adi '%s'\n", demo_adi);
+	if ( seq_enum(sock, &demo_cid, &demo_res, demo_adi) < 1 )
 		goto exit_sock;
 
-	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource: ", &res);
+	memcpy(&demo_rid, &demo_res.uuid, sizeof(demo_rid));
+	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource: ", &demo_res);
 
 
 	// open devs
@@ -388,33 +388,35 @@ int main (int argc, char **argv)
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_ENABLE);
 
 
-	// get access
-	if ( seq_access(sock, NULL, &res.uuid, &sid) < 1 )
+	// get access, open device, setup burst length
+	if ( seq_access(sock, &demo_cid, &demo_rid, &demo_sid) < 1 )
 		goto exit_unmap;
+	LOG_DEBUG("Access granted with SID %x\n", (unsigned)demo_sid);
 
-	LOG_DEBUG("Access granted with SID %u\n", sid);
+	if ( seq_open(sock, demo_sid) < 1 )
+		goto exit_release;
+	LOG_DEBUG("Resource opened OK\n");
+
+	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_words) < 1 )
+		goto exit_close;
+	LOG_DEBUG("Stop point set at %zu samples\n", opt_words);
 
 
-
-// access, open, config, stop
-
-
-// wait for keypress
-	LOG_FOCUS("Waiting...");
+	LOG_FOCUS("Ready to start...");
 	terminal_pause();
 
 
-#if 0
 	// start DMA transaction on all mapped channels, then start data-source module
 	LOG_INFO("Triggering DMA... ");
 	if ( dsm_oneshot_start(~0) )
 	{
 		LOG_ERROR("dsm_oneshot_start() failed: %s\n", strerror(errno));
 		ret = 1;
-		goto exit_release;
+		goto exit_close;
 	}
 
-// start
+	if ( seq_start(sock, demo_sid, TSTAMP_INT_IMMEDIATE, 0, 0) < 1 )
+		goto exit_close;
 
 	// wait for started DMA channels to finish or timeout
 	LOG_INFO("\nWaiting for DMA to finish... ");
@@ -422,14 +424,12 @@ int main (int argc, char **argv)
 	{
 		printf("dsm_oneshot_wait() failed: %s\n", strerror(errno));
 		ret = 1;
-		goto exit_release;
+		goto exit_close;
 	}
 	LOG_INFO("\nDMA finished.");
 
 	// Reset afterwards: restore routing, reset and idle combiner
-#endif
 	pipe_routing_reg_set_adc_sw_dest(routing);
-#if 0
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_RESET);
 	pipe_srio_dma_comb_set_cmd(0);
 
@@ -504,15 +504,13 @@ int main (int argc, char **argv)
 		else
 			perror(opt_rawfile);
 	}
-#endif
 
 
-// close etc.
+exit_close:
+	seq_close(sock, demo_sid);
 
-
-
-//exit_release:
-	seq_release(sock, NULL, sid);
+exit_release:
+	seq_release(sock, demo_sid);
 
 exit_unmap:
 	if ( dsm_cleanup() )

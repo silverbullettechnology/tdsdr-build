@@ -40,4 +40,4 @@ int command (int argc, char **argv);
 
 int dev_reopen (int num, int reinit);
 
-#endif // _INCLUDE_APP_MAIN_H_
+#endif /* _INCLUDE_APP_MAIN_H_ */

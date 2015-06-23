@@ -42,7 +42,6 @@ DAEMON_OBJS += \
 
 # Manager 
 DAEMON_OBJS += \
-	daemon/resource.o \
 	daemon/manager/config.o \
 	daemon/manager/command.o \
 	daemon/manager/control.o \
@@ -52,6 +51,7 @@ DAEMON_OBJS += \
 DAEMON_LIBS := \
 	-lsbt_common \
 	-lv49_message \
+	-ldsa_util \
 	-lrt \
 	-lconfig
 
@@ -60,6 +60,10 @@ DAEMON_LIBS := \
 WORKER_OBJS += \
 	worker/config.o  \
 	worker/command.o \
+	worker/command/open.o \
+	worker/command/start.o \
+	worker/command/stop.o \
+	worker/command/close.o \
 	worker/context.o \
 	worker/message.o \
 	worker/main.o
@@ -68,6 +72,9 @@ WORKER_OBJS += \
 WORKER_LIBS := \
 	-lsbt_common \
 	-lv49_message \
+	-ldsa_util \
+	-lpipe_dev \
+	-lfifo_dev \
 	-lrt \
 	-lconfig
 
@@ -91,6 +98,7 @@ CONTROL_LIBS := \
 	-lsbt_common \
 	-lv49_client \
 	-lv49_message \
+	-ldsa_util \
 	-lrt \
 	-lconfig
 

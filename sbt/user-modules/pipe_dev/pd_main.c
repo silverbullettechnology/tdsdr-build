@@ -30,6 +30,8 @@
 #include <linux/of.h>
 #include <linux/delay.h>
 
+#include <fd_main.h>
+
 #include "pd_main.h"
 #include "pd_regs.h"
 
@@ -181,17 +183,17 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			reg = ~pd_granted;
 			spin_unlock_irqrestore(&pd_lock, flags);
 
-			reg &= PD_ACCESS_MASK;
+			reg &= FD_ACCESS_MASK;
 			pr_debug("PD_IOCG_ACCESS_AVAIL %08lx\n", reg);
 			return put_user(reg, (unsigned long *)arg);
 
 
 		case PD_IOCS_ACCESS_REQUEST:
-			return pd_access_request(priv, arg & PD_ACCESS_MASK);
+			return pd_access_request(priv, arg & FD_ACCESS_MASK);
 
 
 		case PD_IOCS_ACCESS_RELEASE:
-			return pd_access_release(priv, arg & PD_ACCESS_MASK);
+			return pd_access_release(priv, arg & FD_ACCESS_MASK);
 
 
 

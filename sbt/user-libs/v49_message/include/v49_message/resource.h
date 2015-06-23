@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_RESOURCE_H
-#define INCLUDE_COMMON_RESOURCE_H
+#ifndef _INCLUDE_V49_MESSAGE_RESOURCE_H_
+#define _INCLUDE_V49_MESSAGE_RESOURCE_H_
 #include <stdint.h>
 
 #include <sbt_common/uuid.h>
@@ -34,10 +34,27 @@ struct resource_info
 	uint32_t  rate_q8;
 	uint16_t  min;
 	uint16_t  max;
+	
+	unsigned long  fd_bits;  /* Access bits for pipe_dev/fifo_dev */
+	int            dc_bits;  /* Dev/dir/channel bits for dsa_util */
 };
+
+
+extern char *resource_config_path;
+
+extern struct growlist  resource_list;
+
+
+/** Read resource database from file
+ *
+ *  \param path  Path to resource config file
+ *
+ *  \return 0 on success, !0 on failure
+ */
+int resource_config (const char *path);
 
 
 void resource_dump (int level, const char *msg, struct resource_info *res);
 
 
-#endif // INCLUDE_COMMON_RESOURCE_H
+#endif /* _INCLUDE_V49_MESSAGE_RESOURCE_H_ */

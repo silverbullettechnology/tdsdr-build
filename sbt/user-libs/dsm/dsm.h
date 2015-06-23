@@ -15,8 +15,8 @@
  *
  * vim:ts=4:noexpandtab
  */
-#ifndef _INCLUDE_DMA_DSM_H_
-#define _INCLUDE_DMA_DSM_H_
+#ifndef _INCLUDE_DSM_DSM_H_
+#define _INCLUDE_DSM_DSM_H_
 
 #include <dma_streamer_mod.h>
 
@@ -204,4 +204,4 @@ struct dsm_chan_stats *dsm_get_stats (void);
 int dsm_cleanup (void);
 
 
-#endif // _INCLUDE_DMA_DSM_H_
+#endif /* _INCLUDE_DSM_DSM_H_ */

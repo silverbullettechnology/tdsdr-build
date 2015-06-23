@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_CHILD_H
-#define INCLUDE_LIB_CHILD_H
+#ifndef _INCLUDE_SBT_COMMON_CHILD_H_
+#define _INCLUDE_SBT_COMMON_CHILD_H_
 #include <stdlib.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -209,5 +209,5 @@ int child_can_write (struct child *ch, fd_set *wfds);
 int child_write (struct child *ch, const void *buf, int max);
 
 
-#endif /* INCLUDE_LIB_CHILD_H */
+#endif /* _INCLUDE_SBT_COMMON_CHILD_H_ */
 /* Ends */

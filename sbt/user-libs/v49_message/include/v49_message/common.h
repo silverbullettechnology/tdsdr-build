@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_VITA49_COMMON_H
-#define INCLUDE_COMMON_VITA49_COMMON_H
+#ifndef _INCLUDE_V49_MESSAGE_VITA49_COMMON_H_
+#define _INCLUDE_V49_MESSAGE_VITA49_COMMON_H_
 #include <stdint.h>
 
 #include <sbt_common/mbuf.h>
@@ -141,5 +141,5 @@ void v49_dump     (int level, struct v49_common *v49);
 
 
 
-#endif /* INCLUDE_COMMON_VITA49_COMMON_H */
+#endif /* _INCLUDE_V49_MESSAGE_VITA49_COMMON_H_ */
 /* Ends */

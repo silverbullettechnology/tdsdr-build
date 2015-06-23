@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_GEN_H
-#define INCLUDE_LIB_GEN_H
+#ifndef _INCLUDE_SBT_COMMON_GEN_H_
+#define _INCLUDE_SBT_COMMON_GEN_H_
 #include <stdlib.h>
 #include <string.h>
 
@@ -44,5 +44,5 @@ static inline int gen_free (void *node, void *data)
 }
  
 
-#endif /* INCLUDE_LIB_GEN_H */
+#endif /* _INCLUDE_SBT_COMMON_GEN_H_ */
 /* Ends */

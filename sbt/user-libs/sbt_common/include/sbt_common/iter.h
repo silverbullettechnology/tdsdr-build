@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_ITER_H
-#define INCLUDE_LIB_ITER_H
+#ifndef _INCLUDE_SBT_COMMON_ITER_H_
+#define _INCLUDE_SBT_COMMON_ITER_H_
 #include <stdarg.h>
 
 
@@ -38,5 +38,5 @@ static inline char *iter_str_argv (void *argv)
 }
 
 
-#endif /* INCLUDE_LIB_ITER_H */
+#endif /* _INCLUDE_SBT_COMMON_ITER_H_ */
 /* Ends */

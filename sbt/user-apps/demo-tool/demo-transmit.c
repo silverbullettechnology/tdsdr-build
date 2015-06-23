@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 #include <arpa/inet.h>
 
 #include <sd_user.h>
@@ -34,7 +35,14 @@
 #include <format.h>
 #include <dsm.h>
 
+#include <sbt_common/log.h>
+#include <v49_message/resource.h>
+#include <v49_client/socket.h>
+
 #include "common.h"
+#include "demo-common.h"
+
+LOG_MODULE_STATIC("demo-transmit", LOG_LEVEL_DEBUG);
 
 #define DEF_DEST       2
 #define DEF_CHAN       5
@@ -53,6 +61,8 @@ uint32_t    opt_sid      = 0;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
+
+struct socket *sock;
 
 
 struct send_packet
@@ -87,7 +97,7 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] in-file stream-id\n"
+	       "                 [-n npkts] [-L local] [-R remote] adi-name in-file\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-d remote   SRIO destination device-ID (default %d)\n"
@@ -98,11 +108,11 @@ static void usage (void)
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "\n"
+	       "adi-name is specified as a UUID or human-readable name, and must operate in the\n"
+	       "TX direction for transmit\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
-	       "receiver side, if that receiver implements stream-ID filtering.\n"
 	       "\n", 
 		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
 }
@@ -190,26 +200,10 @@ int main (int argc, char **argv)
 				return 1;
 		}
 
-	if ( opt_debug )
-	{
-		fprintf(opt_debug, "format:\n");
-		fprintf(opt_debug, "  channels: %lu\n",  sd_fmt_opts.channels);
-		fprintf(opt_debug, "  single  : %zu\n",  sd_fmt_opts.single);
-		fprintf(opt_debug, "  sample  : %zu\n",  sd_fmt_opts.sample);
-		fprintf(opt_debug, "  bits    : %zu\n",  sd_fmt_opts.bits);
-		fprintf(opt_debug, "  packet  : %zu\n",  sd_fmt_opts.packet);
-		fprintf(opt_debug, "  head    : %zu\n",  sd_fmt_opts.head);
-		fprintf(opt_debug, "  data    : %zu\n",  sd_fmt_opts.data);
-		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
-	}
-
-	if ( (argc - optind) < 2 )
-	{
+	if ( argc - optind < 2 )
 		usage();
-		return 1;
-	}
 
-	format = argv[optind];
+	format = argv[optind + 1];
 	if ( (opt_in_file = strchr(format, ':')) )
 	{
 		*opt_in_file++ = '\0';
@@ -252,6 +246,43 @@ int main (int argc, char **argv)
 	opt_sid = strtoul(argv[optind + 1], NULL, 0);
 
 
+	if ( !(sock = socket_alloc("srio")) )
+	{
+		LOG_ERROR("SRIO socket alloc failed: %s\n", strerror(errno));
+		usage();
+	}
+	else
+	{
+		char  addr[32];
+		snprintf(addr, sizeof(addr), "0,%u", opt_remote);
+		if ( socket_cmdline(sock, "addr", addr) )
+		{
+			LOG_ERROR("Bad socket address: '%s'\n", addr);
+			goto exit_sock;
+		}
+		LOG_DEBUG("Configured sock with addr '%s'\n", addr);
+	}
+
+	// open connection 
+	if ( socket_check(sock) < 0 )
+	{
+		LOG_ERROR("Failed to connect to server: %s", strerror(errno));
+		goto exit_sock;
+	}
+
+	srand(time(NULL));
+	uuid_random(&demo_cid);
+
+	// query server for requested resource, demo_adi can be an ASCII UUID or name
+	demo_adi = argv[optind];
+	LOG_DEBUG("demo_adi '%s'\n", demo_adi);
+	if ( seq_enum(sock, &demo_cid, &demo_res, demo_adi) < 1 )
+		goto exit_sock;
+
+	memcpy(&demo_rid, &demo_res.uuid, sizeof(demo_rid));
+	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource: ", &demo_res);
+
+
 	opt_remote &= 0xFFFF;
 	if ( !opt_remote || opt_remote >= 0xFFFF )
 	{
@@ -273,23 +304,14 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_dsm;
 	}
-
-	// user gave -L - set local address and tuser
-	if ( opt_local && ioctl(srio_dev, SD_USER_IOCS_LOC_DEV_ID, opt_local) )
-	{
-		printf("SD_USER_IOCS_LOC_DEV_ID: %s\n", strerror(errno));
-		ret = 1;
-		goto exit_srio;
-	}
-	tuser = opt_local;
-
-	// no -L - get local address into tuser
-	if ( !opt_local && ioctl(srio_dev, SD_USER_IOCG_LOC_DEV_ID, &tuser) )
+	if ( ioctl(srio_dev, SD_USER_IOCG_LOC_DEV_ID, &tuser) )
 	{
 		printf("SD_USER_IOCG_LOC_DEV_ID: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_srio;
 	}
+
+
 
 	// validate
 	if ( !tuser || tuser >= 0xFFFF )
@@ -353,6 +375,7 @@ int main (int argc, char **argv)
 		goto exit_pipe;
 	}
 	printf("Timeout set to %u jiffies\n", opt_timeout);
+
 
 	// allocate page-aligned buffer
 	if ( !(buff = dsm_user_alloc(opt_words)) )
@@ -431,6 +454,25 @@ int main (int argc, char **argv)
 	pipe_srio_dma_split_set_npkts(opt_npkts);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
+
+	// get access, open device, setup burst length
+	if ( seq_access(sock, &demo_cid, &demo_rid, &demo_sid) < 1 )
+		goto exit_unmap;
+	LOG_DEBUG("Access granted with SID %x\n", (unsigned)demo_sid);
+
+	if ( seq_open(sock, demo_sid) < 1 )
+		goto exit_release;
+	LOG_DEBUG("Resource opened OK\n");
+
+	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_words) < 1 )
+		goto exit_close;
+	LOG_DEBUG("Stop point set at %zu samples\n", opt_words);
+
+
+	LOG_FOCUS("Ready to start...");
+	terminal_pause();
+
+
 	// start DMA transaction on all mapped channels, then start data-source module
 	printf("Triggering DMA and starting DSRC... ");
 	if ( dsm_oneshot_start(~0) )
@@ -483,6 +525,12 @@ int main (int argc, char **argv)
 		printf("dsm_get_stats() failed: %s\n", strerror(errno));
 	free(sb);
 
+exit_close:
+	seq_close(sock, demo_sid);
+
+exit_release:
+	seq_release(sock, demo_sid);
+
 exit_unmap:
 	if ( dsm_cleanup() )
 		printf("dsm_cleanup() failed: %s\n", strerror(errno));
@@ -501,6 +549,10 @@ exit_srio:
 
 exit_dsm:
 	dsm_close();
+
+exit_sock:
+	socket_close(sock);
+
 	return ret;
 }
 

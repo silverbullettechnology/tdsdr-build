@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_LIB_LOG_H
-#define INCLUDE_LIB_LOG_H
+#ifndef _INCLUDE_SBT_COMMON_LOG_H_
+#define _INCLUDE_SBT_COMMON_LOG_H_
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -392,5 +392,5 @@ int log_level_for_label (const char *label);
 int log_call_trace (char **buff, size_t size);
 
 
-#endif /* INCLUDE_LIB_LOG_H */
+#endif /* _INCLUDE_SBT_COMMON_LOG_H_ */
 /* Ends */

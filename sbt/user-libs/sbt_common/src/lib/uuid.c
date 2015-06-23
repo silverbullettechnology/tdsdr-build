@@ -35,6 +35,12 @@ const char *uuid_to_str (const uuid_t *uuid)
 	static char    b[40];
 	char          *d = b;
 
+	if ( !uuid )
+	{
+		snprintf(b, sizeof(b), "(null)");
+		return b;
+	}
+
 	d += sprintf(d, "%02x%02x%02x%02x-",        s[0], s[1], s[2], s[3]);
 	d += sprintf(d, "%02x%02x-",                s[4], s[5]);
 	d += sprintf(d, "%02x%02x-",                s[6], s[7]);

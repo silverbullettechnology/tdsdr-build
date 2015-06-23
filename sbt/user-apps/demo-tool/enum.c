@@ -155,6 +155,8 @@ int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char
 			memcpy(dest, res, sizeof(struct resource_info));
 			goto out;
 		}
+		else
+			LOG_DEBUG("Not matched: '%s'\n", res->name);
 
 	LOG_ERROR("Enum for '%s' failed: not in list returned\n", name);
 	ret = -1;

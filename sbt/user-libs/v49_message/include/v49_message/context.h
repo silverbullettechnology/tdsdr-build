@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_VITA49_CONTEXT_H
-#define INCLUDE_COMMON_VITA49_CONTEXT_H
+#ifndef _INCLUDE_V49_MESSAGE_VITA49_CONTEXT_H_
+#define _INCLUDE_V49_MESSAGE_VITA49_CONTEXT_H_
 #include <stdint.h>
 
 #include <sbt_common/mbuf.h>
@@ -114,5 +114,5 @@ const char *v49_context_return_desc (int err);
 void v49_context_dump (int level, struct v49_context *ctx);
 
 
-#endif /* INCLUDE_COMMON_VITA49_CONTEXT_H */
+#endif /* _INCLUDE_V49_MESSAGE_VITA49_CONTEXT_H_ */
 /* Ends */

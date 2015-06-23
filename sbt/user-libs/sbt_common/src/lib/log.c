@@ -469,7 +469,7 @@ int log_config (const char *section, const char *tag, const char *val,
 					tok = strtok(NULL, ",");
 				}
 				free(buf);
-				log_openlog(arg && *arg ? arg : "???", opt, fac);
+				log_openlog(arg, opt, fac);
 			}
 			RETURN_ERRNO_VALUE(0, "%d", 0);
 

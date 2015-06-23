@@ -17,8 +17,8 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_COMMON_VITA49_CONTROL_H
-#define INCLUDE_COMMON_VITA49_CONTROL_H
+#ifndef _INCLUDE_V49_MESSAGE_VITA49_CONTROL_H_
+#define _INCLUDE_V49_MESSAGE_VITA49_CONTROL_H_
 
 
 #define V49_CTRL_MAGIC  0x93d156CF
@@ -84,4 +84,4 @@ int v49_control_format_list     (struct mbuf *mbuf, size_t num,
                                  struct v49_ctrl_list_item *items);
 
 
-#endif // INCLUDE_COMMON_VITA49_CONTROL_H
+#endif /* _INCLUDE_V49_MESSAGE_VITA49_CONTROL_H_ */

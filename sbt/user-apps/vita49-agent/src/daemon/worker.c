@@ -271,13 +271,15 @@ const char *worker_state_desc (worker_state_t state)
  */
 int worker_limit (struct worker *worker, int period, int count)
 {
-	ENTER("worker %p", worker);
+	ENTER("worker %p -> %s", worker, worker_name(worker));
 
 	// never been set: not limited yet
 	if ( ! worker->clocks )
 	{
 		worker->clocks = get_clocks();
 		worker->starts = 1;
+		LOG_DEBUG("%s: limit init, clocks %llu, starts 1\n", 
+		          worker_name(worker), worker->clocks);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -290,10 +292,15 @@ int worker_limit (struct worker *worker, int period, int count)
 	if ( worker->state == WS_LIMIT )
 	{
 		if ( clocks_to_s(dly) < period )
+		{
+			LOG_DEBUG("%s: limited, dly %llu, wait %u sec\n",
+			          worker_name(worker), dly, clocks_to_s(dly));
 			RETURN_ERRNO_VALUE(0, "%d", 1);
+		}
 
 		worker->clocks = now;
 		worker->starts = 1;
+		LOG_DEBUG("%s: limit expired, clear\n", worker_name(worker));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -301,6 +308,8 @@ int worker_limit (struct worker *worker, int period, int count)
 	if ( worker->starts < count )
 	{
 		worker->starts++;
+		LOG_DEBUG("%s: starts < count, starts++ now %d\n",
+		          worker_name(worker), worker->starts);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -309,10 +318,12 @@ int worker_limit (struct worker *worker, int period, int count)
 	{
 		worker->clocks = now;
 		worker->starts = 1;
+		LOG_DEBUG("%s: delay expired, reset and clear\n", worker_name(worker));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
 	// over count and period not yet elapsed: deny start
+	LOG_DEBUG("%s: still limited\n", worker_name(worker));
 	RETURN_ERRNO_VALUE(0, "%d", 1);
 }
 

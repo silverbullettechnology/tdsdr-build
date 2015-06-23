@@ -21,20 +21,43 @@
 #define _INCLUDE_ST_TERM_H_
 #include <sbt_common/uuid.h>
 #include <v49_client/socket.h>
+#include <v49_message/command.h>
+
+
+// demo-common.h
+extern char                 *demo_adi;  /* UUID or name of resource */
+extern uuid_t                demo_cid;  /* Client-ID for requests */
+extern uint32_t              demo_sid;  /* Stream-ID assigned */
+extern uuid_t                demo_rid;  /* Resource ID */
+extern struct resource_info  demo_res;  /* Resource info */
 
 
 // st_term.c
 int st_term_setup (void);
 int st_term_cleanup (void);
 
+// enum.c
+int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char *name);
+
 // access.c
 int seq_access (struct socket *sock, uuid_t *cid, uuid_t *uuid, uint32_t *stream_id);
 
-// release.c
-int seq_release (struct socket *sock, uuid_t *cid, uint32_t stream_id);
+// open.c
+int seq_open (struct socket *sock, uint32_t stream_id);
 
-// enum.c
-int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char *name);
+// start.c
+int seq_start (struct socket *sock, uint32_t stream_id,
+               v49_command_tstamp_int_t tstamp_int, time_t tsi, size_t tsf);
+
+// stop.c
+int seq_stop (struct socket *sock, uint32_t stream_id,
+              v49_command_tstamp_int_t tstamp_int, time_t tsi, size_t tsf);
+
+// close.c
+int seq_close (struct socket *sock, uint32_t stream_id);
+
+// release.c
+int seq_release (struct socket *sock, uint32_t stream_id);
 
 
 
