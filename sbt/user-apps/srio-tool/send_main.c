@@ -50,6 +50,7 @@ unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
+uint8_t     opt_paint    = 0xFF;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
@@ -97,6 +98,7 @@ static void usage (void)
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
+	       "-p paint    Paint transmit buffer with byte value before loading\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
@@ -162,7 +164,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:p:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -174,6 +176,7 @@ int main (int argc, char **argv)
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
+			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
 
 			case 's':
 				opt_data = (size_bin(optarg) + 7) & ~7;
@@ -242,6 +245,8 @@ int main (int argc, char **argv)
 			return 1;
 		}
 	}
+	else if ( !(in_fp = fopen(opt_in_file, "r")) )
+		perror(opt_in_file);
 
 	if ( !opt_npkts )
 		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
@@ -366,7 +371,7 @@ int main (int argc, char **argv)
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
 	sd_fmt_opts.prog_step = opt_buff / 100;
-	memset(buff, 0xff, opt_buff);
+	memset(buff, opt_paint, opt_buff);
 	if ( in_fp )
 	{
 		if ( !format_read(opt_in_fmt, &sd_fmt_opts, buff, opt_buff, in_fp) )

@@ -418,8 +418,7 @@ int main (int argc, char **argv)
 		goto exit_close;
 	}
 
-	if ( seq_start(sock, demo_sid, TSTAMP_INT_IMMEDIATE, 0, 0) < 1 )
-		goto exit_close;
+	seq_start(sock, demo_sid, TSTAMP_INT_IMMEDIATE, 0, 0);
 
 	// wait for started DMA channels to finish or timeout
 	LOG_INFO("\nWaiting for DMA to finish... ");

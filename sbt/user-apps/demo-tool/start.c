@@ -33,6 +33,7 @@ LOG_MODULE_STATIC("seq_start", LOG_LEVEL_DEBUG);
 
 static struct v49_common req_start = 
 {
+	.hdr  = V49_HDR_TSI | 0x00100000,
 	.sid  = V49_CMD_RSVD_SID,
 	.type = V49_TYPE_COMMAND,
 	.command = 

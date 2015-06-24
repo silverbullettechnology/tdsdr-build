@@ -458,7 +458,7 @@ int main (int argc, char **argv)
 	// get access, open device, setup burst length
 	if ( seq_access(sock, &demo_cid, &demo_rid, &demo_sid) < 1 )
 		goto exit_unmap;
-	LOG_DEBUG("Access granted with SID %x\n", (unsigned)demo_sid);
+	LOG_DEBUG("Access granted with SID 0x%x\n", (unsigned)demo_sid);
 
 	if ( seq_open(sock, demo_sid) < 1 )
 		goto exit_release;
