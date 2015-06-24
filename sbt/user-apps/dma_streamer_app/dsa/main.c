@@ -41,6 +41,7 @@ const char *dsa_argv0;
 int         dsa_adi_new = 0;
 int         dsa_pipe_dev = 0;
 int         dsa_dsxx = 0;
+int         dsa_adi_mode = 0x04;
 
 size_t      dsa_opt_len      = 1000000; // 1MS default
 unsigned    dsa_opt_timeout  = 0; // auto-calculated now
@@ -49,7 +50,6 @@ const char *dsa_opt_fifo_dev = DEF_FIFO_DEVICE;
 const char *dsa_opt_pipe_dev = DEF_PIPE_DEVICE;
 size_t      dsa_total_words  = 0;
 long        dsa_opt_priority = DEF_PRIORITY;
-long        dsa_opt_v49_len  = 0;
 
 char *opt_lib_dir   = NULL;
 char  env_data_path[PATH_MAX];

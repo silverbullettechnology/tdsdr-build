@@ -38,6 +38,7 @@ extern const char *dsa_argv0;
 extern int         dsa_adi_new;
 extern int         dsa_pipe_dev;
 extern int         dsa_dsxx;
+extern int         dsa_adi_mode;
 
 extern size_t      dsa_opt_len;
 extern unsigned    dsa_opt_timeout;
@@ -45,7 +46,6 @@ extern const char *dsa_opt_dsm_dev;
 extern const char *dsa_opt_fifo_dev;
 extern size_t      dsa_total_words;
 extern long        dsa_opt_priority;
-extern long        dsa_opt_v49_len;
 
 extern char  env_data_path[];
 

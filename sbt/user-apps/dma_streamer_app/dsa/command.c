@@ -43,7 +43,7 @@ LOG_MODULE_STATIC("command", LOG_LEVEL_INFO);
 void dsa_command_options_usage (void)
 {
 	printf("\nGlobal options: [-qv] [-D mod:lvl] [-s bytes[K|M]] [-S samples[K|M]]\n"
-	       "                [-f format] [-t timeout] [-p priority]\n"
+	       "                [-f format] [-t timeout] [-p priority] [-m mode]\n"
 	       "Where:\n"
 	       "-q          Quiet messages: warnings and errors only\n"
 	       "-v          Verbose messages: enable debugging\n"
@@ -52,14 +52,16 @@ void dsa_command_options_usage (void)
 	       "-S samples  Set buffer size in samples, add K/M for kilo-samples/mega-samples\n"
 	       "-f format   Set data format for sample data\n"
 	       "-t timeout  Set timeout in jiffies\n"
-	       "-p priority Priority for pipe-dev access request\n\n");
+	       "-p priority Priority for pipe-dev access request\n"
+	       "-m mode     DMA mode select for new ADI FIFOs (0-15, default 4)\n"
+	       "\n");
 }
 
 int dsa_command_options (int argc, char **argv)
 {
 	char *ptr;
 	int   opt;
-	while ( (opt = getopt(argc, argv, "+?hqvs:S:f:t:D:A:p:l:")) > -1 )
+	while ( (opt = getopt(argc, argv, "+?hqvs:S:f:t:D:A:p:m:")) > -1 )
 	{
 		LOG_DEBUG("dsa_getopt: global opt '%c' with arg '%s'\n", opt, optarg);
 		switch ( opt )
@@ -146,13 +148,12 @@ int dsa_command_options (int argc, char **argv)
 				          ((dsa_opt_priority & 0xFFFF) * 10000) >> 16);
 				break;
 
-			// set VITA49 packet length in 32-bit words 
-			case 'l':
-				if ( (dsa_opt_v49_len = strtoul(optarg, NULL, 0)) & 1 )
-				{
-					LOG_ERROR("-l must be even\n");
+			case 'm':
+				errno = 0;
+				dsa_adi_mode = strtoul(optarg, NULL, 0);
+				if ( errno || dsa_adi_mode > 15 )
 					return -1;
-				}
+				LOG_INFO("DMA mode set to %d\n", dsa_adi_mode);
 				break;
 
 			case '?':
@@ -713,18 +714,6 @@ for ( ret = 0; ret <= argc; ret++ )
 					pipe_adi2axis_set_ctrl(dev,        PD_ADI2AXIS_CTRL_RESET);
 					pipe_adi_dma_comb_set_cmd(dev,     PD_ADI_DMA_COMB_CMD_RESET);
 
-					// V49 packer experiments
-					if ( dsa_opt_v49_len )
-					{
-						pipe_vita49_pack_set_streamid(dev, 0x11223344);
-						pipe_vita49_pack_set_pkt_size(dev, dsa_opt_v49_len);
-						pipe_vita49_pack_set_trailer(dev,  0x11223344);
-						pipe_vita49_pack_set_ctrl(dev,     PD_VITA49_PACK_CTRL_ENABLE |
-						                                   PD_VITA49_PACK_CTRL_TRAILER);
-					}
-					else
-						pipe_vita49_pack_set_ctrl(dev, PD_VITA49_PACK_CTRL_PASSTHRU);
-
 					// Set adc_sw_dest switch to 0 for device
 					pipe_routing_reg_get_adc_sw_dest(&reg);
 					if ( reg & (1 << dev) )
@@ -733,11 +722,9 @@ for ( ret = 0; ret <= argc; ret++ )
 						pipe_routing_reg_set_adc_sw_dest(reg);
 					}
 
-					// bypass the DMA combiner
+					// bypass the DMA combiner, no vita49 packets
+					pipe_vita49_pack_set_ctrl(dev, PD_VITA49_PACK_CTRL_PASSTHRU);
 					pipe_adi_dma_comb_set_cmd(dev, PD_ADI_DMA_COMB_CMD_PASSTHRU);
-
-
-					// TODO: overhead for packet headers
 					len = dsa_evt.rx[dev]->len * DSM_BUS_WIDTH;
 
 					// enable legacy timing - no triggers
@@ -836,7 +823,8 @@ for ( ret = 0; ret <= argc; ret++ )
 				reg = ADI_NEW_TX_TO_RATE(3);
 				fifo_adi_new_write(dev, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 
-				// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
+				// for version 8.xx set DAC_DDS_SEL to 0x04 input data (DMA) without the
+				// 4-bit shift - this is a recent 
 				fifo_adi_new_read(dev, ADI_NEW_TX, ADI_NEW_TX_REG_PCORE_VER, &reg);
 				if ( (reg & 0xFFFF0000) == 0x00080000 )
 				{
@@ -846,7 +834,7 @@ for ( ret = 0; ret <= argc; ret++ )
 					for ( ch = 0; ch < 4; ch++ )
 						fifo_adi_new_write(dev, ADI_NEW_TX,
 						                   ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
-						                   0x02);
+						                   dsa_adi_mode);
 				}
 			}
 		} 
