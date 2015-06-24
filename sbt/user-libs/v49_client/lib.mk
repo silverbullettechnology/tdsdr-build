@@ -22,6 +22,7 @@ LIBS :=
 
 # in-tree objs - cleaned
 OBJS := \
+	src/lib/log.o \
 	src/lib/expect.o \
 	src/lib/sequence.o \
 	src/lib/socket/unix.o \

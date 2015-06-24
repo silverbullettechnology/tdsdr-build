@@ -38,6 +38,9 @@
 #include <config/config.h>
 
 #include <sbt_common/log.h>
+#include <v49_message/log.h>
+#include <v49_client/log.h>
+
 #include <sbt_common/clocks.h>
 #include <common/default.h>
 #include <common/control/local.h>

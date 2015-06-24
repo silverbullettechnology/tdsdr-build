@@ -55,6 +55,8 @@ v49_message_0.1 {
 		resource_list;
 		resource_config;
 		resource_dump;
+		/* src/lib/log.c */
+		_v49_message_log_library_reg;
 	local:
 		*;
 };

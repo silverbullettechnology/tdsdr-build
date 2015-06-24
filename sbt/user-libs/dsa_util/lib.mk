@@ -1,4 +1,4 @@
-# Shared-library Makefile for dma_streamer_mod
+# Shared-library Makefile for for DSA util library
 #
 # Copyright 2013,2014 Silver Bullet Technology
 #

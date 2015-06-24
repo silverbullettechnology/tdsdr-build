@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <errno.h>
 
-
 #define LOG_LEVEL_FOCUS  0
 #define LOG_LEVEL_ERROR  1
 #define LOG_LEVEL_WARN   2
@@ -314,23 +313,48 @@ struct log_module_map_t
 	int        *var;
 };
 
-void _log_init_module_list (struct log_module_map_t *start, struct log_module_map_t *stop);
+
+/* Each shared library gets its own linker-generated list of modules, and exports to
+ * the application a callback function.  An inline function in the application collects a
+ * linker-generated list of these callbacks and passes them  to _log_init_module_list() in
+ * the library, along with the application's own linker-generated list of log_module_map_t
+ * structs.  The library then collects all the module lists and uses that for subsequent
+ * searches and iterations. */
+typedef size_t (* log_library_reg_fn) (struct log_module_map_t *dest);
+#define LOG_LIBRARY_REG(lib) \
+	size_t _ ## lib ## _log_library_reg (struct log_module_map_t *dest); \
+	static log_library_reg_fn  __ ## lib ## _log_library_reg \
+	     __attribute__((unused,used,section("log_library_reg"),aligned(sizeof(void *)))) \
+	     = _ ## lib ## _log_library_reg;
+
+void _log_init_module_list (struct log_module_map_t *app_start,
+                            struct log_module_map_t *app_stop,
+                            log_library_reg_fn      *reg_start,
+                            log_library_reg_fn      *reg_stop);
 
 
 /** Initialize library with calling program's module list
  *
  *  \note The calling program must call this function to expose modules in the calling
- *        program to the library, before calling the list-related functions below.
+ *        program and shared libraries to the log library code, before calling the list-
+ *        related functions below.
  *
  *  \return A packlist of module names, or NULL on error
  */
 static inline void log_init_module_list (void)
 {
-	/** Linker-generated symbols for modules inside the application */
+	/** Linker-generated symbols for pointers inside the application */
 	extern struct log_module_map_t __start_log_module_map;
 	extern struct log_module_map_t  __stop_log_module_map;
 
-	_log_init_module_list(&__start_log_module_map, &__stop_log_module_map);
+	LOG_LIBRARY_REG(sbt_common);
+
+	/** Linker-generated symbols for pointers inside the shared libs */
+	extern log_library_reg_fn __start_log_library_reg;
+	extern log_library_reg_fn  __stop_log_library_reg;
+
+	_log_init_module_list(&__start_log_module_map,  &__stop_log_module_map,
+	                      &__start_log_library_reg, &__stop_log_library_reg);
 }
 
 

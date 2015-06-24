@@ -34,6 +34,9 @@
 #include <dsm.h>
 
 #include <sbt_common/log.h>
+#include <v49_message/log.h>
+#include <v49_client/log.h>
+
 #include <v49_message/resource.h>
 #include <v49_client/socket.h>
 

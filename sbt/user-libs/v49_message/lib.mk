@@ -22,6 +22,7 @@ LIBS :=
 
 # in-tree objs - cleaned
 OBJS := \
+	src/lib/log.o \
 	src/lib/command.o \
 	src/lib/common.o  \
 	src/lib/context.o \

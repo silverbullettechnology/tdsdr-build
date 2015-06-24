@@ -140,6 +140,5 @@ void v49_dump_hdr (int level, uint32_t hdr);
 void v49_dump     (int level, struct v49_common *v49);
 
 
-
 #endif /* _INCLUDE_V49_MESSAGE_VITA49_COMMON_H_ */
 /* Ends */

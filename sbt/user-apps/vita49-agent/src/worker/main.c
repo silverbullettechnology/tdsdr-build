@@ -31,6 +31,8 @@
 #include <pipe_dev.h>
 
 #include <sbt_common/log.h>
+#include <v49_message/log.h>
+
 #include <sbt_common/util.h>
 #include <sbt_common/timer.h>
 #include <sbt_common/mbuf.h>

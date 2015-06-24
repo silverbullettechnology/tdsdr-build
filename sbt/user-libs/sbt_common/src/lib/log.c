@@ -511,19 +511,53 @@ int log_config (const char *section, const char *tag, const char *val,
 }
 
 
-/** Linker-generated symbols for modules inside the library */
-extern struct log_module_map_t __start_log_module_map;
-extern struct log_module_map_t  __stop_log_module_map;
-
-static struct log_module_map_t *log_module_map_app_start = NULL;
-static struct log_module_map_t *log_module_map_app_stop  = NULL;
-
-void _log_init_module_list (struct log_module_map_t *start,
-                            struct log_module_map_t *stop)
+size_t _sbt_common_log_library_reg (struct log_module_map_t *dest)
 {
-	log_module_map_app_start = start;
-	log_module_map_app_stop  = stop;
+	/** Linker-generated symbols for modules inside the library */
+	extern struct log_module_map_t __start_log_module_map;
+	extern struct log_module_map_t  __stop_log_module_map;
+
+	size_t num = &__stop_log_module_map - &__start_log_module_map;
+
+	if ( dest )
+		memcpy(dest, &__start_log_module_map, sizeof(struct log_module_map_t) * num);
+
+	return num;
 }
+
+
+static struct log_module_map_t *log_module_map_start = NULL;
+static struct log_module_map_t *log_module_map_stop  = NULL;
+
+void _log_init_module_list (struct log_module_map_t *app_start,
+                            struct log_module_map_t *app_stop,
+                            log_library_reg_fn      *reg_start,
+                            log_library_reg_fn      *reg_stop)
+{
+	// start with number of app entries
+	size_t num = app_stop - app_start;
+
+	// iterate libraries and add to total
+	log_library_reg_fn *reg;
+	for ( reg = reg_start; reg != reg_stop; reg++ )
+		num += (*reg)(NULL);
+
+	// (re)allocate combined module map
+	free(log_module_map_start);
+	if ( !(log_module_map_start = calloc(num, sizeof(struct log_module_map_t))) )
+		return;
+
+	// start with actual app entries
+	struct log_module_map_t *map = log_module_map_start;
+	memcpy(map, app_start, (app_stop - app_start) * sizeof(struct log_module_map_t));
+	map += app_stop - app_start;
+
+	// iterate libraries and add entries
+	for ( reg = reg_start; reg != reg_stop; reg++ )
+		map += (*reg)(map);
+	log_module_map_stop = map;
+}
+
 
 
 /** Set all modules' verbosity level
@@ -544,13 +578,9 @@ int _log_set_global_level (int level, const char *file, int line)
 	}
 
 	struct log_module_map_t *map;
-
-	if ( log_module_map_app_start && log_module_map_app_stop )
-		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+	if ( log_module_map_start )
+		for ( map = log_module_map_start; map != log_module_map_stop; map++ )
 			*(map->var) = level;
-
-	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
-		*(map->var) = level;
 
 	log_printf(LOG_LEVEL_INFO, module_level, file, line,
 	           "Global debug level set to %s\n",
@@ -579,8 +609,8 @@ int _log_set_module_level (const char *module, int level, const char *file, int 
 	struct log_module_map_t *map;
 	int                      cnt = 0;
 
-	if ( log_module_map_app_start && log_module_map_app_stop )
-		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+	if ( log_module_map_start )
+		for ( map = log_module_map_start; map != log_module_map_stop; map++ )
 			if ( strmatch(map->mod, module) )
 			{
 				*(map->var) = level;
@@ -589,16 +619,6 @@ int _log_set_module_level (const char *module, int level, const char *file, int 
 				           "Module %s debug level set to %s\n",
 				           map->mod, log_label_for_level(level));
 			}
-
-	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
-		if ( strmatch(map->mod, module) )
-		{
-			*(map->var) = level;
-			cnt++;
-			log_printf(LOG_LEVEL_INFO, module_level, file, line,
-			           "Module %s debug level set to %s\n",
-			           map->mod, log_label_for_level(level));
-		}
 
 	if ( !cnt )
 	{
@@ -622,22 +642,18 @@ char **log_get_module_list (void)
 	char                    **ret;
 
 	memset(&pl, 0, sizeof(struct packlist));
-	if ( log_module_map_app_start && log_module_map_app_stop )
-		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+	if ( log_module_map_start )
+		for ( map = log_module_map_start; map != log_module_map_stop; map++ )
 			packlist_size (&pl, map->mod, -1);
-	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
-		packlist_size (&pl, map->mod, -1);
 	packlist_size (&pl, NULL, 0);
 
 	errno = 0;
 	if ( !(ret = packlist_alloc(&pl)) )
 		RETURN_VALUE("%p", NULL);
 
-	if ( log_module_map_app_start && log_module_map_app_stop )
-		for ( map = log_module_map_app_start; map != log_module_map_app_stop; map++ )
+	if ( log_module_map_start )
+		for ( map = log_module_map_start; map != log_module_map_stop; map++ )
 			packlist_data (&pl, map->mod, -1);
-	for ( map = &__start_log_module_map; map != &__stop_log_module_map; map++ )
-		packlist_data (&pl, map->mod, -1);
 	packlist_data (&pl, NULL, 0);
 
 	return ret;
