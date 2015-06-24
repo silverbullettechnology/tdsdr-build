@@ -180,7 +180,7 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 				sid_assign = SID_ASSIGN_MIN;
 
 			// create the new worker struct
-			if ( !(worker = worker_alloc(DEF_WORKER_CLASS, sid_assign++)) )
+			if ( !(worker = worker_alloc(DEF_WORKER_CLASS, sid_assign, res)) )
 			{
 				LOG_ERROR("worker_alloc() failed: %s\n", strerror(errno));
 				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;

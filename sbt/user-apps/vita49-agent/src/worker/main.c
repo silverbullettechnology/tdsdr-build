@@ -127,16 +127,17 @@ static void signal_alarm (int signum)
 
 static void usage (void)
 {
-	printf ("Usage: %s [-f] [-d lvl] [-l log] [-c config] [-R remote] RID SID\n\n"
+	fprintf(stderr,
+	        "Usage: %s [-f] [-d lvl] [-l log] [-c config] [-R remote] RID SID\n\n"
 	        "Where:\n"
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
 	        "-c config     Specify a different config file (default %s)\n"
 	        "-R remote     Specify SRIO address of client node\n"
-			"RID           Specifies the UUID of the resource this worker manages\n"
-			"SID           Specifies the numeric Stream-ID assigned to this worker\n",
+	        "RID           Specifies the UUID of the resource this worker manages\n"
+	        "SID           Specifies the numeric Stream-ID assigned to this worker\n",
 	        argv0, DEF_CONFIG_PATH);
-	        
+
 	exit (1);
 }
 

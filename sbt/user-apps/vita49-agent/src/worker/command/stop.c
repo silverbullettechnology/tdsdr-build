@@ -45,20 +45,20 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 	if ( !(req->command.indicator & (1 << V49_CMD_IND_BIT_TSTAMP_INT)) )
 	{
 		LOG_ERROR("Stop: tstamp_int field is required\n");
-		req->command.result = V49_CMD_RES_INVAL;
+		rsp->command.result = V49_CMD_RES_INVAL;
 		RETURN_ERRNO(EINVAL);
 	}
 	if ( req->command.tstamp_int != TSTAMP_INT_RELATIVE )
 	{
 		LOG_ERROR("Stop: tstamp_int field must be TSTAMP_INT_RELATIVE\n");
-		req->command.result = V49_CMD_RES_INVAL;
+		rsp->command.result = V49_CMD_RES_INVAL;
 		RETURN_ERRNO(EINVAL);
 	}
 
 	worker_tsi = req->ts_int;
 	worker_tsf = req->ts_frac;
 	LOG_DEBUG("Stop: TSI %d, TSF %zu\n", (int)worker_tsi, worker_tsf);
-	req->command.result = V49_CMD_RES_SUCCESS;
+	rsp->command.result = V49_CMD_RES_SUCCESS;
 
 	RETURN_ERRNO(0);
 }

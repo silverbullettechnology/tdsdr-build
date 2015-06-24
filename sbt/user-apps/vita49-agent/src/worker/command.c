@@ -65,7 +65,8 @@ void worker_command_recv (struct v49_common *req_v49)
 		memcpy(&rsp_v49.command.cid, &req_v49->command.cid, sizeof(uuid_t));
 	}
 
-	rsp_v49.command.role = V49_CMD_ROLE_RESULT;
+	rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
+	rsp_v49.command.result = V49_CMD_RES_UNSPEC;
 	switch ( req_v49->command.request )
 	{
 		case V49_CMD_REQ_OPEN:
@@ -97,7 +98,6 @@ void worker_command_recv (struct v49_common *req_v49)
 		default:
 			LOG_ERROR("Command not (yet) handled: %s\n",
 			          v49_command_request(req_v49->command.request));
-			rsp_v49.command.result = V49_CMD_RES_UNSPEC;
 			break;
 	}
 

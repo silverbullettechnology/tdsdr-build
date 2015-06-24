@@ -63,7 +63,7 @@ const struct worker_class *worker_class_search (const char *name)
  *
  *  \return Allocated worker pointer, or NULL on failure
  */
-struct worker *worker_alloc (const char *name, unsigned sid)
+struct worker *worker_alloc (const char *name, unsigned sid, struct resource_info *res)
 {
 	ENTER("name %s", name);
 
@@ -75,7 +75,7 @@ struct worker *worker_alloc (const char *name, unsigned sid)
 		RETURN_ERRNO_VALUE(ENOSYS, "%p", NULL);
 
 	errno = 0;
-	struct worker *di = dc->ops->alloc_fn(sid);
+	struct worker *di = dc->ops->alloc_fn(sid, res);
 	if ( !di )
 		RETURN_VALUE("%p", NULL);
 

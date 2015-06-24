@@ -22,13 +22,16 @@
 #include <sbt_common/log.h>
 #include <sbt_common/mbuf.h>
 #include <sbt_common/mqueue.h>
+
+#include <v49_message/resource.h>
+
 #include <daemon/worker.h>
 
 
 LOG_MODULE_STATIC("worker_dummy", LOG_LEVEL_WARN);
 
 
-static struct worker *worker_dummy_alloc (unsigned sid)
+static struct worker *worker_dummy_alloc (unsigned sid, struct resource_info *res)
 {
 	ENTER("");
 	struct worker *worker = malloc(sizeof(struct worker));
@@ -37,6 +40,8 @@ static struct worker *worker_dummy_alloc (unsigned sid)
 
 	memset (worker, 0, sizeof(struct worker));
 	worker->sid = sid;
+	worker->res = res;
+	memcpy(&worker->rid, &res->uuid, sizeof(uuid_t));
 
 	RETURN_ERRNO_VALUE(0, "%p", worker);
 }

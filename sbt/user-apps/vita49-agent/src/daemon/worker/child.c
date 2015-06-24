@@ -26,6 +26,8 @@
 #include <sbt_common/child.h>
 #include <sbt_common/packlist.h>
 
+#include <v49_message/resource.h>
+
 #include <common/default.h>
 
 #include <daemon/worker.h>
@@ -58,16 +60,19 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 	struct packlist  pack;
 	char             exec[128];
 	char             conf[128];
+	char             rid[48];
 	char             sid[16];
-	char           **argv = packlist_alloc(&pack);
+	char           **argv;
 
 	snprintf(exec, sizeof(exec), "%s/%s", worker_exec_path, priv->filename);
 	snprintf(conf, sizeof(conf), "-c%s",  daemon_opt_config);
+	snprintf(rid,  sizeof(rid),  "%s",    uuid_to_str(&priv->worker.rid));
 	snprintf(sid,  sizeof(sid),  "%u",    priv->worker.sid);
 
 	memset (&pack, 0, sizeof(pack));
 	packlist_size(&pack, exec, -1);
 	packlist_size(&pack, conf, -1);
+	packlist_size(&pack, rid,  -1);
 	packlist_size(&pack, sid,  -1);
 	packlist_size(&pack, NULL,  0);
 
@@ -77,6 +82,7 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 
 	packlist_data(&pack, exec, -1);
 	packlist_data(&pack, conf, -1);
+	packlist_data(&pack, rid,  -1);
 	packlist_data(&pack, sid,  -1);
 	packlist_data(&pack, NULL,  0);
 
@@ -84,7 +90,7 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 }
 
 
-static struct worker *worker_child_alloc (unsigned sid)
+static struct worker *worker_child_alloc (unsigned sid, struct resource_info *res)
 {
 	ENTER("");
 	struct worker_child_priv *priv = malloc(sizeof(struct worker_child_priv));
@@ -97,6 +103,8 @@ static struct worker *worker_child_alloc (unsigned sid)
 	priv->child.pid   = -1;
 
 	priv->worker.sid = sid;
+	priv->worker.res = res;
+	memcpy(&priv->worker.rid, &res->uuid, sizeof(uuid_t));
 	priv->filename = strdup(DEF_WORKER_FILENAME);
 	priv->child.argv = worker_child_argv(priv);
 
@@ -173,7 +181,8 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 	if ( !worker )
 		RETURN_ERRNO_VALUE(EFAULT, "%d", -1);
 
-	struct worker_child_priv *priv = (struct worker_child_priv *)worker;
+	struct worker_child_priv  *priv = (struct worker_child_priv *)worker;
+	char                     **pp;
 
 	switch ( worker->state )
 	{
@@ -233,6 +242,9 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 				RETURN_ERRNO_VALUE(0, "%d", worker->state);
 			}
 			worker->starts++;
+			LOG_DEBUG("%s: argv to spawn:\n", worker_name(worker));
+			for ( pp = priv->child.argv; *pp; pp++ )
+				LOG_DEBUG("  '%s'\n", *pp);
 			if ( child_spawn(&priv->child, 1) < 0 )
 			{
 				LOG_ERROR("%s: child_spawn(): %s\n", worker->name, strerror(errno));
