@@ -89,8 +89,8 @@
 		device_type = "memory";
 		reg = < 0x0 0x40000000 >;
 
-		/* Reserve the top 8MB for DDR-FIFO */
-		linux,usable-memory = < 0x0 0x3F800000 >;
+		/* Reserve the top 16MB for DDR-FIFO */
+		linux,usable-memory = < 0x0 0x3f000000 >;
 	} ;
 	ps7_axi_interconnect_0: amba@0 {
 		#address-cells = <1>;
