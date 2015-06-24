@@ -252,7 +252,7 @@ int expect_common (struct v49_common *rsp,       struct mbuf *mbuf,
 	if ( rsp->command.result != V49_CMD_RES_SUCCESS )
 	{
 		LOG_ERROR("%s req failed: %s\n",
-		          v49_command_request(rsp->command.result),
+		          v49_command_request(rsp->command.request),
 		          v49_command_result(rsp->command.result));
 		RETURN_ERRNO_VALUE(0, "%d", -1);
 	}

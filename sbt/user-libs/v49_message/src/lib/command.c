@@ -203,12 +203,12 @@ LOG_DEBUG("%s: start avail %d\n", __func__, mbuf_get_avail(mbuf));
 
 		// check against size of record (12 words) and that enough words in message
 		len <<= 2;
-		if ( (len % sizeof(*res)) || mbuf_get_avail(mbuf) < len )
+		if ( (len % V49_SIZEOF_RESOURCE_INFO) || mbuf_get_avail(mbuf) < len )
 			FAIL(V49_ERR_LIST_SIZE);
 
 		// read UUIDs and merge into list
 		LOG_DEBUG("  res_info %u records\n", len / sizeof(uuid_t));
-		for ( ; len; len -= sizeof(*res) )
+		for ( ; len; len -= V49_SIZEOF_RESOURCE_INFO )
 		{
 			if ( !(res = calloc(1, sizeof(*res))) )
 				FAIL(V49_ERR_MALLOC);
