@@ -52,7 +52,7 @@ obj-m += fifo_dev.o
 
 fifo_dev-y := fd_main.o
 
-EXTRA_CFLAGS += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
 EXTRA_CFLAGS += -Werror
 
 all:  modules

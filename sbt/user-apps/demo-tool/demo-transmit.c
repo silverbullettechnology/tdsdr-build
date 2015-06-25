@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #include <sd_user.h>
 #include <pipe_dev.h>
@@ -42,22 +43,21 @@
 #include "common.h"
 #include "demo-common.h"
 
-LOG_MODULE_STATIC("demo-transmit", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("demo-transmit", LOG_LEVEL_INFO);
 
-#define DEF_DEST       2
+#define DEF_DEST       5
 #define DEF_CHAN       5
-#define DEF_TIMEOUT    1500
+#define DEF_TIMEOUT    500
 
 unsigned    opt_remote   = DEF_DEST;
-unsigned    opt_local    = 0;
 unsigned    opt_chan     = DEF_CHAN;
 size_t      opt_data     = 0;
 size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
-FILE       *opt_debug    = NULL;
-uint32_t    opt_sid      = 0;
+int         opt_paint    = 0xFF;
+char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
@@ -97,16 +97,17 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] adi-name in-file\n"
+	       "                 [-R remote] [-p paint] adi-name in-file\n"
 	       "Where:\n"
-	       "-v          Verbose/debugging enable\n"
-	       "-d remote   SRIO destination device-ID (default %d)\n"
-	       "-L local    SRIO local device-ID (if not auto-probed)\n"
-	       "-c channel  DMA channel to use (default %d)\n"
-	       "-S sammples Set payload size in samples (K or M optional)\n"
-	       "-s bytes    Set payload size in bytes (K or M optional)\n"
-	       "-t timeout  Set timeout in jiffies (default %u)\n"
-	       "-n npkts    Set number of packets for combiner (default from size)\n"
+	       "-v            Verbose/debugging enable\n"
+	       "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
+	       "-R remote     SRIO destination device-ID (default %d)\n"
+	       "-c channel    DMA channel to use (default %d)\n"
+	       "-S samples    Set payload size in samples (K or M optional)\n"
+	       "-s bytes      Set payload size in bytes (K or M optional)\n"
+	       "-t timeout    Set timeout in jiffies (default %u)\n"
+	       "-n npkts      Set number of packets for combiner (default from size)\n"
+	       "-p paint      Set byte to paint buffer before load (default 0xFF)\n"
 	       "\n"
 	       "adi-name is specified as a UUID or human-readable name, and must operate in the\n"
 	       "TX direction for transmit\n"
@@ -115,6 +116,8 @@ static void usage (void)
 	       "format.\n"
 	       "\n", 
 		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
+
+	exit(1);
 }
 
 static void dump_channels (void)
@@ -162,6 +165,7 @@ int main (int argc, char **argv)
 	unsigned long          tuser;
 	uint32_t               hdr;
 	uint32_t               smp = 0;
+	char                  *ptr;
 	char                  *format;
 	FILE                  *in_fp = NULL;
 	void                  *buff;
@@ -170,20 +174,58 @@ int main (int argc, char **argv)
 	int                    opt;
 	int                    idx;
 
-	setbuf(stdout, NULL);
+	log_init_module_list();
+	log_dupe(stderr);
+	log_set_global_level(module_level);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:")) > -1 )
+	format_error_setup(stderr);
+	while ( (opt = getopt(argc, argv, "?hvd:R:L:c:s:S:t:n:p:o:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
-				opt_debug = stderr;
+				format_error_setup(stderr);
 				format_debug_setup(stderr);
 				break;
+
+			// set debug verbosity level and enable trace
+			case 'd':
+				if ( (ptr = strchr(optarg, ':')) || (ptr = strchr(optarg, '=')) ) // for particular module(s)
+				{
+					*ptr++ = '\0';
+					if ( (opt = log_level_for_label(ptr)) < 0 && isdigit(*ptr) )
+						opt = strtoul(ptr, NULL, 0);
+					if ( log_set_module_level(optarg, opt) )
+					{
+						if ( errno == ENOENT )
+						{
+							char **list = log_get_module_list();
+							char **walk;
+							printf("Available modules: {");
+							for ( walk = list; *walk; walk++ )
+								printf(" %s", *walk);
+							printf(" }\n");
+							free(list);
+						}
+						usage();
+					}
+				}
+				else // globally
+				{
+					if ( (opt = log_level_for_label(optarg)) < 0 && isdigit(*optarg) )
+						opt = strtoul(optarg, NULL, 0);
+					fprintf(stderr, "optarg '%s' -> %d\n", optarg, opt);
+					if ( log_set_global_level(opt) )
+						usage();
+				}
+				log_trace(1);
+				break;
+
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
-			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
+			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
+			case 'o': opt_rawfile = optarg;                   break;
 
 			case 's':
 				opt_data = (size_bin(optarg) + 7) & ~7;
@@ -216,7 +258,7 @@ int main (int argc, char **argv)
 
 	if ( !opt_in_fmt )
 	{
-		printf("Couldn't identify format\n");
+		LOG_ERROR("Couldn't identify format\n");
 		usage();
 		return 1;
 	}
@@ -236,14 +278,14 @@ int main (int argc, char **argv)
 			return 1;
 		}
 	}
+	else if ( !(in_fp = fopen(opt_in_file, "r")) )
+			perror(opt_in_file);
 
 	if ( !opt_npkts )
 		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
 	opt_buff = opt_npkts * sd_fmt_opts.packet;
 
-	printf("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
-
-	opt_sid = strtoul(argv[optind + 1], NULL, 0);
+	LOG_DEBUG("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
 
 	if ( !(sock = socket_alloc("srio")) )
@@ -286,34 +328,30 @@ int main (int argc, char **argv)
 	opt_remote &= 0xFFFF;
 	if ( !opt_remote || opt_remote >= 0xFFFF )
 	{
-		printf("Remote Device-ID 0x%x invalid, must be 0x0001-0xFFFE, stop\n", opt_remote);
+		LOG_ERROR("Remote Device-ID 0x%x invalid, must be 0x0001-0xFFFE, stop\n", opt_remote);
 		return 1;
 	}
 
 	// open DSM dev
 	if ( dsm_reopen("/dev/" DSM_DRIVER_NODE) )
 	{
-		printf("dsm_reopen(%s): %s\n", "/dev/" DSM_DRIVER_NODE, strerror(errno));
+		LOG_ERROR("dsm_reopen(%s): %s\n", "/dev/" DSM_DRIVER_NODE, strerror(errno));
 		return 1;
 	}
 
 	// open SRIO dev, get or set local address
 	if ( (srio_dev = open("/dev/" SD_USER_DEV_NODE, O_RDWR|O_NONBLOCK)) < 0 )
 	{
-		printf("SRIO dev open(%s): %s\n", "/dev/" SD_USER_DEV_NODE, strerror(errno));
+		LOG_ERROR("SRIO dev open(%s): %s\n", "/dev/" SD_USER_DEV_NODE, strerror(errno));
 		ret = 1;
 		goto exit_dsm;
 	}
 	if ( ioctl(srio_dev, SD_USER_IOCG_LOC_DEV_ID, &tuser) )
 	{
-		printf("SD_USER_IOCG_LOC_DEV_ID: %s\n", strerror(errno));
+		LOG_ERROR("SD_USER_IOCG_LOC_DEV_ID: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_srio;
 	}
-
-
-
-	// validate
 	if ( !tuser || tuser >= 0xFFFF )
 	{
 		printf("Local Device-ID invalid, wait for discovery to complete or specify with -L\n");
@@ -370,26 +408,26 @@ int main (int argc, char **argv)
 		opt_timeout = 6000;
 	if ( dsm_set_timeout(opt_timeout) ) 
 	{
-		printf("dsm_set_timeout(%u) failed: %s\n", opt_timeout, strerror(errno));
+		LOG_ERROR("dsm_set_timeout(%u) failed: %s\n", opt_timeout, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Timeout set to %u jiffies\n", opt_timeout);
+	LOG_DEBUG("Timeout set to %u jiffies\n", opt_timeout);
 
 
 	// allocate page-aligned buffer
 	if ( !(buff = dsm_user_alloc(opt_words)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		LOG_ERROR("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	LOG_DEBUG("Buffer allocated: %zu words / %zu MB\n", opt_words, opt_words >> 17);
 
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
 	sd_fmt_opts.prog_step = opt_buff / 100;
-	memset(buff, 0xff, opt_buff);
+	memset(buff, opt_paint, opt_buff);
 	if ( in_fp )
 	{
 		if ( !format_read(opt_in_fmt, &sd_fmt_opts, buff, opt_buff, in_fp) )
@@ -397,51 +435,11 @@ int main (int argc, char **argv)
 		fclose(in_fp);
 	}
 
-	// assemble tuser word with local and remote addresses
-	tuser <<= 16;
-	tuser  |= opt_remote;
-	printf("tuser word: 0x%08x\n", tuser);
-
-	// build packet headers - just tuser initially
-	pkt = buff;
-	for ( idx = 0; idx < opt_npkts; idx++ )
-	{
-		// SRIO header
-		pkt->tuser    = tuser;
-		pkt->padding  = 0xFFFFFFFF;
-		pkt->hello[1] = 0x00600000;
-		pkt->hello[0] = opt_sid;
-
-		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F00040;
-		pkt->v49_hdr  = ntohl(hdr);
-		pkt->v49_sid  = ntohl(opt_sid);
-		pkt->v49_tsi  = 0;
-		pkt->v49_tsf1 = 0;
-		pkt->v49_tsf2 = ntohl(smp);
-		pkt->v49_trailer = 0xaaaaaaaa;
-
-		pkt++;
-		smp += 29;
-	}
-
-	if ( opt_debug )
-		hexdump_buff(buff, opt_buff);
-
-
-	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_user(opt_chan, 1, buff, opt_words) )
-	{
-		printf("dsm_map_user() failed: %s\n", strerror(errno));
-		ret = 1;
-		goto exit_free;
-	}
-	printf("Buffer mapped with kernel module\n");
 
 	// setup pipe-dev: route SWRITE to SRIO-DMA, set expected npkts, enable
 	if ( pipe_routing_reg_get_adc_sw_dest(&routing) )
 	{
-		printf("pipe_routing_reg_get_adc_sw_dest() failed: %s\n", strerror(errno));
+		LOG_ERROR("pipe_routing_reg_get_adc_sw_dest() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_free;
 	}
@@ -457,40 +455,113 @@ int main (int argc, char **argv)
 
 	// get access, open device, setup burst length
 	if ( seq_access(sock, &demo_cid, &demo_rid, &demo_sid) < 1 )
-		goto exit_unmap;
+		goto exit_free;
 	LOG_DEBUG("Access granted with SID 0x%x\n", (unsigned)demo_sid);
 
 	if ( seq_open(sock, demo_sid) < 1 )
 		goto exit_release;
 	LOG_DEBUG("Resource opened OK\n");
 
-	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_words) < 1 )
+	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_data / 8) < 1 )
 		goto exit_close;
-	LOG_DEBUG("Stop point set at %zu samples\n", opt_words);
+	LOG_DEBUG("Stop point set at %zu samples\n", opt_data / 8);
+
+	// assemble tuser word with local and remote addresses
+	tuser <<= 16;
+	tuser  |= opt_remote;
+	LOG_DEBUG("tuser word: 0x%08lx\n", tuser);
+
+	// build packet headers - just tuser initially
+	pkt = buff;
+	for ( idx = 0; idx < opt_npkts; idx++ )
+	{
+		// SRIO header
+		pkt->tuser    = tuser;
+		pkt->padding  = 0xFFFFFFFF;
+		pkt->hello[1] = 0x00600000;
+		pkt->hello[0] = demo_sid;
+
+		// VITA49 header / trailer
+		hdr = ((idx & 0xf) << 16) | 0x10F00040;
+		pkt->v49_hdr  = ntohl(hdr);
+		pkt->v49_sid  = ntohl(demo_sid);
+		pkt->v49_tsi  = 0;
+		pkt->v49_tsf1 = 0;
+		pkt->v49_tsf2 = ntohl(smp);
+		pkt->v49_trailer = 0xaaaaaaaa;
+
+		pkt++;
+		smp += 29;
+	}
 
 
-	LOG_FOCUS("Ready to start...");
+	if ( opt_rawfile )
+	{
+		int  fd = open(opt_rawfile, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+		if ( fd > -1 )
+		{
+			void   *walk = buff;
+			size_t  left = opt_buff;
+			int     ret;
+
+			while ( left >= 4096 )
+			{
+				if ( (ret = write(fd, walk, 4096)) < 0 )
+				{
+					perror("write");
+					break;
+				}
+				walk += ret;
+				left -= ret;
+			}
+			if ( left && (ret = write(fd, walk, left)) < 0 )
+				perror("write");
+			close(fd);
+		}
+		else
+			perror(opt_rawfile);
+	}
+
+
+
+	// hand buffer to kernelspace driver and build scatterlist
+	if ( dsm_map_user(opt_chan, 1, buff, opt_words) )
+	{
+		LOG_ERROR("dsm_map_user() failed: %s\n", strerror(errno));
+		ret = 1;
+		goto exit_close;
+	}
+	LOG_DEBUG("Buffer mapped with kernel module\n");
+
+
+	LOG_FOCUS("Ready to start, press a key to sample...");
 	terminal_pause();
 
+	LOG_INFO("Send START command... ");
+	if ( seq_start(sock, demo_sid, TSTAMP_INT_IMMEDIATE, 0, 0) < 1 )
+		goto exit_close;
 
 	// start DMA transaction on all mapped channels, then start data-source module
-	printf("Triggering DMA and starting DSRC... ");
+	LOG_INFO("Sent and ack'd, triggering DMA... ");
 	if ( dsm_oneshot_start(~0) )
 	{
-		printf("dsm_oneshot_start() failed: %s\n", strerror(errno));
+		LOG_ERROR("dsm_oneshot_start() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_unmap;
 	}
 
 	// wait for started DMA channels to finish or timeout
-	printf("\nWaiting for DMA to finish... ");
+	LOG_INFO("triggered, wait for DMA to finish... ");
 	if ( dsm_oneshot_wait(~0) )
 	{
-		printf("dsm_oneshot_wait() failed: %s\n", strerror(errno));
+		LOG_ERROR("dsm_oneshot_wait() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_unmap;
 	}
-	printf("\nDMA finished, buffer:");
+	LOG_INFO("\nDMA finished, waiting for buffer to drain...");
+
+	sleep(5);
+	LOG_INFO("drained.\n");
 
 	// Reset afterwards: restore routing, reset and idle splitter
 	pipe_routing_reg_set_adc_sw_dest(routing);
@@ -504,7 +575,7 @@ int main (int argc, char **argv)
 		unsigned long long           usec = st->total.tv_sec;
 		unsigned long long           rate = 0;
 
-		printf("Transfer statistics:\n");
+		LOG_INFO("Transfer statistics:\n");
 
 		usec *= 1000000000;
 		usec += st->total.tv_nsec;
@@ -513,17 +584,24 @@ int main (int argc, char **argv)
 		if ( usec > 0 )
 			rate = st->bytes / usec;
 
-		printf("  bytes    : %llu\n",        st->bytes);
-		printf("  time     : %lu.%09lu s\n", st->total.tv_sec, st->total.tv_nsec);
-		printf("  rate     : %llu MB/s\n"  , rate);
-		printf("  starts   : %lu\n",         st->starts);
-		printf("  completes: %lu\n",         st->completes);
-		printf("  errors   : %lu\n",         st->errors);
-		printf("  timeouts : %lu\n",         st->timeouts);
+		LOG_INFO("  bytes    : %llu\n",        st->bytes);
+		LOG_INFO("  time     : %lu.%09lu s\n", st->total.tv_sec, st->total.tv_nsec);
+		LOG_INFO("  rate     : %llu MB/s\n"  , rate);
+		LOG_INFO("  starts   : %lu\n",         st->starts);
+		LOG_INFO("  completes: %lu\n",         st->completes);
+		LOG_INFO("  errors   : %lu\n",         st->errors);
+		LOG_INFO("  timeouts : %lu\n",         st->timeouts);
 	}
 	else
-		printf("dsm_get_stats() failed: %s\n", strerror(errno));
+		LOG_ERROR("dsm_get_stats() failed: %s\n", strerror(errno));
 	free(sb);
+
+
+exit_unmap:
+	if ( dsm_cleanup() )
+		LOG_ERROR("dsm_cleanup() failed: %s\n", strerror(errno));
+	else
+		LOG_INFO("Buffer unmapped with kernel module\n");
 
 exit_close:
 	seq_close(sock, demo_sid);
@@ -531,15 +609,9 @@ exit_close:
 exit_release:
 	seq_release(sock, demo_sid);
 
-exit_unmap:
-	if ( dsm_cleanup() )
-		printf("dsm_cleanup() failed: %s\n", strerror(errno));
-	else
-		printf("Buffer unmapped with kernel module\n");
-
 exit_free:
 	dsm_user_free(buff, opt_words);
-	printf("Buffer unlocked and freed\n");
+	LOG_ERROR("Buffer unlocked and freed\n");
 
 exit_pipe:
 	pipe_dev_close();

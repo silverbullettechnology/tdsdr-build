@@ -286,6 +286,14 @@ int main (int argc, char **argv)
 	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource: ", &demo_res);
 
 
+	opt_remote &= 0xFFFF;
+	if ( !opt_remote || opt_remote >= 0xFFFF )
+	{
+		LOG_ERROR("Remote Device-ID 0x%x invalid, must be 0x0001-0xFFFE, stop\n", opt_remote);
+		return 1;
+	}
+
+
 	// open devs
 	if ( dsm_reopen("/dev/" DSM_DRIVER_NODE) )
 	{

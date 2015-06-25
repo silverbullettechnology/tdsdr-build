@@ -227,7 +227,7 @@ int main (int argc, char **argv)
 	// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
 	printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
 	for ( ch = 0; ch < 4; ch++ )
-		fifo_adi_new_write(opt_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch), 0x02);
+		fifo_adi_new_write(opt_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch), 0x04);
 
 	// enable TX at ADI FIFO
 	fifo_adi_new_read(opt_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);

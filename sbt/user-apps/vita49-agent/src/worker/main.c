@@ -73,6 +73,7 @@ int     worker_run =  0;
 int     worker_adi = -1;
 int     worker_dir = -1;
 size_t  worker_len =  0;
+size_t  worker_pkt =  0;
 
 
 /** control for main loop for orderly shutdown */
@@ -152,10 +153,11 @@ static void usage (void)
 
 int main (int argc, char **argv)
 {
-	struct resource_info *res;
-	unsigned long         reg;
-	int                   srio_dev;
-	int                   ret;
+	struct pd_vita49_unpack  unpack;
+	struct resource_info    *res;
+	unsigned long            reg;
+	int                      srio_dev;
+	int                      ret;
 
 	// same as basename(), but works reliably under uClibc
 	if ( (argv0 = strrchr(argv[0], '/')) && argv0[1] )
@@ -421,6 +423,38 @@ int main (int argc, char **argv)
 					break;
 
 				case DC_DIR_TX:
+					reg = 0;
+					pipe_vita49_unpack_get_rcvd(worker_adi, &reg);
+					if ( reg >= worker_pkt )
+					{
+						LOG_INFO("TX completed\n");
+
+						pipe_vita49_unpack_get_ctrl(worker_adi, &reg);
+						LOG_INFO("vita49_unpack.ctrl : %lu\n", reg);
+						pipe_vita49_unpack_get_stat(worker_adi, &reg);
+						LOG_INFO("vita49_unpack.stat : %lx\n", reg);
+						pipe_vita49_unpack_get_rcvd(worker_adi, &reg);
+						LOG_INFO("vita49_unpack.rcvd : %lu\n", reg);
+
+						pipe_vita49_assem_get_hdr_err(worker_adi, &reg);
+						if ( reg )
+							LOG_WARN("Warning: vita49_assem.hdr_err_cnt %lu\n", reg);
+						else
+							LOG_DEBUG("vita49_assem.hdr_err_cnt 0 as expected\n");
+
+						pipe_vita49_unpack_get_counts(worker_adi, &unpack);
+						LOG_INFO("vita49_unpack stats:\n");
+						LOG_INFO("  pkt_rcv_cnt  : %lu\n",  unpack.pkt_rcv_cnt);
+						LOG_INFO("  pkt_drop_cnt : %lu\n",  unpack.pkt_drop_cnt);
+						LOG_INFO("  pkt_size_err : %lu\n",  unpack.pkt_size_err);
+						LOG_INFO("  pkt_type_err : %lu\n",  unpack.pkt_type_err);
+						LOG_INFO("  pkt_order_err: %lu\n",  unpack.pkt_order_err);
+						LOG_INFO("  ts_order_err : %lu\n",  unpack.ts_order_err);
+						LOG_INFO("  strm_id_err  : %lu\n",  unpack.strm_id_err);
+						LOG_INFO("  trailer_err  : %lu\n",  unpack.trailer_err);
+						worker_run = 0;
+					}
+					LOG_DEBUG("TX: %lu / %zu pkts\n", reg, worker_pkt);
 					break;
 
 				default:

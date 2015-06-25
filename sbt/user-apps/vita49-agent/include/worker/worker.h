@@ -35,6 +35,7 @@ extern int     worker_run;
 extern int     worker_adi;
 extern int     worker_dir;
 extern size_t  worker_len;
+extern size_t  worker_pkt;
 
 void worker_shutdown (void);
 

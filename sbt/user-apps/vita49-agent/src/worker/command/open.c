@@ -125,6 +125,7 @@ static void worker_command_open_tx (int ident)
 	pipe_swrite_unpack_set_addr(worker_adi, worker_sid);
 
 	// V49 unpacker setup
+	LOG_DEBUG("  worker_sid %08x\n", worker_sid);
 	pipe_vita49_unpack_set_strm_id(worker_adi, worker_sid);
 	pipe_vita49_unpack_set_ctrl(worker_adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
 	                                           PD_VITA49_UNPACK_CTRL_TRAILER);
@@ -140,7 +141,7 @@ static void worker_command_open_tx (int ident)
 	fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 
 	// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
-	LOG_DEBUG("Set new worker_ADI v8 DAC_DDS_SEL to 2\n");
+	LOG_DEBUG("Set new worker_ADI v8 DAC_DDS_SEL to 4\n");
 	for ( ch = 0; ch < 4; ch++ )
 		fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
 		                   0x04);

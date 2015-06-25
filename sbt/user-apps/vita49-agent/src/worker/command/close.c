@@ -67,6 +67,8 @@ static void worker_command_close_tx (int ident)
 	pipe_vita49_unpack_set_ctrl(worker_adi,   0);
 	pipe_vita49_assem_set_cmd(worker_adi,     0);
 	pipe_vita49_trig_dac_set_ctrl(worker_adi, 0);
+
+	worker_pkt = 0;
 }
 
 

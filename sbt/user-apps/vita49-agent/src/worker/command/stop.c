@@ -61,8 +61,11 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 	worker_tsi = req->ts_int;
 	worker_tsf = req->ts_frac;
 	worker_len = worker_tsf * 8; // XXX: assumes T2R2
-	LOG_DEBUG("Stop: TSI %d, TSF %zu -> len %zu\n",
-	          (int)worker_tsi, worker_tsf, worker_len);
+	worker_pkt = worker_len / 232;
+	if ( worker_len % 232 )
+		worker_pkt ++;
+	LOG_DEBUG("Stop: TSI %d, TSF %zu -> len %zu, %zu pkts\n",
+	          (int)worker_tsi, worker_tsf, worker_len, worker_pkt);
 	rsp->command.result = V49_CMD_RES_SUCCESS;
 
 	RETURN_ERRNO(0);
