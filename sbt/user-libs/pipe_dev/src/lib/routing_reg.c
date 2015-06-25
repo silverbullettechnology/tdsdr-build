@@ -32,7 +32,7 @@ int pipe_routing_reg_get_adc_sw_dest (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_ROUTING_REG_ADC_SW_DEST, reg)) )
-		printf("PD_IOCG_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -42,7 +42,7 @@ int pipe_routing_reg_set_adc_sw_dest (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ROUTING_REG_ADC_SW_DEST, reg)) )
-		printf("PD_IOCS_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCS_ROUTING_REG_ADC_SW_DEST: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

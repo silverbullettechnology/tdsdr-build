@@ -32,7 +32,7 @@ int fifo_access_avail (unsigned long *bits)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_ACCESS_AVAIL, bits)) )
-		printf("FD_IOCG_ACCESS_AVAIL: %d: %s\n", ret, strerror(errno));
+		ERROR("FD_IOCG_ACCESS_AVAIL: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -42,7 +42,7 @@ int fifo_access_request (unsigned long bits)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCS_ACCESS_REQUEST, bits)) )
-		printf("FD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
+		ERROR("FD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -52,7 +52,7 @@ int fifo_access_release (unsigned long bits)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCS_ACCESS_RELEASE, bits)) )
-		printf("FD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
+		ERROR("FD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

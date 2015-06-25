@@ -56,6 +56,7 @@ fifo_dev_0.1 {
 		/* src/lib/dev.c */
 		fifo_dev_close;
 		fifo_dev_reopen;
+		fifo_dev_error;
 		fifo_dev_target_desc;
 		fifo_dev_target_mask;
 	local:

@@ -39,7 +39,7 @@ int pipe_adi2axis_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI2AXIS_S_CTRL[dev], reg)) )
-		printf("ADI2AXIS_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("ADI2AXIS_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -49,7 +49,7 @@ int pipe_adi2axis_get_ctrl (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI2AXIS_G_CTRL[dev], reg)) )
-		printf("ADI2AXIS_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI2AXIS_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -59,7 +59,7 @@ int pipe_adi2axis_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI2AXIS_G_STAT[dev], reg)) )
-		printf("ADI2AXIS_G_STAT[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("ADI2AXIS_G_STAT[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -69,7 +69,7 @@ int pipe_adi2axis_set_bytes (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI2AXIS_S_BYTES[dev], reg)) )
-		printf("ADI2AXIS_S_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI2AXIS_S_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -79,7 +79,7 @@ int pipe_adi2axis_get_bytes (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI2AXIS_G_BYTES[dev], reg)) )
-		printf("ADI2AXIS_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI2AXIS_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

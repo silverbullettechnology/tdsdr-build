@@ -33,6 +33,7 @@
 #include <v49_message/resource.h>
 
 
+extern char *worker_config_path;
 extern char *worker_exec_path;
 
 

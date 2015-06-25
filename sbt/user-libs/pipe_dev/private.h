@@ -17,9 +17,17 @@
  */
 #ifndef _INCLUDE_PIPE_PRIVATE_H_
 #define _INCLUDE_PIPE_PRIVATE_H_
+#include <stdio.h>
 
 
-extern int  pipe_dev_fd;
+extern int   pipe_dev_fd;
+extern FILE *pipe_dev_err;
+
+#define ERROR(fmt, ...) \
+	do{ \
+		if ( pipe_dev_err ) \
+			fprintf(pipe_dev_err, fmt, ##__VA_ARGS__); \
+	} while(0)
 
 
 #endif /* _INCLUDE_PIPE_PRIVATE_H_ */

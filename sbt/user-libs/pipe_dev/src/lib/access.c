@@ -32,7 +32,7 @@ int pipe_access_avail (unsigned long *bits)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_ACCESS_AVAIL, bits)) )
-		printf("PD_IOCG_ACCESS_AVAIL: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_ACCESS_AVAIL: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -42,7 +42,7 @@ int pipe_access_request (unsigned long bits)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_REQUEST, bits)) )
-		printf("PD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCS_ACCESS_REQUEST: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -52,7 +52,7 @@ int pipe_access_release (unsigned long bits)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_ACCESS_RELEASE, bits)) )
-		printf("PD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCS_ACCESS_RELEASE: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

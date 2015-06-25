@@ -40,7 +40,7 @@ int pipe_swrite_pack_set_cmd (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_S_CMD[dev], reg)) )
-		printf("SWRITE_PACK_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("SWRITE_PACK_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -50,7 +50,7 @@ int pipe_swrite_pack_get_cmd (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_G_CMD[dev], reg)) )
-		printf("SWRITE_PACK_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("SWRITE_PACK_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -60,7 +60,7 @@ int pipe_swrite_pack_set_addr (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_S_ADDR[dev], reg)) )
-		printf("SWRITE_PACK_S_ADDR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("SWRITE_PACK_S_ADDR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -70,7 +70,7 @@ int pipe_swrite_pack_get_addr (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_G_ADDR[dev], reg)) )
-		printf("SWRITE_PACK_G_ADDR[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("SWRITE_PACK_G_ADDR[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -80,7 +80,7 @@ int pipe_swrite_pack_set_srcdest (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_S_SRCDEST[dev], reg)) )
-		printf("SWRITE_PACK_S_SRCDEST[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("SWRITE_PACK_S_SRCDEST[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -90,7 +90,7 @@ int pipe_swrite_pack_get_srcdest (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_PACK_G_SRCDEST[dev], reg)) )
-		printf("SWRITE_PACK_G_SRCDEST[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("SWRITE_PACK_G_SRCDEST[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

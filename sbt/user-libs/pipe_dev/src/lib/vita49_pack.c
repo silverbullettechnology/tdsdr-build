@@ -43,7 +43,7 @@ int pipe_vita49_pack_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_S_CTRL[dev], reg)) )
-		printf("VITA49_PACK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_PACK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -53,7 +53,7 @@ int pipe_vita49_pack_get_ctrl (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_G_CTRL[dev], reg)) )
-		printf("VITA49_PACK_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_PACK_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -63,7 +63,7 @@ int pipe_vita49_pack_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_G_STAT[dev], reg)) )
-		printf("VITA49_PACK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_PACK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -73,7 +73,7 @@ int pipe_vita49_pack_set_streamid (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_S_STRM_ID[dev], reg)) )
-		printf("VITA49_PACK_S_STRM_ID[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_PACK_S_STRM_ID[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -83,7 +83,7 @@ int pipe_vita49_pack_get_streamid (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_G_STRM_ID[dev], reg)) )
-		printf("VITA49_PACK_G_STRM_ID[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_PACK_G_STRM_ID[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -93,7 +93,7 @@ int pipe_vita49_pack_set_pkt_size (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_S_PKT_SIZE[dev], reg)) )
-		printf("VITA49_PACK_S_PKT_SIZE[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_PACK_S_PKT_SIZE[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -103,7 +103,7 @@ int pipe_vita49_pack_get_pkt_size (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_G_PKT_SIZE[dev], reg)) )
-		printf("VITA49_PACK_G_PKT_SIZE[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_PACK_G_PKT_SIZE[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -113,7 +113,7 @@ int pipe_vita49_pack_set_trailer (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_S_TRAILER[dev], reg)) )
-		printf("VITA49_PACK_S_TRAILER[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_PACK_S_TRAILER[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -123,7 +123,7 @@ int pipe_vita49_pack_get_trailer (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_PACK_G_TRAILER[dev], reg)) )
-		printf("VITA49_PACK_G_TRAILER[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_PACK_G_TRAILER[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

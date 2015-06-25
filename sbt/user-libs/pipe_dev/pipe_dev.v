@@ -30,6 +30,7 @@ pipe_dev_0.1 {
 		/* src/lib/dev.c */
 		pipe_dev_close;
 		pipe_dev_reopen;
+		pipe_dev_error;
 		/* src/lib/routing_reg.c */
 		pipe_routing_reg_get_adc_sw_dest;
 		pipe_routing_reg_set_adc_sw_dest;

@@ -61,11 +61,13 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 	char             exec[128];
 	char             conf[128];
 	char             rid[48];
+	char             addr[16];
 	char             sid[16];
 	char           **argv;
 
 	snprintf(exec, sizeof(exec), "%s/%s", worker_exec_path, priv->filename);
-	snprintf(conf, sizeof(conf), "-c%s",  daemon_opt_config);
+	snprintf(conf, sizeof(conf), "-c%s",  worker_config_path);
+	snprintf(addr, sizeof(addr), "-R%u",  priv->worker.socket);
 	snprintf(rid,  sizeof(rid),  "%s",    uuid_to_str(&priv->worker.rid));
 	snprintf(sid,  sizeof(sid),  "%u",    priv->worker.sid);
 

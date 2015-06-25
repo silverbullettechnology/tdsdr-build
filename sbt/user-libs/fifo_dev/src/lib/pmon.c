@@ -36,7 +36,7 @@ int fifo_pmon_read (unsigned long ofs, unsigned long *val)
 
 	// on failure print same error as kernelspace
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_PMON_REG, &regs)) )
-		printf("FD_IOCG_PMON_REG OFS %04lx READ %08lx: %d: %s\n",
+		ERROR("FD_IOCG_PMON_REG OFS %04lx READ %08lx: %d: %s\n",
 		       regs.ofs, regs.val, ret, strerror(errno));
 
 	// on success return value if user's provided a buffer
@@ -57,7 +57,7 @@ int fifo_pmon_write (unsigned long ofs, unsigned long val)
 
 	// on failure print same error as kernelspace
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCS_PMON_REG_SO, &regs)) )
-		printf("FD_IOCS_PMON_REG_SO AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
+		ERROR("FD_IOCS_PMON_REG_SO AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
 		       regs.ofs, val, ret, strerror(errno));
 
 	return ret;

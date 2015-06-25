@@ -38,7 +38,7 @@ int pipe_vita49_assem_set_cmd (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_ASSEM_S_CMD[dev], reg)) )
-		printf("VITA49_ASSEM_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_ASSEM_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -48,7 +48,7 @@ int pipe_vita49_assem_get_cmd (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_ASSEM_G_CMD[dev], reg)) )
-		printf("VITA49_ASSEM_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_ASSEM_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -58,7 +58,7 @@ int pipe_vita49_assem_set_hdr_err (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_ASSEM_S_HDR_ERR[dev], reg)) )
-		printf("VITA49_ASSEM_S_HDR_ERR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_ASSEM_S_HDR_ERR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -68,7 +68,7 @@ int pipe_vita49_assem_get_hdr_err (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_ASSEM_G_HDR_ERR[dev], reg)) )
-		printf("VITA49_ASSEM_G_HDR_ERR[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_ASSEM_G_HDR_ERR[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

@@ -49,7 +49,7 @@ int fifo_dsrc_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_S_CTRL[dev], reg)) )
-		printf("DSRC_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("DSRC_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -59,7 +59,7 @@ int fifo_dsrc_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_STAT[dev], reg)) )
-		printf("DSRC_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -69,7 +69,7 @@ int fifo_dsrc_set_bytes (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_S_BYTES[dev], reg)) )
-		printf("DSRC_S_BYTES[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("DSRC_S_BYTES[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -79,7 +79,7 @@ int fifo_dsrc_get_bytes (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_BYTES[dev], reg)) )
-		printf("DSRC_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -89,7 +89,7 @@ int fifo_dsrc_get_sent (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_SENT[dev], reg)) )
-		printf("DSRC_G_SENT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_SENT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -99,7 +99,7 @@ int fifo_dsrc_set_type (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_S_TYPE[dev], reg)) )
-		printf("DSRC_S_TYPE[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("DSRC_S_TYPE[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -109,7 +109,7 @@ int fifo_dsrc_get_type (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_TYPE[dev], reg)) )
-		printf("DSRC_G_TYPE[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_TYPE[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -119,7 +119,7 @@ int fifo_dsrc_set_reps (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_S_REPS[dev], reg)) )
-		printf("DSRC_S_REPS[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("DSRC_S_REPS[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -129,7 +129,7 @@ int fifo_dsrc_get_reps (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_REPS[dev], reg)) )
-		printf("DSRC_G_REPS[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_REPS[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -139,7 +139,7 @@ int fifo_dsrc_get_rsent (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSRC_G_RSENT[dev], reg)) )
-		printf("DSRC_G_RSENT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSRC_G_RSENT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -150,7 +150,7 @@ int fifo_dsnk_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSNK_S_CTRL[dev], reg)) )
-		printf("DSNK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("DSNK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -160,7 +160,7 @@ int fifo_dsnk_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSNK_G_STAT[dev], reg)) )
-		printf("DSNK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSNK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -170,7 +170,7 @@ int fifo_dsnk_get_bytes (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSNK_G_BYTES[dev], reg)) )
-		printf("DSNK_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSNK_G_BYTES[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -180,7 +180,7 @@ int fifo_dsnk_get_sum (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, DSNK_G_SUM[dev], reg)) )
-		printf("DSNK_G_SUM[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("DSNK_G_SUM[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

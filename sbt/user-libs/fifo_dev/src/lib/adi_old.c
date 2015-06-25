@@ -43,7 +43,7 @@ int fifo_adi_old_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_S_CTRL[dev], reg)) )
-		printf("ADI_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("ADI_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -53,7 +53,7 @@ int fifo_adi_old_get_ctrl (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_G_CTRL[dev], reg)) )
-		printf("ADI_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -67,15 +67,15 @@ int fifo_adi_old_set_tx_cnt (int dev, unsigned long len, unsigned long reps)
 	words *= reps;
 	if ( words >= 0x100000000ULL )
 	{
-		printf("Specified %lu TX reps exceeds limits...\n", reps);
+		ERROR("Specified %lu TX reps exceeds limits...\n", reps);
 		words  = 0xFFFFFFFFULL;
 		words /= len;
 		reps   = words;
-		printf("Adjusted to %lu TX reps.\n", reps);
+		ERROR("Adjusted to %lu TX reps.\n", reps);
 	}
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_S_TX_CNT[dev], len * reps)) )
-		printf("ADI_S_TX_CNT[%d], %08x: %d: %s\n", dev, len, ret, strerror(errno));
+		ERROR("ADI_S_TX_CNT[%d], %08x: %d: %s\n", dev, len, ret, strerror(errno));
 
 	return ret;
 }
@@ -85,7 +85,7 @@ int fifo_adi_old_get_tx_cnt (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_G_TX_CNT[dev], reg)) )
-		printf("ADI_G_TX_CNT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_G_TX_CNT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -96,7 +96,7 @@ int fifo_adi_old_set_rx_cnt (int dev, unsigned long len, unsigned long reps)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_S_RX_CNT[dev], len)) )
-		printf("ADI_S_RX_CNT[%d], %08x: %d: %s\n", dev, len, ret, strerror(errno));
+		ERROR("ADI_S_RX_CNT[%d], %08x: %d: %s\n", dev, len, ret, strerror(errno));
 
 	return ret;
 }
@@ -106,7 +106,7 @@ int fifo_adi_old_get_rx_cnt (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_G_RX_CNT[dev], reg)) )
-		printf("ADI_G_RX_CNT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_G_RX_CNT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -117,7 +117,7 @@ int fifo_adi_old_get_sum (int dev, unsigned long *sum)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_G_SUM[dev], sum)) )
-		printf("ADI_G_SUM[%d]: %d: %08lx.%08lx: %s\n",
+		ERROR("ADI_G_SUM[%d]: %d: %08lx.%08lx: %s\n",
 		       dev, ret, sum[0], sum[1], strerror(errno));
 
 	return ret;
@@ -128,7 +128,7 @@ int fifo_adi_old_get_last (int dev, unsigned long *last)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_G_LAST[dev], last)) )
-		printf("ADI_G_LAST[%d]: %d: %08lx.%08lx: %s\n",
+		ERROR("ADI_G_LAST[%d]: %d: %08lx.%08lx: %s\n",
 		       dev, ret, last[0], last[1], strerror(errno));
 
 	return ret;
@@ -139,7 +139,7 @@ int fifo_adi_old_chksum_reset (int dev)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, ADI_S_CS_RST[dev], 0xFFFFFFFF)) )
-		printf("ADI_S_CS_RST[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_S_CS_RST[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -150,7 +150,7 @@ int fifo_adi_old_get_fifo_cnt (struct fd_fifo_counts *fb)
 	int ret;
 
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_FIFO_CNT, fb)) )
-		printf("FD_IOCG_FIFO_CNT: %d: %s\n", ret, strerror(errno));
+		ERROR("FD_IOCG_FIFO_CNT: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

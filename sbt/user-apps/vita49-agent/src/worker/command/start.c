@@ -31,29 +31,28 @@
 
 LOG_MODULE_STATIC("worker_command_start", LOG_LEVEL_WARN);
 
-
 static void worker_command_start_rx (int ident)
 {
-	int  adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+	LOG_INFO("START RX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
 
 	// using legacy fixed-length mode
-	printf("Expecting to sample %zu samples\n", worker_tsf);
-	pipe_adi2axis_set_bytes(adi, worker_tsf * 8);
-	pipe_adi2axis_set_ctrl(adi,  PD_ADI2AXIS_CTRL_LEGACY);
+	pipe_adi2axis_set_bytes(worker_adi, worker_len);
+	pipe_adi2axis_set_ctrl(worker_adi,  PD_ADI2AXIS_CTRL_LEGACY);
 
 	// manual trigger
-	pipe_vita49_trig_adc_set_ctrl(adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
+	pipe_vita49_trig_adc_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
+	worker_run = 1;
 }
-
 
 static void worker_command_start_tx (int ident)
 {
-	int  adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+	LOG_INFO("START TX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
 
 	// manual trigger
-	pipe_vita49_trig_dac_set_ctrl(adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
-	pipe_vita49_assem_set_cmd(adi,     PD_VITA49_ASSEM_CMD_ENABLE);
+	pipe_vita49_trig_dac_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
+	pipe_vita49_assem_set_cmd(worker_adi,     PD_VITA49_ASSEM_CMD_ENABLE);
 	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_START);
+	worker_run = 1;
 }
 
 
@@ -67,14 +66,14 @@ void worker_command_start (struct v49_common *req, struct v49_common *rsp)
 {
 	ENTER("req %p, rsp %p", req, rsp);
 
-	if ( !worker_tsf )
+	if ( !worker_len )
 	{
 		LOG_ERROR("Start: no length was set\n");
 		rsp->command.result = V49_CMD_RES_INVAL;
 		RETURN_ERRNO(EINVAL);
 	}
 
-	switch ( (worker_res.dc_bits & (DC_DIR_RX|DC_DIR_TX)) )
+	switch ( worker_dir )
 	{
 		case DC_DIR_RX:
 			worker_command_start_rx(worker_res.dc_bits);

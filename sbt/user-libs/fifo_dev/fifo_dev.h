@@ -50,6 +50,7 @@
  */
 #ifndef _INCLUDE_FIFO_DEV_H_
 #define _INCLUDE_FIFO_DEV_H_
+#include <stdio.h>
 #include <fd_main.h>
 
 
@@ -61,6 +62,7 @@ extern unsigned long  fifo_dev_target_mask;
 
 int  fifo_dev_reopen (const char *node);
 void fifo_dev_close  (void);
+void fifo_dev_error  (FILE *fp);
 
 
 const char *fifo_dev_target_desc (unsigned long mask);

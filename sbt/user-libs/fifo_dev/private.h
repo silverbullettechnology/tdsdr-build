@@ -17,9 +17,17 @@
  */
 #ifndef _INCLUDE_FIFO_PRIVATE_H_
 #define _INCLUDE_FIFO_PRIVATE_H_
+#include <stdio.h>
 
 
-extern int  fifo_dev_fd;
+extern int   fifo_dev_fd;
+extern FILE *fifo_dev_err;
+
+#define ERROR(fmt, ...) \
+	do{ \
+		if ( fifo_dev_err ) \
+			fprintf(fifo_dev_err, fmt, ##__VA_ARGS__); \
+	} while(0)
 
 
 #endif /* _INCLUDE_FIFO_PRIVATE_H_ */

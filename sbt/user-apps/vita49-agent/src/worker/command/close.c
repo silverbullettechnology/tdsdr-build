@@ -36,39 +36,38 @@ LOG_MODULE_STATIC("worker_command_close", LOG_LEVEL_WARN);
 
 static void worker_command_close_rx (int ident)
 {
-	int  adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+	LOG_INFO("CLOSE RX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
 
 	// reset and shut-down pipeline
-	fifo_adi_new_write(adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
-	pipe_vita49_pack_set_ctrl(adi,     PD_VITA49_PACK_CTRL_RESET);
-	pipe_vita49_trig_adc_set_ctrl(adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_adi2axis_set_ctrl(adi,        PD_ADI2AXIS_CTRL_RESET);
-	pipe_swrite_pack_set_cmd(adi,      PD_SWRITE_PACK_CMD_RESET);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_RESET);
+	pipe_vita49_trig_adc_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
+	pipe_adi2axis_set_ctrl(worker_adi,        PD_ADI2AXIS_CTRL_RESET);
+	pipe_swrite_pack_set_cmd(worker_adi,      PD_SWRITE_PACK_CMD_RESET);
 	usleep(1000);
 
-	fifo_adi_new_write(adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, ADI_NEW_RX_RSTN);
-	pipe_vita49_pack_set_ctrl(adi,     0);
-	pipe_vita49_trig_adc_set_ctrl(adi, 0);
-	pipe_adi2axis_set_ctrl(adi,        0);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, ADI_NEW_RX_RSTN);
+	pipe_vita49_pack_set_ctrl(worker_adi,     0);
+	pipe_vita49_trig_adc_set_ctrl(worker_adi, 0);
+	pipe_adi2axis_set_ctrl(worker_adi,        0);
 }
 
 static void worker_command_close_tx (int ident)
 {
-	int  adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+	LOG_INFO("CLOSE TX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
 
 	// reset and shut-down pipeline
-	fifo_adi_new_write(adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
-	pipe_vita49_unpack_set_ctrl(adi,   PD_VITA49_UNPACK_CTRL_RESET);
-	pipe_vita49_trig_dac_set_ctrl(adi, PD_VITA49_TRIG_CTRL_RESET);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
+	pipe_vita49_unpack_set_ctrl(worker_adi,   PD_VITA49_UNPACK_CTRL_RESET);
+	pipe_vita49_trig_dac_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
 	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
 	usleep(1000);
 
-	fifo_adi_new_write(adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
-	pipe_vita49_unpack_set_ctrl(adi,   0);
-	pipe_vita49_assem_set_cmd(adi,     0);
-	pipe_vita49_trig_dac_set_ctrl(adi, 0);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
+	pipe_vita49_unpack_set_ctrl(worker_adi,   0);
+	pipe_vita49_assem_set_cmd(worker_adi,     0);
+	pipe_vita49_trig_dac_set_ctrl(worker_adi, 0);
 }
-
 
 
 /** Close command

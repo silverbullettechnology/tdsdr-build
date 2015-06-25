@@ -32,7 +32,8 @@
 #include "private.h"
 
 
-int            pipe_dev_fd = -1;
+int   pipe_dev_fd  = -1;
+FILE *pipe_dev_err = NULL;
 
 
 void pipe_dev_close (void)
@@ -48,10 +49,17 @@ int pipe_dev_reopen (const char *node)
 	pipe_dev_close();
 
 	errno = 0;
-	if ( (pipe_dev_fd = open(node, O_RDWR)) < 0 )
+	if ( (pipe_dev_fd = open(node, O_RDWR|O_NONBLOCK)) < 0 )
 		return pipe_dev_fd;
+
+//	fl_set = O_NONBLOCK
+//	fd_set = FD_CLOEXEC
 
 	return 0;
 }
 
+void pipe_dev_error (FILE *fp)
+{
+	pipe_dev_err = fp;
+}
 

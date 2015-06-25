@@ -32,7 +32,7 @@ int pipe_srio_dma_split_set_cmd (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_SRIO_DMA_SPLIT_CMD, reg)) )
-		printf("PD_IOCS_SRIO_DMA_SPLIT_CMD: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCS_SRIO_DMA_SPLIT_CMD: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -42,7 +42,7 @@ int pipe_srio_dma_split_get_cmd (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SRIO_DMA_SPLIT_CMD, reg)) )
-		printf("PD_IOCG_SRIO_DMA_SPLIT_CMD: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_SRIO_DMA_SPLIT_CMD: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -52,7 +52,7 @@ int pipe_srio_dma_split_get_stat (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SRIO_DMA_SPLIT_STAT, reg)) )
-		printf("PD_IOCG_SRIO_DMA_SPLIT_STAT: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_SRIO_DMA_SPLIT_STAT: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -62,7 +62,7 @@ int pipe_srio_dma_split_set_npkts (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_SRIO_DMA_SPLIT_NPKTS, reg)) )
-		printf("PD_IOCS_SRIO_DMA_SPLIT_NPKTS: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCS_SRIO_DMA_SPLIT_NPKTS: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -72,7 +72,7 @@ int pipe_srio_dma_split_get_npkts (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SRIO_DMA_SPLIT_NPKTS, reg)) )
-		printf("PD_IOCG_SRIO_DMA_SPLIT_NPKTS: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_SRIO_DMA_SPLIT_NPKTS: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -82,7 +82,7 @@ int pipe_srio_dma_split_get_tuser (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SRIO_DMA_SPLIT_TUSER, reg)) )
-		printf("PD_IOCG_SRIO_DMA_SPLIT_TUSER: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_SRIO_DMA_SPLIT_TUSER: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }

@@ -41,7 +41,7 @@ int pipe_vita49_unpack_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_S_CTRL[dev], reg)) )
-		printf("VITA49_UNPACK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -51,7 +51,7 @@ int pipe_vita49_unpack_get_ctrl (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_G_CTRL[dev], reg)) )
-		printf("VITA49_UNPACK_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -61,7 +61,7 @@ int pipe_vita49_unpack_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_G_STAT[dev], reg)) )
-		printf("VITA49_UNPACK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -71,7 +71,7 @@ int pipe_vita49_unpack_get_rcvd (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_G_RCVD[dev], reg)) )
-		printf("VITA49_UNPACK_G_RCVD[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_G_RCVD[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -81,7 +81,7 @@ int pipe_vita49_unpack_set_strm_id (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_S_STRM_ID[dev], reg)) )
-		printf("VITA49_UNPACK_S_STRM_ID[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_S_STRM_ID[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -91,7 +91,7 @@ int pipe_vita49_unpack_get_strm_id (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_G_STRM_ID[dev], reg)) )
-		printf("VITA49_UNPACK_G_STRM_ID[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_G_STRM_ID[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -101,7 +101,7 @@ int pipe_vita49_unpack_get_counts (int dev, struct pd_vita49_unpack *buf)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_UNPACK_G_COUNTS[dev], buf)) )
-		printf("VITA49_UNPACK_G_COUNTS[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_UNPACK_G_COUNTS[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

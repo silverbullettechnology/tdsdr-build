@@ -38,6 +38,7 @@
 #include <sbt_common/mbuf.h>
 #include <sbt_common/mqueue.h>
 #include <sbt_common/growlist.h>
+#include <dsa_util.h>
 
 #include <v49_message/resource.h>
 
@@ -55,16 +56,23 @@ char           *worker_opt_log     = NULL;
 char           *worker_opt_config  = DEF_CONFIG_PATH;
 char           *worker_opt_section = NULL;
 struct timeval  worker_opt_tv_min  = { .tv_sec = 0, .tv_usec = 1000 };
-struct timeval  worker_opt_tv_max  = { .tv_sec = 1, .tv_usec = 0 };
+struct timeval  worker_opt_tv_max  = { .tv_sec = 0, .tv_usec = 100000 };
 int             worker_opt_timer   = 5;
-int             worker_opt_remote  = 5;
+int             worker_opt_remote  = 2;
 
+// globals used by various command handlers
 struct resource_info  worker_res;
 uuid_t                worker_rid;
 unsigned              worker_sid;
 unsigned long         worker_tuser;
 time_t                worker_tsi;
 size_t                worker_tsf;
+
+// globals used for monitoring the burst
+int     worker_run =  0;
+int     worker_adi = -1;
+int     worker_dir = -1;
+size_t  worker_len =  0;
 
 
 /** control for main loop for orderly shutdown */
@@ -145,6 +153,7 @@ static void usage (void)
 int main (int argc, char **argv)
 {
 	struct resource_info *res;
+	unsigned long         reg;
 	int                   srio_dev;
 	int                   ret;
 
@@ -156,8 +165,13 @@ int main (int argc, char **argv)
 
 	// not sure we use random stuff in this project...
 	srand(time(NULL));
+
+	// early logging and error setup
 	log_init_module_list();
+	freopen("/var/log/vita49-agent-worker.err", "a", stderr);
 	log_dupe(stderr);
+	fifo_dev_error(stderr);
+	pipe_dev_error(stderr);
 
 	// basic arguments parsing
 	int   opt;
@@ -181,10 +195,10 @@ int main (int argc, char **argv)
 						{
 							char **list = log_get_module_list();
 							char **walk;
-							printf("Available modules: {");
+							fprintf(stderr, "Available modules: {");
 							for ( walk = list; *walk; walk++ )
-								printf(" %s", *walk);
-							printf(" }\n");
+								fprintf(stderr, " %s", *walk);
+							fprintf(stderr, " }\n");
 							free(list);
 						}
 						usage();
@@ -245,6 +259,11 @@ int main (int argc, char **argv)
 	}
 	memcpy(&worker_res, res, sizeof(worker_res));
 
+	// setup 
+	int ident = worker_res.dc_bits;
+	worker_adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+	worker_dir = worker_res.dc_bits & (DC_DIR_TX|DC_DIR_RX);
+
 
 	// have to init this before using any timers
 	clock_rate_init();
@@ -302,7 +321,6 @@ int main (int argc, char **argv)
 	struct mbuf    *mbuf;
 //	clocks_t        timer_due;
 	fd_set          rfds;
-	fd_set          wfds;
 	int             nfds;
 	int             sel;
 	char            buff[256];
@@ -310,11 +328,10 @@ int main (int argc, char **argv)
 	/* Primary select/poll loop, with dispatch following */
 	while ( main_loop > ML_STOPPED )
 	{
+		LOG_TRACE("Top of main loop\n");
 		FD_ZERO(&rfds);
-		FD_ZERO(&wfds);
 		FD_SET(0, &rfds);
-		FD_SET(1, &wfds);
-		nfds = 1;
+		nfds = 0;
 
 		// initial timeout calculated from timer head: a long fixed select() timeout when
 		// idle makes short timers jittery, while a short select() timeout with long
@@ -333,7 +350,7 @@ int main (int argc, char **argv)
 			tv_cur = worker_opt_tv_max;
 		
 		alarm(tv_cur.tv_sec + 5);
-		if ( (sel = select(nfds + 1, &rfds, &wfds, NULL, &tv_cur)) < 0 )
+		if ( (sel = select(nfds + 1, &rfds, NULL, NULL, &tv_cur)) < 0 )
 		{
 			if ( errno != EINTR )
 			{
@@ -348,6 +365,7 @@ int main (int argc, char **argv)
 		// read southbound traffic
 		if ( FD_ISSET(0, &rfds) )
 		{
+			LOG_TRACE("Have southbound to read\n");
 			if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, 0)) )
 			{
 				LOG_ERROR("mbuf_alloc() failed: %s\n", strerror(errno));
@@ -367,30 +385,53 @@ int main (int argc, char **argv)
 				LOG_DEBUG("Ignore zero-length read\n");
 		}
 
-		// send northbound traffic
-		if ( FD_ISSET(1, &wfds) )
+		// send queued northboung, if nothing queued but shutting down, we're finished
+		if ( (mbuf = mqueue_dequeue(&message_queue)) )
 		{
-			// send queued, if nothing queued but shutting down, we're finished
-			if ( (mbuf = mqueue_dequeue(&message_queue)) )
+			LOG_TRACE("Have northbound to send\n");
+			mbuf_cur_set_beg(mbuf);
+			if ( (ret = mbuf_write(mbuf, 1, DEFAULT_MBUF_SIZE)) < 0 )
 			{
-				mbuf_cur_set_beg(mbuf);
-				if ( (ret = mbuf_write(mbuf, 1, DEFAULT_MBUF_SIZE)) < 0 )
-				{
-					LOG_ERROR("mbuf_write() failed: %s\n", strerror(errno));
-					main_loop = ML_STOPPING;
-				}
-				else
-					mbuf_deref(mbuf);
+				LOG_ERROR("mbuf_write() failed: %s\n", strerror(errno));
+				main_loop = ML_STOPPING;
 			}
-			else if ( main_loop == ML_STOPPING )
+			else
 			{
-				LOG_INFO("TX queue empty while stopping, stop\n");
-				main_loop = ML_STOPPED;
+				LOG_TRACE("wrote %d bytes, deref mbuf\n", ret);
+				mbuf_deref(mbuf);
 			}
 		}
+		else if ( main_loop == ML_STOPPING )
+		{
+			LOG_INFO("TX queue empty while stopping, stop\n");
+			main_loop = ML_STOPPED;
+		}
+
+		if ( worker_run )
+			switch ( worker_dir )
+			{
+				case DC_DIR_RX:
+					reg = 0;
+					pipe_adi2axis_get_stat(worker_adi, &reg);
+					if ( reg & PD_ADI2AXIS_STAT_COMPLETE )
+					{
+						LOG_INFO("RX completed normally\n");
+						worker_run = 0;
+					}
+					break;
+
+				case DC_DIR_TX:
+					break;
+
+				default:
+					LOG_ERROR("worker_run with invalid worker_dir?\n");
+					worker_run = 0;
+					break;
+			}
 
 		// service timers last
 		timer_check (worker_opt_timer);
+		LOG_TRACE("Bottom of main loop\n");
 	}
 	if ( loop_stall )
 	{

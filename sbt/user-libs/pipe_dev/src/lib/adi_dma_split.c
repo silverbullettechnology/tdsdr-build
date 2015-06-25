@@ -40,7 +40,7 @@ int pipe_adi_dma_split_set_cmd (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_S_CMD[dev], reg)) )
-		printf("ADI_DMA_SPLIT_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_S_CMD[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -50,7 +50,7 @@ int pipe_adi_dma_split_get_cmd (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_G_CMD[dev], reg)) )
-		printf("ADI_DMA_SPLIT_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_G_CMD[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -60,7 +60,7 @@ int pipe_adi_dma_split_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_G_STAT[dev], reg)) )
-		printf("ADI_DMA_SPLIT_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -70,7 +70,7 @@ int pipe_adi_dma_split_set_npkts (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_S_NPKTS[dev], reg)) )
-		printf("ADI_DMA_SPLIT_S_NPKTS[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_S_NPKTS[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -80,7 +80,7 @@ int pipe_adi_dma_split_get_npkts (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_G_NPKTS[dev], reg)) )
-		printf("ADI_DMA_SPLIT_G_NPKTS[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_G_NPKTS[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -90,7 +90,7 @@ int pipe_adi_dma_split_get_psize (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, ADI_DMA_SPLIT_G_PSIZE[dev], reg)) )
-		printf("ADI_DMA_SPLIT_G_PSIZE[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("ADI_DMA_SPLIT_G_PSIZE[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

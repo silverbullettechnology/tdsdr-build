@@ -66,10 +66,17 @@ static int daemon_config_paths (const char *section, const char *tag, const char
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
-	if ( !strcmp(tag, "worker") )
+	if ( !strcmp(tag, "worker-exec") )
 	{
 		free(worker_exec_path);
 		worker_exec_path = strdup(val);
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( !strcmp(tag, "worker-config") )
+	{
+		free(worker_config_path);
+		worker_config_path = strdup(val);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -199,6 +206,7 @@ int daemon_config (const char *path)
 
 	// setting default values for items which can be changed with libconfig 
 	resource_config_path = strdup(DEF_RESOURCE_CONFIG_PATH);
+	worker_config_path   = strdup(DEF_WORKER_CONFIG_PATH);
 	worker_exec_path     = strdup(DEF_WORKER_EXEC_PATH);
 
 	static struct config_section_map cm[] =

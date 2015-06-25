@@ -42,6 +42,9 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 {
 	ENTER("req %p, rsp %p", req, rsp);
 
+	LOG_INFO("STOP: requested %s -> adi %d\n",
+	         dsa_util_chan_desc(worker_res.dc_bits), worker_adi);
+
 	if ( !(req->command.indicator & (1 << V49_CMD_IND_BIT_TSTAMP_INT)) )
 	{
 		LOG_ERROR("Stop: tstamp_int field is required\n");
@@ -57,7 +60,9 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 
 	worker_tsi = req->ts_int;
 	worker_tsf = req->ts_frac;
-	LOG_DEBUG("Stop: TSI %d, TSF %zu\n", (int)worker_tsi, worker_tsf);
+	worker_len = worker_tsf * 8; // XXX: assumes T2R2
+	LOG_DEBUG("Stop: TSI %d, TSF %zu -> len %zu\n",
+	          (int)worker_tsi, worker_tsf, worker_len);
 	rsp->command.result = V49_CMD_RES_SUCCESS;
 
 	RETURN_ERRNO(0);

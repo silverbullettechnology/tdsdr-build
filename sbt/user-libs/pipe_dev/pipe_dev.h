@@ -17,6 +17,7 @@
  */
 #ifndef _INCLUDE_PIPE_DEV_H_
 #define _INCLUDE_PIPE_DEV_H_
+#include <stdio.h>
 #include <pd_main.h>
 
 
@@ -25,6 +26,7 @@
 
 int  pipe_dev_reopen (const char *node);
 void pipe_dev_close  (void);
+void pipe_dev_error  (FILE *fp);
 
 
 /******* Access request / release functions *******/

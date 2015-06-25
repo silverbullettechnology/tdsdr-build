@@ -37,36 +37,37 @@ LOG_MODULE_STATIC("worker_command_open", LOG_LEVEL_WARN);
 static void worker_command_open_rx (int ident)
 {
 	unsigned long  reg;
-	int            adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
+
+	LOG_INFO("OPEN RX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
 
 	// reset blocks in the PL
-	fifo_adi_new_write(adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
-	pipe_vita49_pack_set_ctrl(adi,     PD_VITA49_PACK_CTRL_RESET);
-	pipe_vita49_trig_adc_set_ctrl(adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_adi2axis_set_ctrl(adi,        PD_ADI2AXIS_CTRL_RESET);
-	pipe_swrite_pack_set_cmd(adi,      PD_SWRITE_PACK_CMD_RESET);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, 0);
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_RESET);
+	pipe_vita49_trig_adc_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
+	pipe_adi2axis_set_ctrl(worker_adi,        PD_ADI2AXIS_CTRL_RESET);
+	pipe_swrite_pack_set_cmd(worker_adi,      PD_SWRITE_PACK_CMD_RESET);
 	usleep(1000);
 
-	fifo_adi_new_write(adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, ADI_NEW_RX_RSTN);
-	pipe_vita49_pack_set_ctrl(adi,     0);
-	pipe_vita49_trig_adc_set_ctrl(adi, 0);
-	pipe_adi2axis_set_ctrl(adi,        0);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, ADI_NEW_RX_RSTN);
+	pipe_vita49_pack_set_ctrl(worker_adi,     0);
+	pipe_vita49_trig_adc_set_ctrl(worker_adi, 0);
+	pipe_adi2axis_set_ctrl(worker_adi,        0);
 
 	// V49 packer setup
-	pipe_vita49_pack_set_streamid(adi, worker_sid);
-	pipe_vita49_pack_set_pkt_size(adi, 64); // 64 32-bit words -> 256 bytes
-	pipe_vita49_pack_set_trailer(adi,  0xaaaaaaaa); // trailer for alignment
-	pipe_vita49_pack_set_ctrl(adi,     PD_VITA49_PACK_CTRL_ENABLE |
+	pipe_vita49_pack_set_streamid(worker_adi, worker_sid);
+	pipe_vita49_pack_set_pkt_size(worker_adi, 64); // 64 32-bit words -> 256 bytes
+	pipe_vita49_pack_set_trailer(worker_adi,  0xaaaaaaaa); // trailer for alignment
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE |
 	                                   PD_VITA49_PACK_CTRL_TRAILER);
 
 	// SWRITE packer setup 
-	pipe_swrite_pack_set_srcdest(adi, worker_tuser);
-	pipe_swrite_pack_set_addr(adi,    worker_sid); // sets SWRITE addr, matched on RX side
-	pipe_swrite_pack_set_cmd(adi,     PD_SWRITE_PACK_CMD_START);
+	pipe_swrite_pack_set_srcdest(worker_adi, worker_tuser);
+	pipe_swrite_pack_set_addr(worker_adi,    worker_sid); // sets SWRITE addr, matched on RX side
+	pipe_swrite_pack_set_cmd(worker_adi,     PD_SWRITE_PACK_CMD_START);
 
 	// Set adc_sw_dest switch to 1,0 for ADI -> SRIO
 	pipe_routing_reg_get_adc_sw_dest(&reg);
-	switch ( adi )
+	switch ( worker_adi )
 	{
 		case 0:
 			reg |=  PD_ROUTING_REG_ADC_SW_DEST_0;
@@ -82,35 +83,36 @@ static void worker_command_open_rx (int ident)
 
 	// FIFO setup - RX channel 1/2 parameters - minimal setup for now
 	reg = ADI_NEW_RX_FORMAT_ENABLE | ADI_NEW_RX_ENABLE;
-	fifo_adi_new_write(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
-	fifo_adi_new_write(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
-	fifo_adi_new_write(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
-	fifo_adi_new_write(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(0), reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(1), reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(2), reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CHAN_CNTRL(3), reg);
 
 	// Always using T2R2 for now
-	fifo_adi_new_read(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
+	fifo_adi_new_read(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, &reg);
 	reg &= ~ADI_NEW_RX_R1_MODE;
-	fifo_adi_new_write(adi, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_RX, ADI_NEW_RX_REG_CNTRL, reg);
 }
 
 static void worker_command_open_tx (int ident)
 {
 	unsigned long  reg;
-	int            adi = DC_DEV_MASK_TO_IDX(ident & (DC_DEV_AD1|DC_DEV_AD2));
 	int            ch;
 
+	LOG_INFO("OPEN TX: requested %s -> adi %d\n", dsa_util_chan_desc(ident), worker_adi);
+
 	// reset blocks in the PL
-	fifo_adi_new_write(adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
-	pipe_vita49_assem_set_cmd(adi,     PD_VITA49_ASSEM_CMD_RESET);
-	pipe_vita49_unpack_set_ctrl(adi,   PD_VITA49_UNPACK_CTRL_RESET);
-	pipe_vita49_trig_dac_set_ctrl(adi, PD_VITA49_TRIG_CTRL_RESET);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
+	pipe_vita49_assem_set_cmd(worker_adi,     PD_VITA49_ASSEM_CMD_RESET);
+	pipe_vita49_unpack_set_ctrl(worker_adi,   PD_VITA49_UNPACK_CTRL_RESET);
+	pipe_vita49_trig_dac_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
 	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
 	usleep(1000);
 
-	fifo_adi_new_write(adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
-	pipe_vita49_assem_set_cmd(adi,     0);
-	pipe_vita49_unpack_set_ctrl(adi,   0);
-	pipe_vita49_trig_dac_set_ctrl(adi, 0);
+	fifo_adi_new_write(worker_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
+	pipe_vita49_assem_set_cmd(worker_adi,     0);
+	pipe_vita49_unpack_set_ctrl(worker_adi,   0);
+	pipe_vita49_trig_dac_set_ctrl(worker_adi, 0);
 
 
 	// Set swrite routing to ADI
@@ -120,32 +122,33 @@ static void worker_command_open_tx (int ident)
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 	// SWRITE unpacker setup 
-	pipe_swrite_unpack_set_addr(adi, worker_sid);
+	pipe_swrite_unpack_set_addr(worker_adi, worker_sid);
 
 	// V49 unpacker setup
-	pipe_vita49_unpack_set_strm_id(adi, worker_sid);
-	pipe_vita49_unpack_set_ctrl(adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
-	                                    PD_VITA49_UNPACK_CTRL_TRAILER);
+	pipe_vita49_unpack_set_strm_id(worker_adi, worker_sid);
+	pipe_vita49_unpack_set_ctrl(worker_adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
+	                                           PD_VITA49_UNPACK_CTRL_TRAILER);
 
 	// FIFO setup - Select DMA source, enable format, disable T1R1 mode
 	reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);
 	reg |= ADI_NEW_TX_DATA_FORMAT;
 	reg &= ~ADI_NEW_TX_R1_MODE;
-	fifo_adi_new_write(adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_2, reg);
 
 	// Rate 3 for T2R2 mode
 	reg = ADI_NEW_TX_TO_RATE(3);
-	fifo_adi_new_write(adi, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 
 	// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
-	printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
+	LOG_DEBUG("Set new worker_ADI v8 DAC_DDS_SEL to 2\n");
 	for ( ch = 0; ch < 4; ch++ )
-		fifo_adi_new_write(adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch), 0x02);
+		fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
+		                   0x04);
 
 	// enable TX at ADI FIFO
-	fifo_adi_new_read(adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);
+	fifo_adi_new_read(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);
 	reg |= ADI_NEW_TX_ENABLE;
-	fifo_adi_new_write(adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, reg);
+	fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, reg);
 }
 
 
@@ -161,13 +164,15 @@ void worker_command_open (struct v49_common *req, struct v49_common *rsp)
 	// access request first
 	if ( fifo_access_request(worker_res.fd_bits) )
 	{
-		printf("fifo_access_request(0x%x): %s\n", worker_res.fd_bits, strerror(errno));
+		LOG_ERROR("fifo_access_request(0x%lx): %s\n",
+		          worker_res.fd_bits, strerror(errno));
 		rsp->command.result = V49_CMD_RES_ACCESS;
 		RETURN_ERRNO(EPERM);
 	}
 	if ( pipe_access_request(worker_res.fd_bits) )
 	{
-		printf("pipe_access_request(0x%x): %s\n", worker_res.fd_bits, strerror(errno));
+		LOG_ERROR("pipe_access_request(0x%lx): %s\n",
+		          worker_res.fd_bits, strerror(errno));
 		fifo_access_release(~0);
 		rsp->command.result = V49_CMD_RES_ACCESS;
 		RETURN_ERRNO(EPERM);

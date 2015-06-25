@@ -34,6 +34,7 @@
 
 int            fifo_dev_fd = -1;
 unsigned long  fifo_dev_target_mask = 0;
+FILE          *fifo_dev_err = NULL;
 
 
 void fifo_dev_close (void)
@@ -51,12 +52,12 @@ int fifo_dev_reopen (const char *node)
 	fifo_dev_close();
 
 	errno = 0;
-	if ( (fifo_dev_fd = open(node, O_RDWR)) < 0 )
+	if ( (fifo_dev_fd = open(node, O_RDWR|O_NONBLOCK)) < 0 )
 		return fifo_dev_fd;
 
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_TARGET_LIST, &fifo_dev_target_mask)) )
 	{
-		printf("FD_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
+		ERROR("FD_IOCG_TARGET_LIST: %d: %s", ret, strerror(errno));
 		fifo_dev_close();
 		return -1;
 	}
@@ -77,6 +78,11 @@ const char *fifo_dev_target_desc (unsigned long mask)
 		     mask & FD_TARGT_DSX1 ? "dsx1 " : "");
 
 	return buff;
+}
+
+void fifo_dev_error (FILE *fp)
+{
+	fifo_dev_err = fp;
 }
 
 

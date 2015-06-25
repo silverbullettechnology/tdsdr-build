@@ -34,7 +34,7 @@ int pipe_vita49_clk_set_ctrl (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_VITA49_CLK_CTRL, reg)) )
-		printf("PD_IOCS_VITA49_CLK_CTRL, %08x: %d: %s\n", reg, ret, strerror(errno));
+		ERROR("PD_IOCS_VITA49_CLK_CTRL, %08x: %d: %s\n", reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -44,7 +44,7 @@ int pipe_vita49_clk_get_ctrl (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_VITA49_CLK_CTRL, reg)) )
-		printf("PD_IOCG_VITA49_CLK_CTRL, %08x: %d: %s\n", ret, reg, strerror(errno));
+		ERROR("PD_IOCG_VITA49_CLK_CTRL, %08x: %d: %s\n", ret, reg, strerror(errno));
 
 	return ret;
 }
@@ -54,7 +54,7 @@ int pipe_vita49_clk_get_stat (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_VITA49_CLK_STAT, reg)) )
-		printf("PD_IOCG_VITA49_CLK_STAT: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_VITA49_CLK_STAT: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -64,7 +64,7 @@ int pipe_vita49_clk_set_tsi (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_VITA49_CLK_TSI, reg)) )
-		printf("PD_IOCS_VITA49_CLK_TSI, %08x: %d: %s\n", reg, ret, strerror(errno));
+		ERROR("PD_IOCS_VITA49_CLK_TSI, %08x: %d: %s\n", reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -74,7 +74,7 @@ int pipe_vita49_clk_get_tsi (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_VITA49_CLK_TSI, reg)) )
-		printf("PD_IOCG_VITA49_CLK_TSI: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_VITA49_CLK_TSI: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -84,7 +84,7 @@ int pipe_vita49_clk_read (int dev, struct pd_vita49_ts *ts)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_CLK_READ[dev], ts)) )
-		printf("VITA49_CLK_READ[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_CLK_READ[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

@@ -28,6 +28,7 @@
 LOG_MODULE_STATIC("worker", LOG_LEVEL_WARN);
 
 
+char *worker_config_path;
 char *worker_exec_path;
 
 

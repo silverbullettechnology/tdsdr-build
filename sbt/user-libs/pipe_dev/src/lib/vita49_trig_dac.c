@@ -39,7 +39,7 @@ int pipe_vita49_trig_dac_set_ctrl (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_TRIG_S_CTRL[dev], reg)) )
-		printf("VITA49_TRIG_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("VITA49_TRIG_S_CTRL[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -49,7 +49,7 @@ int pipe_vita49_trig_dac_get_ctrl (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_TRIG_G_CTRL[dev], reg)) )
-		printf("VITA49_TRIG_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_TRIG_G_CTRL[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -59,7 +59,7 @@ int pipe_vita49_trig_dac_get_stat (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_TRIG_G_STAT[dev], reg)) )
-		printf("VITA49_TRIG_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_TRIG_G_STAT[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -69,7 +69,7 @@ int pipe_vita49_trig_dac_set_ts (int dev, struct pd_vita49_ts *buf)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_TRIG_S_TS[dev], buf)) )
-		printf("VITA49_TRIG_S_TS[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_TRIG_S_TS[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }
@@ -79,7 +79,7 @@ int pipe_vita49_trig_dac_get_ts (int dev, struct pd_vita49_ts *buf)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, VITA49_TRIG_G_TS[dev], buf)) )
-		printf("VITA49_TRIG_G_TS[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("VITA49_TRIG_G_TS[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

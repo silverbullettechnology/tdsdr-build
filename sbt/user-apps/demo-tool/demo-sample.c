@@ -44,7 +44,7 @@
 #include "demo-common.h"
 
 
-LOG_MODULE_STATIC("demo-sample", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("demo-sample", LOG_LEVEL_INFO);
 
 
 unsigned    opt_chan     = 4;
@@ -400,12 +400,12 @@ int main (int argc, char **argv)
 		goto exit_release;
 	LOG_DEBUG("Resource opened OK\n");
 
-	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_words) < 1 )
+	if ( seq_stop(sock, demo_sid, TSTAMP_INT_RELATIVE, 0, opt_data / 8) < 1 )
 		goto exit_close;
 	LOG_DEBUG("Stop point set at %zu samples\n", opt_words);
 
 
-	LOG_FOCUS("Ready to start...");
+	LOG_FOCUS("Ready to start, press a key to sample...");
 	terminal_pause();
 
 
@@ -417,14 +417,15 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_close;
 	}
+	LOG_INFO("triggered\nSend start command... ");
 
 	seq_start(sock, demo_sid, TSTAMP_INT_IMMEDIATE, 0, 0);
 
 	// wait for started DMA channels to finish or timeout
-	LOG_INFO("\nWaiting for DMA to finish... ");
+	LOG_INFO("sent and acked\nWait for DMA to finish... ");
 	if ( dsm_oneshot_wait(~0) )
 	{
-		printf("dsm_oneshot_wait() failed: %s\n", strerror(errno));
+		LOG_ERROR("dsm_oneshot_wait() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_close;
 	}
@@ -516,13 +517,13 @@ exit_release:
 
 exit_unmap:
 	if ( dsm_cleanup() )
-		printf("dsm_cleanup() failed: %s\n", strerror(errno));
+		LOG_ERROR("dsm_cleanup() failed: %s\n", strerror(errno));
 	else
-		printf("Buffer unmapped with kernel module\n");
+		LOG_ERROR("Buffer unmapped with kernel module\n");
 
 exit_free:
 	dsm_user_free(buff, opt_words);
-	printf("Buffer unlocked and freed\n");
+	LOG_INFO("Buffer unlocked and freed\n");
 
 exit_pipe:
 	pipe_dev_close();

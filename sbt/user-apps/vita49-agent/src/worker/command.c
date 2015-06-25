@@ -101,9 +101,10 @@ void worker_command_recv (struct v49_common *req_v49)
 			break;
 	}
 
-	LOG_DEBUG("%s: format reply:\n", __func__);
+	LOG_DEBUG("%s: dump reply:\n", __func__);
 	v49_dump(LOG_LEVEL_DEBUG, &rsp_v49);
 
+	LOG_DEBUG("%s: format reply\n", __func__);
 	if ( (ret = v49_format(&rsp_v49, mbuf, NULL)) != V49_OK_COMPLETE )
 	{
 		LOG_ERROR("v49_format: %s\n", v49_return_desc(ret));
@@ -111,6 +112,7 @@ void worker_command_recv (struct v49_common *req_v49)
 		RETURN_ERRNO(0);
 	}
 
+	LOG_DEBUG("%s: enqueue reply\n", __func__);
 	worker_northbound(mbuf);
 	RETURN_ERRNO(0);
 }

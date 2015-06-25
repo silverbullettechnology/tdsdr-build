@@ -36,7 +36,7 @@ int pipe_swrite_unpack_set_cmd (unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_SWRITE_UNPACK_CMD, reg)) )
-		printf("PD_IOCS_SWRITE_UNPACK_CMD[%d], %08x: %d: %s\n", reg, ret, strerror(errno));
+		ERROR("PD_IOCS_SWRITE_UNPACK_CMD[%d], %08x: %d: %s\n", reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -46,7 +46,7 @@ int pipe_swrite_unpack_get_cmd (unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SWRITE_UNPACK_CMD, reg)) )
-		printf("PD_IOCG_SWRITE_UNPACK_CMD[%d]: %d: %s\n", ret, strerror(errno));
+		ERROR("PD_IOCG_SWRITE_UNPACK_CMD[%d]: %d: %s\n", ret, strerror(errno));
 
 	return ret;
 }
@@ -56,7 +56,7 @@ int pipe_swrite_unpack_set_addr (int dev, unsigned long reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_UNPACK_S_ADDR[dev], reg)) )
-		printf("SWRITE_UNPACK_S_ADDR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+		ERROR("SWRITE_UNPACK_S_ADDR[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
 
 	return ret;
 }
@@ -66,7 +66,7 @@ int pipe_swrite_unpack_get_addr (int dev, unsigned long *reg)
 	int ret;
 
 	if ( (ret = ioctl(pipe_dev_fd, SWRITE_UNPACK_G_ADDR[dev], reg)) )
-		printf("SWRITE_UNPACK_G_ADDR[%d]: %d: %s\n", dev, ret, strerror(errno));
+		ERROR("SWRITE_UNPACK_G_ADDR[%d]: %d: %s\n", dev, ret, strerror(errno));
 
 	return ret;
 }

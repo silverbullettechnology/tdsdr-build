@@ -38,7 +38,7 @@ int fifo_adi_new_read (int dev, int tx, unsigned long ofs, unsigned long *val)
 
 	// on failure print same error as kernelspace
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCG_ADI_NEW_REG, &regs)) )
-		printf("FD_IOCG_ADI_NEW_REG AD%c %cX OFS %04lx READ %08lx: %d: %s\n",
+		ERROR("FD_IOCG_ADI_NEW_REG AD%c %cX OFS %04lx READ %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));
 
@@ -62,7 +62,7 @@ int fifo_adi_new_write (int dev, int tx, unsigned long ofs, unsigned long val)
 
 	// on failure print same error as kernelspace
 	if ( (ret = ioctl(fifo_dev_fd, FD_IOCS_ADI_NEW_REG_RB, &regs)) )
-		printf("FD_IOCS_ADI_NEW_REG_RB AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
+		ERROR("FD_IOCS_ADI_NEW_REG_RB AD%c %cX OFS %04lx WRITE %08lx: %d: %s\n",
 		       (unsigned char)regs.adi + '1', regs.tx ? 'T' : 'R', regs.ofs, regs.val,
 		       ret, strerror(errno));
 

@@ -30,6 +30,11 @@ extern unsigned long         worker_tuser;
 extern time_t                worker_tsi;
 extern size_t                worker_tsf;
 
+// globals used for monitoring the burst
+extern int     worker_run;
+extern int     worker_adi;
+extern int     worker_dir;
+extern size_t  worker_len;
 
 void worker_shutdown (void);
 
