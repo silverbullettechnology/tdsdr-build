@@ -488,7 +488,7 @@ int main (int argc, char **argv)
 		pkt->v49_tsi  = 0;
 		pkt->v49_tsf1 = 0;
 		pkt->v49_tsf2 = ntohl(smp);
-		pkt->v49_trailer = 0xaaaaaaaa;
+		pkt->v49_trailer = 0;
 
 		pkt++;
 		smp += 29;

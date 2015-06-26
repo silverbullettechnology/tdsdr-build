@@ -100,6 +100,7 @@ static void usage (void)
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
 	       "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
+	       "-R remote     SRIO destination device-ID (default %d)\n"
 	       "-S size       Set payload size in samples (K or M optional)\n"
 	       "-s size       Set payload size in bytes (K or M optional)\n"
 	       "-t timeout    Set timeout in jiffies\n"
@@ -169,7 +170,7 @@ int main (int argc, char **argv)
 	log_set_global_level(module_level);
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvd:c:s:S:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvd:R:c:s:S:t:n:o:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -211,6 +212,7 @@ int main (int argc, char **argv)
 				break;
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
+			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
