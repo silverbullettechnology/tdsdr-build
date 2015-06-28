@@ -81,24 +81,28 @@ struct recv_packet
 
 static struct format_options sd_fmt_opts =
 {
-	.channels = 3,
+	.channels = 0,
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
-	.bits     = 16,
+	.bits     = 12,
 	.packet   = 272,
 	.head     = 36,
 	.data     = 232,
 	.foot     = 4,
-	.flags    = FO_ENDIAN,
+	.flags    = FO_ENDIAN | FO_IQ_SWAP,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: demo-sample [-v] [-d lvl] [-R remote] [-s|-S size] [-t timeout] [-o raw]\n"
-	       "                  adi-name out-file\n"
+	printf("Usage: demo-sample [-vei12] [-d lvl] [-R remote] [-s|-S size] [-t timeout] [-o raw]\n"
+	       "                   adi-name out-file\n"
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
+	       "-e            Toggle endian swap (default on)\n"
+	       "-i            Toggle I/Q swap (default on)\n"
+	       "-1            Save channel 1 (when using a single-channel format) \n"
+	       "-2            Save channel 2 (when using a single-channel format) \n"
 	       "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	       "-R remote     SRIO destination device-ID (default %d)\n"
 	       "-S size       Set payload size in samples (K or M optional)\n"
@@ -170,13 +174,18 @@ int main (int argc, char **argv)
 	log_set_global_level(module_level);
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvd:R:c:s:S:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:c:s:S:t:n:o:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				opt_debug = stderr;
 				format_debug_setup(stderr);
 				break;
+
+			case 'e': sd_fmt_opts.flags ^= FO_ENDIAN;   break;
+			case 'i': sd_fmt_opts.flags ^= FO_IQ_SWAP;  break;
+			case '1': sd_fmt_opts.channels |= (1 << 0); break;
+			case '2': sd_fmt_opts.channels |= (1 << 1); break;
 
 			// set debug verbosity level and enable trace
 			case 'd':
@@ -249,6 +258,23 @@ int main (int argc, char **argv)
 		LOG_ERROR("Couldn't identify format for '%s'\n", argv[optind]);
 		usage();
 	}
+
+	switch ( format_class_write_channels(opt_out_fmt) )
+	{
+		case FC_CHAN_BUFFER:
+			if ( sd_fmt_opts.channels )
+				LOG_WARN("Note: -1 or -2 ignored with format %s, saves both channels.\n", 
+				         format_class_name(opt_out_fmt));
+				break;
+
+		case FC_CHAN_SINGLE:
+			if ( sd_fmt_opts.channels == 3 )
+				LOG_ERROR("Note: both -1 and -2 given with format %s, only one allowed.\n", 
+				         format_class_name(opt_out_fmt));
+				return 1;
+	}
+	if ( !sd_fmt_opts.channels )
+		sd_fmt_opts.channels = 3;
 
 
 	if ( !(sock = socket_alloc("srio")) )

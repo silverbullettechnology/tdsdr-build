@@ -55,10 +55,8 @@ static void worker_command_open_rx (int ident)
 
 	// V49 packer setup
 	pipe_vita49_pack_set_streamid(worker_adi, worker_sid);
-	pipe_vita49_pack_set_pkt_size(worker_adi, 64); // 64 32-bit words -> 256 bytes
-	pipe_vita49_pack_set_trailer(worker_adi,  0xaaaaaaaa); // trailer for alignment
-	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE |
-	                                   PD_VITA49_PACK_CTRL_TRAILER);
+	pipe_vita49_pack_set_pkt_size(worker_adi, 63); // 63: 5 header, 58 data
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE);
 
 	// SWRITE packer setup 
 	pipe_swrite_pack_set_srcdest(worker_adi, worker_tuser);
@@ -141,10 +139,10 @@ static void worker_command_open_tx (int ident)
 	fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_RATECNTRL, reg);
 
 	// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
-	LOG_DEBUG("Set new worker_ADI v8 DAC_DDS_SEL to 4\n");
+	LOG_DEBUG("Set new worker_ADI v8 DAC_DDS_SEL to %d\n", worker_dma_mode);
 	for ( ch = 0; ch < 4; ch++ )
 		fifo_adi_new_write(worker_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
-		                   0x04);
+		                   worker_dma_mode);
 
 	// enable TX at ADI FIFO
 	fifo_adi_new_read(worker_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);

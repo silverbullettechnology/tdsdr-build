@@ -54,9 +54,10 @@ unsigned    opt_chan     = DEF_CHAN;
 size_t      opt_data     = 0;
 size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
+size_t      opt_trail    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
-int         opt_paint    = 0xFF;
+int         opt_paint    = 0;
 char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
@@ -82,32 +83,36 @@ struct send_packet
 
 static struct format_options sd_fmt_opts =
 {
-	.channels = 3,
+	.channels = 0,
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
-	.bits     = 16,
+	.bits     = 12,
 	.packet   = 272,
 	.head     = 36,
 	.data     = 232,
 	.foot     = 4,
-	.flags    = FO_ENDIAN,
+	.flags    = FO_ENDIAN | FO_IQ_SWAP,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-R remote] [-p paint] adi-name in-file\n"
+	printf("Usage: demo-transmit [-vei12] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                     [-R remote] [-p paint] [-z words] adi-name in-file\n"
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
+	       "-e            Toggle endian swap (default on)\n"
+	       "-i            Toggle I/Q swap (default on)\n"
+	       "-1            Load channel 1 (default is both)\n"
+	       "-2            Load channel 2 (default is both) \n"
 	       "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	       "-R remote     SRIO destination device-ID (default %d)\n"
 	       "-c channel    DMA channel to use (default %d)\n"
 	       "-S samples    Set payload size in samples (K or M optional)\n"
 	       "-s bytes      Set payload size in bytes (K or M optional)\n"
 	       "-t timeout    Set timeout in jiffies (default %u)\n"
-	       "-n npkts      Set number of packets for combiner (default from size)\n"
-	       "-p paint      Set byte to paint buffer before load (default 0xFF)\n"
+	       "-p paint      Set byte to paint buffer before load (default 0)\n"
+	       "-z words      Leave some number of paint samples at the buffer end (default none)\n"
 	       "\n"
 	       "adi-name is specified as a UUID or human-readable name, and must operate in the\n"
 	       "TX direction for transmit\n"
@@ -179,13 +184,18 @@ int main (int argc, char **argv)
 	log_set_global_level(module_level);
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvd:R:L:c:s:S:t:n:p:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:c:s:S:t:p:o:z:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				format_error_setup(stderr);
 				format_debug_setup(stderr);
 				break;
+
+			case 'e': sd_fmt_opts.flags ^= FO_ENDIAN;      break;
+			case 'i': sd_fmt_opts.flags ^= FO_IQ_SWAP;     break;
+			case '1': sd_fmt_opts.channels |= (1 << 0);    break;
+			case '2': sd_fmt_opts.channels |= (1 << 1);    break;
 
 			// set debug verbosity level and enable trace
 			case 'd':
@@ -223,9 +233,13 @@ int main (int argc, char **argv)
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
+
+			case 'z':
+				opt_trail = strtoul(optarg, NULL, 0);
+				opt_trail *= DSM_BUS_WIDTH;
+				break;
 
 			case 's':
 				opt_data = (size_bin(optarg) + 7) & ~7;
@@ -263,6 +277,23 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
+	switch ( format_class_read_channels(opt_in_fmt) )
+	{
+		case FC_CHAN_BUFFER:
+			if ( sd_fmt_opts.channels )
+				LOG_WARN("Note: -1 or -2 ignored with format %s, loads both channels.\n", 
+				         format_class_name(opt_in_fmt));
+				break;
+
+		case FC_CHAN_SINGLE:
+			if ( sd_fmt_opts.channels == 3 )
+				LOG_ERROR("Note: both -1 and -2 given with format %s, only one allowed.\n", 
+				         format_class_name(opt_in_fmt));
+				return 1;
+	}
+	if ( !sd_fmt_opts.channels )
+		sd_fmt_opts.channels = 3;
+
 	if ( !opt_data )
 	{
 		if ( !(in_fp = fopen(opt_in_file, "r")) )
@@ -281,9 +312,11 @@ int main (int argc, char **argv)
 	else if ( !(in_fp = fopen(opt_in_file, "r")) )
 			perror(opt_in_file);
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data + opt_trail);
+	opt_buff  = opt_npkts * sd_fmt_opts.packet;
+	opt_words = opt_buff / DSM_BUS_WIDTH;
+	printf("Data size %zu (%zu data + %zu trail) gives buffer size %zu, npkts %zu, words %zu\n",
+	       opt_data + opt_trail, opt_data, opt_trail, opt_buff, opt_npkts, opt_words);
 
 	LOG_DEBUG("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
@@ -397,9 +430,6 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
-	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -482,7 +512,7 @@ int main (int argc, char **argv)
 		pkt->hello[0] = demo_sid;
 
 		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F00040;
+		hdr = ((idx & 0xf) << 16) | 0x10F0003F;
 		pkt->v49_hdr  = ntohl(hdr);
 		pkt->v49_sid  = ntohl(demo_sid);
 		pkt->v49_tsi  = 0;

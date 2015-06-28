@@ -130,6 +130,7 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 	long      max  = sign - 1;
 	long      min  = 0 - sign;
 	uint16_t  val3;
+	uint16_t  val4;
 	uint16_t *type;
 
 	int       ch;
@@ -217,9 +218,12 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 			val3 |= sign;
 
 		if ( fs->opt->flags & FO_ENDIAN )
-			val3 = (val3 << 8) | (val3 >> 8);
+			val4 = (val3 << 8) | (val3 >> 8);
+		else
+			val4 = val3;
 
-		LOG_DEBUG("%s: sample %g -> %ld -> %04x -> ", __func__, *val1, val2, val3);
+		LOG_DEBUG("%s: sample %g -> %ld -> %04x -> %04x -> ", __func__,
+		          *val1, val2, val3, val4);
 
 		type = samp;
 		for ( ch = 0; (1 << ch) <= fs->opt->channels; ch++ )
@@ -227,13 +231,15 @@ static size_t format_iqw_read_block (struct format_state *fs, void *buff, size_t
 			{
 				// I/Q modified by swap flag
 				LOG_DEBUG("%d.%d ", ch, iq);
-				type[(ch * 2) + iq] = val3;
+				type[(ch * 2) + iq] = val4;
 			}
 
 		LOG_DEBUG("\n");
 		samp += fs->opt->sample;
 		val1++;
 	}
+	if ( format_debug )
+		hexdump_buff(format_debug, buff, size);
 
 	free(tmp);
 	errno = 0;

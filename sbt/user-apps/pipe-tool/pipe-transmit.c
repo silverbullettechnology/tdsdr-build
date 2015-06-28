@@ -43,17 +43,19 @@ long        opt_timeout  = 1500;
 uint32_t    opt_adi      = 0;
 uint32_t    opt_sid      = 0;
 FILE       *opt_debug    = NULL;
+long        opt_dma_mode = 4;
 
 
 static void usage (void)
 {
-	printf("Usage: pipe-transmit [-v] [-s bytes] [-t timeout] adi stream-id\n"
+	printf("Usage: pipe-transmit [-v] [-s bytes] [-t timeout] [-m mode] adi stream-id\n"
 	       "Where:\n"
 	       "-R dest     SRIO destination address (default 2)\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-S samples  Set payload size in samples (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
+	       "-m mode     DMA mode select for new ADI FIFOs (0-15, default 4)\n"
 	       "\n"
 	       "adi is required value, and be 0 or 1 for the ADI chain to use (T2R2 mode only,\n"
 	       "this will be aligned with DSA syntax in future.\n"
@@ -78,7 +80,7 @@ int main (int argc, char **argv)
 	int                      opt;
 	int                      ch;
 
-	while ( (opt = getopt(argc, argv, "?hvs:S:t:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvs:S:t:m:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -94,6 +96,14 @@ int main (int argc, char **argv)
 			case 'S':
 				opt_data  = size_dec(optarg);
 				opt_data *= 8;
+				break;
+
+			case 'm':
+				errno = 0;
+				opt_dma_mode = strtoul(optarg, NULL, 0);
+				if ( errno || opt_dma_mode > 15 )
+					usage();
+				printf("DMA mode set to %d\n", opt_dma_mode);
 				break;
 
 			default:
@@ -227,7 +237,9 @@ int main (int argc, char **argv)
 	// for version 8.xx set DAC_DDS_SEL to 0x02 input data (DMA)
 	printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
 	for ( ch = 0; ch < 4; ch++ )
-		fifo_adi_new_write(opt_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch), 0x04);
+		fifo_adi_new_write(opt_adi, ADI_NEW_TX, ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
+		                   opt_dma_mode);
+	
 
 	// enable TX at ADI FIFO
 	fifo_adi_new_read(opt_adi, ADI_NEW_TX, ADI_NEW_TX_REG_CNTRL_1, &reg);

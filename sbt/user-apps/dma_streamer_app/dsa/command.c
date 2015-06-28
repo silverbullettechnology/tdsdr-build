@@ -830,7 +830,7 @@ for ( ret = 0; ret <= argc; ret++ )
 				{
 					int ch;
 
-					printf("Set new ADI v8 DAC_DDS_SEL to 2\n");
+					printf("Set new ADI v8 DAC_DDS_SEL to %d\n", dsa_adi_mode);
 					for ( ch = 0; ch < 4; ch++ )
 						fifo_adi_new_write(dev, ADI_NEW_TX,
 						                   ADI_NEW_RX_REG_CHAN_DAC_DDS_SEL(ch),
@@ -1197,12 +1197,7 @@ for ( ret = 0; ret <= argc; ret++ )
 				          ts.tsi, ts.tsf_hi, ts.tsf_lo);
 
 			}
-
-		if ( pipe_access_release(~0) )
-			LOG_ERROR("Failed to release pipe access? %s\n", strerror(errno));
 	}
-	if ( fifo_access_release(~0) )
-		LOG_ERROR("Failed to release fifo access? %s\n", strerror(errno));
 
 	// save sink buffers 
 	if ( dsa_channel_save(&dsa_evt) < 0 )

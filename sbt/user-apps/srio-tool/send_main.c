@@ -51,6 +51,7 @@ unsigned    opt_npkts    = 0;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
 uint8_t     opt_paint    = 0xFF;
+char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
@@ -80,7 +81,7 @@ static struct format_options sd_fmt_opts =
 	.packet   = 272,
 	.head     = 36,
 	.data     = 232,
-	.foot     = 4,
+	.foot     = 0,
 	.flags    = FO_ENDIAN,
 };
 
@@ -164,7 +165,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:p:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:p:o:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -177,6 +178,7 @@ int main (int argc, char **argv)
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
+			case 'o': opt_rawfile = optarg;                   break;
 
 			case 's':
 				opt_data = (size_bin(optarg) + 7) & ~7;
@@ -395,7 +397,7 @@ int main (int argc, char **argv)
 		pkt->hello[0] = opt_sid;
 
 		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F00040;
+		hdr = ((idx & 0xf) << 16) | 0x10F0003F;
 		pkt->v49_hdr  = ntohl(hdr);
 		pkt->v49_sid  = ntohl(opt_sid);
 		pkt->v49_tsi  = 0;
@@ -405,6 +407,33 @@ int main (int argc, char **argv)
 
 		pkt++;
 		smp += 29;
+	}
+
+	if ( opt_rawfile )
+	{
+		int  fd = open(opt_rawfile, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+		if ( fd > -1 )
+		{
+			void   *walk = buff;
+			size_t  left = opt_buff;
+			int     ret;
+
+			while ( left >= 4096 )
+			{
+				if ( (ret = write(fd, walk, 4096)) < 0 )
+				{
+					perror("write");
+					break;
+				}
+				walk += ret;
+				left -= ret;
+			}
+			if ( left && (ret = write(fd, walk, left)) < 0 )
+				perror("write");
+			close(fd);
+		}
+		else
+			perror(opt_rawfile);
 	}
 
 	if ( opt_debug )

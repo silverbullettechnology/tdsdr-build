@@ -29,6 +29,7 @@ extern unsigned              worker_sid;
 extern unsigned long         worker_tuser;
 extern time_t                worker_tsi;
 extern size_t                worker_tsf;
+extern int                   worker_dma_mode;
 
 // globals used for monitoring the burst
 extern int     worker_run;

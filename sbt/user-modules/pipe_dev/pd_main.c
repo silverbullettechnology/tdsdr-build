@@ -1027,6 +1027,13 @@ static int pd_release (struct inode *i, struct file *f)
 
 	spin_lock_irqsave(&pd_lock, flags);
 	list_del_init(&priv->list);
+	if ( priv->granted )
+	{
+		pr_info("%s: user closed device without releasing granted 0x%lx\n",
+		        __func__, priv->granted);
+		pd_granted &= ~priv->granted;
+		pr_debug("%s: released bits 0x%lx\n", __func__, priv->granted);
+	}
 	spin_unlock_irqrestore(&pd_lock, flags);
 
 	kfree(priv);

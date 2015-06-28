@@ -290,6 +290,11 @@ int main(int argc, char *argv[])
 			dsa_main_header();
 			dsa_command_setup_usage();
 			dsa_main_formats();
+
+			if ( dsa_pipe_dev )
+				pipe_access_release(~0);
+			fifo_access_release(~0);
+
 			return 1;
 		}
 		else if ( ret < 1 )
@@ -309,6 +314,11 @@ int main(int argc, char *argv[])
 		dsa_command_setup_usage();
 		dsa_command_trigger_usage();
 		dsa_main_footer();
+
+		if ( dsa_pipe_dev )
+			pipe_access_release(~0);
+		fifo_access_release(~0);
+
 		return 1;
 	}
 	dsa_channel_event_dump(&dsa_evt);
@@ -324,6 +334,9 @@ int main(int argc, char *argv[])
 	dsa_channel_cleanup(&dsa_evt);
 
 	LOG_DEBUG("Close device...\n");
+	if ( dsa_pipe_dev )
+		pipe_access_release(~0);
+	fifo_access_release(~0);
 	dsa_main_dev_close();
 	return 0;
 }
