@@ -55,8 +55,10 @@ static void worker_command_open_rx (int ident)
 
 	// V49 packer setup
 	pipe_vita49_pack_set_streamid(worker_adi, worker_sid);
-	pipe_vita49_pack_set_pkt_size(worker_adi, 63); // 63: 5 header, 58 data
-	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE);
+	pipe_vita49_pack_set_pkt_size(worker_adi, 64); // 64 32-bit words -> 256 bytes
+	pipe_vita49_pack_set_trailer(worker_adi,  0xaaaaaaaa); // trailer for alignment
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE |
+	                                          PD_VITA49_PACK_CTRL_TRAILER);
 
 	// SWRITE packer setup 
 	pipe_swrite_pack_set_srcdest(worker_adi, worker_tuser);
