@@ -172,6 +172,7 @@ int main (int argc, char **argv)
 				opt_debug = stderr;
 				format_debug_setup(stderr);
 				break;
+
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;

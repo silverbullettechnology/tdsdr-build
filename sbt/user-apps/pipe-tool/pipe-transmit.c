@@ -80,13 +80,14 @@ int main (int argc, char **argv)
 	int                      opt;
 	int                      ch;
 
-	while ( (opt = getopt(argc, argv, "?hvs:S:t:m:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:s:S:t:m:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				opt_debug = stderr;
 				break;
 
+			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 
 			case 's':
