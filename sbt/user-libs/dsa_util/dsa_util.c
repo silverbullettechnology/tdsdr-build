@@ -56,7 +56,7 @@ int dsa_util_spec_parse (const char *spec)
 	// if the string starts with "AD" in any case it's parsed, otherwise it's passed over
 	errno = 0;
 	if ( tolower(spec[0]) != 'a' || tolower(spec[1]) != 'd' )
-		return -1;
+		return 0;
 
 	// skip punctation
 	while ( *ptr && !isalnum(*ptr) )

@@ -75,7 +75,7 @@ static int dsm_thread (void *data)
 	memset(&chan->stats, 0, sizeof(struct dsm_xfer_stats));
 	chan->user->stats_mask |= 1 << chan->slot;
 
-	xfer->left = xfer->words;
+	xfer->left = xfer->chunk;
 	while ( xfer->left > 0 )
 	{
 		pr_debug("%s: left %lu\n", chan->name, xfer->left);
@@ -155,7 +155,7 @@ static int dsm_thread (void *data)
 		if ( !xfer->left && atomic_read(&chan->cyclic) )
 		{
 			pr_debug("cyclic: reset\n");
-			xfer->left = xfer->words;
+			xfer->left = xfer->chunk;
 		}
 	}
 

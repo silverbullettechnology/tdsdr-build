@@ -632,20 +632,27 @@ for ( ret = 0; ret <= argc; ret++ )
 	// mapping for DMA
 	for ( dev = 0; dev < 2; dev++ )
 	{
-		int err = 0;
+		struct dsm_user_xfer  xfer;
+		int                   err = 0;
 
 		if ( dsa_evt.tx[dev] )
 		{
-			ret = dsm_map_user(dsa_dsm_tx_channels[dev], 1,
-			                   dsa_evt.tx[dev]->smp, dsa_evt.tx[dev]->len);
+			xfer.addr  = (unsigned long)dsa_evt.tx[dev]->smp; 
+			xfer.size  = dsa_evt.tx[dev]->len;
+			xfer.words = dsa_evt.tx[dev]->len * reps;
+
+			ret = dsm_map_user_array(dsa_dsm_tx_channels[dev], 1, 1, &xfer);
 			if ( ret ) 
 				err++;
 		}
 
 		if ( dsa_evt.rx[dev] )
 		{
-			ret = dsm_map_user(dsa_dsm_rx_channels[dev], 0,
-			                   dsa_evt.rx[dev]->smp, dsa_evt.rx[dev]->len);
+			xfer.addr  = (unsigned long)dsa_evt.rx[dev]->smp; 
+			xfer.size  = dsa_evt.rx[dev]->len;
+			xfer.words = dsa_evt.rx[dev]->len;
+
+			ret = dsm_map_user_array(dsa_dsm_rx_channels[dev], 0, 1, &xfer);
 			if ( ret ) 
 				err++;
 		}
@@ -666,7 +673,6 @@ for ( ret = 0; ret <= argc; ret++ )
 		timeout = 100;
 	dsm_set_timeout(timeout);
 
-#if 0
 	if ( dsa_evt.rx[0] || dsa_evt.rx[1] )
 	{
 		if ( reps > 1 )
@@ -674,7 +680,6 @@ for ( ret = 0; ret <= argc; ret++ )
 		else if ( !reps )
 			LOG_WARN("Specified continuous transfer is TX only; RX will run once\n");
 	}
-#endif
 
 	// New FIFO controls: Reset only
 	if ( dsa_adi_new )

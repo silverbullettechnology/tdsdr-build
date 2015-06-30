@@ -119,6 +119,7 @@ struct dsm_user_xfer
 {
 	unsigned long  addr;   /* Userspace address for get_user_pages() */
 	unsigned long  size;   /* Size of userspace buffer in words */
+	unsigned long  words;  /* Number of words to transfer per repetition */
 };
 
 struct dsm_user_buffs

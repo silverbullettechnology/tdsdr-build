@@ -178,6 +178,15 @@ int dsm_chan_map_user (struct dsm_user *user, struct dsm_user_buffs *ucb)
 	// setup xfer buffs
 	for ( xfer = 0; xfer < chan->xfer_size; xfer++ )
 	{
+		// words must be a multiple of size, equal at minimum
+		if ( ucb->list[xfer].words % ucb->list[xfer].size )
+		{
+			ucb->list[xfer].words /= ucb->list[xfer].size;
+			ucb->list[xfer].words *= ucb->list[xfer].size;
+		}
+		if ( ucb->list[xfer].words < ucb->list[xfer].size )
+			ucb->list[xfer].words = ucb->list[xfer].size;
+
 		chan->xfer_list[xfer] = dsm_xfer_map_user(chan, desc, &ucb->list[xfer]);
 		if ( !chan->xfer_list[xfer] )
 		{

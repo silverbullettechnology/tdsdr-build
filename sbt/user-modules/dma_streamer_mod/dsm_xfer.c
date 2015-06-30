@@ -159,7 +159,13 @@ struct dsm_xfer *dsm_xfer_map_user (struct dsm_chan            *chan,
 	xfer->pages = us_count;
 	xfer->bytes = us_bytes;
 	xfer->words = us_words;
-	pr_debug("%lu words per DMA\n", xfer->words);
+
+	// setup for burst/repeat transfer
+	xfer->chunk = buff->words;
+	pr_debug("%lu words per DMA, %lu per rep = %lu + %lu reps\n",
+	         xfer->words, xfer->chunk,
+	         xfer->chunk / xfer->words,
+	         xfer->chunk % xfer->words);
 
 	// allocate scatterlists and init
 	pr_debug("%d sg pages\n", sg_count);

@@ -232,8 +232,9 @@ int dsm_map_user (unsigned long slot, unsigned long tx, void *addr, unsigned lon
 {
 	struct dsm_user_xfer xfer =
 	{
-		.addr = (unsigned long)addr,
-		.size = size,
+		.addr  = (unsigned long)addr,
+		.size  = size,
+		.words = size,
 	};
 
 	return dsm_map_user_array(slot, tx, 1, &xfer);
