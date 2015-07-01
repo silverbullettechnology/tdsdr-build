@@ -140,7 +140,7 @@ static int daemon_config_section (const char *section, const char *tag, const ch
 			else if ( ss->name && ss->worker )
 			{
 				// note: worker_alloc adds the worker to its worker_list internally
-				struct worker *worker = worker_alloc(ss->worker, 0, NULL);
+				struct worker *worker = worker_alloc(ss->worker);
 				if ( !worker )
 				{
 					LOG_ERROR("%s[%d]: Failed to allocate worker %s: %s\n", file, line,

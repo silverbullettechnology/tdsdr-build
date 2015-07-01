@@ -60,7 +60,7 @@ worker_state_t;
  *  casting.  The function should zero the memory, and is responsible for allocating and
  *  setting to default values any fields within the private structure.  It should not
  *  initialize any of the fields in the ancestor worker; worker_alloc() does that. */
-typedef struct worker * (* worker_alloc_fn) (unsigned sid, struct resource_info *res);
+typedef struct worker * (* worker_alloc_fn) (void);
 
 /** Command-line configuration of a worker, usually instead of a config-file parse.
  *  Return nonzero if the passed argument is invalid. */
@@ -187,7 +187,7 @@ extern struct growlist worker_list;
  *
  *  \return Allocated worker pointer, or NULL on failure
  */
-struct worker *worker_alloc (const char *name, unsigned sid, struct resource_info *res);
+struct worker *worker_alloc (const char *name);
 
 
 /** Configure an instance

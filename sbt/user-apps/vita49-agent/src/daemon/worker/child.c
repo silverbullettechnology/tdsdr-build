@@ -74,6 +74,7 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 	memset (&pack, 0, sizeof(pack));
 	packlist_size(&pack, exec, -1);
 	packlist_size(&pack, conf, -1);
+	packlist_size(&pack, addr, -1);
 	packlist_size(&pack, rid,  -1);
 	packlist_size(&pack, sid,  -1);
 	packlist_size(&pack, NULL,  0);
@@ -84,6 +85,7 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 
 	packlist_data(&pack, exec, -1);
 	packlist_data(&pack, conf, -1);
+	packlist_data(&pack, addr, -1);
 	packlist_data(&pack, rid,  -1);
 	packlist_data(&pack, sid,  -1);
 	packlist_data(&pack, NULL,  0);
@@ -92,7 +94,7 @@ static char **worker_child_argv (struct worker_child_priv *priv)
 }
 
 
-static struct worker *worker_child_alloc (unsigned sid, struct resource_info *res)
+static struct worker *worker_child_alloc (void)
 {
 	ENTER("");
 	struct worker_child_priv *priv = malloc(sizeof(struct worker_child_priv));
@@ -104,12 +106,6 @@ static struct worker *worker_child_alloc (unsigned sid, struct resource_info *re
 	priv->child.read  = -1;
 	priv->child.pid   = -1;
 
-	priv->worker.sid = sid;
-	priv->worker.res = res;
-	memcpy(&priv->worker.rid, &res->uuid, sizeof(uuid_t));
-	priv->filename = strdup(DEF_WORKER_FILENAME);
-	priv->child.argv = worker_child_argv(priv);
-
 	RETURN_ERRNO_VALUE(0, "%p", (struct worker *)priv);
 }
 
@@ -119,16 +115,22 @@ static int worker_child_cmdline (struct worker *worker, const char *tag, const c
 {
 	ENTER("worker %p, tag %s, val %s", worker, tag, val);
 	struct worker_child_priv *priv = (struct worker_child_priv *)worker;
+	char                    **pp;
+
+	LOG_DEBUG("%s: tag '%s', val '%s'\n", worker_name(worker), tag, val);
 
 	if ( !strcmp(tag, "filename") )
 	{
-		if ( !priv->filename || !strcmp(priv->filename, val) )
-		{
-			free(priv->filename);
-			priv->filename = strdup(val);
-			free(priv->child.argv);
-			priv->child.argv = worker_child_argv(priv);
-		}
+		free(priv->filename);
+		priv->filename = strdup(val);
+
+		free(priv->child.argv);
+		priv->child.argv = worker_child_argv(priv);
+
+		LOG_DEBUG("%s: config/filename setup argv:\n", worker_name(worker));
+		for ( pp = priv->child.argv; *pp; pp++ )
+			LOG_DEBUG("  '%s'\n", *pp);
+
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -531,6 +533,7 @@ static void worker_child_free (struct worker *worker)
 static struct worker_ops worker_child_ops =
 {
 	alloc_fn:      worker_child_alloc,
+	cmdline_fn:    worker_child_cmdline,
 	config_fn:     worker_child_config,
 	state_get_fn:  worker_child_state_get,
 	fd_set_fn:     worker_child_fd_set,

@@ -180,7 +180,7 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 				sid_assign = SID_ASSIGN_MIN;
 
 			// create the new worker struct
-			if ( !(worker = worker_alloc(DEF_WORKER_CLASS, sid_assign, res)) )
+			if ( !(worker = worker_alloc(DEF_WORKER_CLASS)) )
 			{
 				LOG_ERROR("worker_alloc() failed: %s\n", strerror(errno));
 				rsp_v49.command.role   = V49_CMD_ROLE_RESULT;
@@ -191,12 +191,16 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 			worker->control = req_user->control;
 			worker->socket  = req_user->socket;
 			worker->name    = str_dup_sprintf("SID:%u", worker->sid);
+			worker->sid     = sid_assign;
 			worker->res     = res;
 			memcpy(&worker->rid, rid, sizeof(worker->rid));
 			if ( req_v49->command.indicator & (1 << V49_CMD_IND_BIT_CID) )
 				memcpy(&worker->cid, &req_v49->command.cid, sizeof(worker->cid));
 			else
 				memset(&worker->cid, 0, sizeof(worker->cid));
+
+			// trigger a reconfig in the worker, now that all parts are setup
+			worker_cmdline(worker, "filename", DEF_WORKER_FILENAME);
 
 			// return success and assign SID
 			rsp_v49.command.role       = V49_CMD_ROLE_RESULT;
