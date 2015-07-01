@@ -120,17 +120,37 @@ Setup Steps
    ```
 
    This will clone a copy of the Linux kernel tree from github into your tdsdr-build
-   working directory.  As this can take some time, you may want instead to set up a local
-   clone of this repository as a cache, which will make setting up subsequent working
-   directories much faster.  Instructions for this optional step will be added soon.
-
-   The setup scripts will unpack, install, and patch the PetaLinux SDK.  You must agree to
-   the PetaLinux license terms to use the PetaLinux SDK.
+   working directory.  The setup scripts will unpack, install, and patch the PetaLinux
+   SDK.  You must agree to the PetaLinux license terms to use the PetaLinux SDK.
 
    PetaLinux will also try to test whether your user account is authorized to use *sudo*
    to run commands as root.  This is not necessary for building the TD-SDR firmware, and
    you can press Enter at the password prompt to skip this test.  The warning message this
    produces can be ignored.
+
+6. Update the build scripts and kernel repositories:
+
+   If you already had cloned a copy of the git repositories and want to update them, or
+   are following a development branch such as *tdsdr-devel* then you will want to pull
+   changes from the SBT repositories hosted on github.  The TD-SDR build scripts and
+   kernel source are two separate repositories, so two separate git commands are needed:
+
+   ```
+   git pull
+   cd kernel/current
+   git pull
+   cd ../..
+   ```
+
+   After an update you can ensure everything is rebuilt fully with the command:
+   ```
+   make setup reset all
+   ```
+   Note that this command resets all Petalinux and kernel configuration, so if you've
+   enabled optional software or debugging options they'll be reset.  Before running the
+   command you may want to enable the relevant lines in the files:
+   - *sbt/vendors/SilverBulletTech/TDSDR/config.vendor* for Petalinux options, and
+   - *sbt/vendors/SilverBulletTech/TDSDR/config.linux-2.6.x* for kernel options
 
 
 Building Images
