@@ -181,9 +181,8 @@ int main (int argc, char **argv)
 
 	log_init_module_list();
 	log_dupe(stderr);
-	log_set_global_level(module_level);
-
 	format_error_setup(stderr);
+
 	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:c:s:S:t:p:o:z:")) > -1 )
 		switch ( opt )
 		{
@@ -283,13 +282,16 @@ int main (int argc, char **argv)
 			if ( sd_fmt_opts.channels )
 				LOG_WARN("Note: -1 or -2 ignored with format %s, loads both channels.\n", 
 				         format_class_name(opt_in_fmt));
-				break;
+			break;
 
 		case FC_CHAN_SINGLE:
 			if ( sd_fmt_opts.channels == 3 )
+			{
 				LOG_ERROR("Note: both -1 and -2 given with format %s, only one allowed.\n", 
 				         format_class_name(opt_in_fmt));
 				return 1;
+			}
+			break;
 	}
 	if ( !sd_fmt_opts.channels )
 		sd_fmt_opts.channels = 3;
@@ -303,14 +305,17 @@ int main (int argc, char **argv)
 		else
 			opt_data = format_size_data_from_buff(&sd_fmt_opts, opt_buff);
 
-		if ( !in_fp || !opt_buff )
+		if ( !in_fp )
+			return 1;
+
+		if ( !opt_buff )
 		{
 			fclose(in_fp);
 			return 1;
 		}
 	}
 	else if ( !(in_fp = fopen(opt_in_file, "r")) )
-			perror(opt_in_file);
+		perror(opt_in_file);
 
 	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data + opt_trail);
 	opt_buff  = opt_npkts * sd_fmt_opts.packet;
@@ -564,7 +569,7 @@ int main (int argc, char **argv)
 	LOG_DEBUG("Buffer mapped with kernel module\n");
 
 
-	LOG_FOCUS("Ready to start, press a key to sample...");
+	LOG_FOCUS("Ready to start, press a key to transmit...");
 	terminal_pause();
 
 	LOG_INFO("Send START command... ");

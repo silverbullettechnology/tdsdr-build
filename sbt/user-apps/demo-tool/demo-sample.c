@@ -171,9 +171,8 @@ int main (int argc, char **argv)
 
 	log_init_module_list();
 	log_dupe(stderr);
-	log_set_global_level(module_level);
-
 	format_error_setup(stderr);
+
 	while ( (opt = getopt(argc, argv, "?hvei12d:R:c:s:S:t:n:o:")) > -1 )
 		switch ( opt )
 		{
@@ -265,13 +264,22 @@ int main (int argc, char **argv)
 			if ( sd_fmt_opts.channels )
 				LOG_WARN("Note: -1 or -2 ignored with format %s, saves both channels.\n", 
 				         format_class_name(opt_out_fmt));
-				break;
+			break;
 
 		case FC_CHAN_SINGLE:
 			if ( sd_fmt_opts.channels == 3 )
+			{
 				LOG_ERROR("Note: both -1 and -2 given with format %s, only one allowed.\n", 
 				         format_class_name(opt_out_fmt));
 				return 1;
+			}
+			else if ( !sd_fmt_opts.channels )
+			{
+				LOG_WARN("Note: neither -1 nor -2 given with format %s, saving channel 1 only.\n", 
+				         format_class_name(opt_out_fmt));
+				sd_fmt_opts.channels = 1 << 0;
+			}
+			break;
 	}
 	if ( !sd_fmt_opts.channels )
 		sd_fmt_opts.channels = 3;
