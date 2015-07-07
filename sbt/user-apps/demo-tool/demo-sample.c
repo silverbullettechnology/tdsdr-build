@@ -370,12 +370,14 @@ int main (int argc, char **argv)
 	// validate buffer size against width and channel / total limits
 	if ( opt_buff % DSM_BUS_WIDTH || 
 	     opt_buff < DSM_BUS_WIDTH || 
-	     opt_buff > dsm_channels->list[opt_chan].words ||
-	     opt_buff > dsm_limits.total_words )
+	     opt_buff > (dsm_channels->list[opt_chan].words * DSM_BUS_WIDTH) ||
+	     opt_buff > (dsm_limits.total_words * DSM_BUS_WIDTH) )
 	{
-		LOG_ERROR("Data size %zu gives invalid buffer size %zu - minimum %u, maximum %lu,\n"
-		       "and must be a multiple of %u\n",
-		       opt_data, opt_buff, DSM_BUS_WIDTH, dsm_limits.total_words * DSM_BUS_WIDTH,
+		LOG_ERROR("Data size %zu gives invalid buffer size %zu - minimum %u, maximum %lu\n"
+		       "per channel, %lu aggregate, and must be a multiple of %u\n",
+		       opt_data, opt_buff, DSM_BUS_WIDTH,
+		       dsm_channels->list[opt_chan].words * DSM_BUS_WIDTH,
+		       dsm_limits.total_words * DSM_BUS_WIDTH,
 		       DSM_BUS_WIDTH);
 		ret = 1;
 		goto exit_pipe;
