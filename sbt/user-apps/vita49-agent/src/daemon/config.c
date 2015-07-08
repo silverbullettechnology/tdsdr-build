@@ -17,11 +17,11 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 
-#include <common/resource.h>
-#include <daemon/resource.h>
+#include <common/default.h>
+#include <v49_message/resource.h>
 
 #include <daemon/worker.h>
 #include <daemon/control.h>
@@ -63,6 +63,20 @@ static int daemon_config_paths (const char *section, const char *tag, const char
 	{
 		free(resource_config_path);
 		resource_config_path = strdup(val);
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( !strcmp(tag, "worker-exec") )
+	{
+		free(worker_exec_path);
+		worker_exec_path = strdup(val);
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( !strcmp(tag, "worker-config") )
+	{
+		free(worker_config_path);
+		worker_config_path = strdup(val);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -192,6 +206,8 @@ int daemon_config (const char *path)
 
 	// setting default values for items which can be changed with libconfig 
 	resource_config_path = strdup(DEF_RESOURCE_CONFIG_PATH);
+	worker_config_path   = strdup(DEF_WORKER_CONFIG_PATH);
+	worker_exec_path     = strdup(DEF_WORKER_EXEC_PATH);
 
 	static struct config_section_map cm[] =
 	{

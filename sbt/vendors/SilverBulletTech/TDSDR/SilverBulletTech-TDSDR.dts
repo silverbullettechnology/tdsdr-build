@@ -88,6 +88,9 @@
 	ps7_ddr_0: memory@0 {
 		device_type = "memory";
 		reg = < 0x0 0x40000000 >;
+
+		/* Reserve the top 16MB for DDR-FIFO */
+		linux,usable-memory = < 0x0 0x3f000000 >;
 	} ;
 	ps7_axi_interconnect_0: amba@0 {
 		#address-cells = <1>;
@@ -97,6 +100,7 @@
 
 		/* New DMAC from ADI git repo https://github.com/analogdevicesinc/linux.git */
 		dmac_0_rx: dma@7c400000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c400000 0x10000>;
 			#dma-cells = <1>;
@@ -112,6 +116,7 @@
 			};
 		};
 		dma_0_tx: dma@7c420000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c420000 0x10000>;
 			#dma-cells = <1>;
@@ -127,6 +132,7 @@
 			};
 		};
 		dmac_1_rx: dma@7c440000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c440000 0x10000>;
 			#dma-cells = <1>;
@@ -142,6 +148,7 @@
 			};
 		};
 		dma_1_tx: dma@7c460000 {
+status = "disabled";
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x7c460000 0x10000>;
 			#dma-cells = <1>;
@@ -157,7 +164,76 @@
 			};
 		};
 
-		srio {
+		axi_dma_0: axi-dma@52100000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 59 4 0 58 4 >;
+			reg = < 0x52100000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52100030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 59 4 >; // IRQ 91
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+			dma-channel@52100000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 58 4 >; // IRQ 90
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x0>;
+			};
+		} ;
+
+		axi_dma_1: axi-dma@52300000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 57 4 0 56 4 >;
+			reg = < 0x52300000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52300030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 57 4 >; // IRQ 89
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x1>;
+			};
+			dma-channel@52300000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 56 4 >; // IRQ 88
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x1>;
+			};
+		};
+
+		axi_dma_2: axi-dma@52500000 {
+			compatible = "xlnx,axi-dma-6.03.a", "xlnx,axi-dma";
+			interrupt-parent = <&ps7_scugic_0>;
+			interrupts = < 0 34 4 0 33 4 >;
+			reg = < 0x52500000 0x10000 >;
+			xlnx,family = "zynq";
+			xlnx,include-sg = <0x1>;
+			xlnx,sg-include-stscntrl-strm = <0x1>;
+			xlnx,sg-length-width = <0xe>; /* TODO: limitation? */
+			dma-channel@52500030 {
+				compatible = "xlnx,axi-dma-s2mm-channel";
+				interrupts = <0 34 4 >; // IRQ 66
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x2>;
+			};
+			dma-channel@52500000 {
+				compatible = "xlnx,axi-dma-mm2s-channel";
+				interrupts = <0 33 4 >; // IRQ 65
+				xlnx,datawidth = <0x40>;
+				xlnx,device-id = <0x2>;
+			};
+		};
+
+		srio-dev {
 			compatible = "sbt,srio-dev";
 
 			reg = <
@@ -166,16 +242,15 @@
 				0x80100000 0x00001000  /* Initiator FIFO Data */
 				0x80200000 0x00001000  /* Target FIFO Regs */
 				0x80300000 0x00001000  /* Target FIFO Data */
+				0x81000000 0x00010000  /* DRP regs */
 				0x42000000 0x00001000  /* Misc SYS_REG */
-				0x80400000 0x00100000  /* Shadow FIFO Regs */
-				0x80500000 0x00100000  /* Shadow FIFO Data */
 			>;
 			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
-			            "sys-regs", "shadow-regs", "shadow-data";
+			            "drp-regs", "sys-regs";
 
 			interrupts       = < 0 52 4  0 53 4  0 55 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
-			interrupt-names  = "init-irq", "targ-irq", "shadow-irq";
+			interrupt-names  = "init-irq", "targ-irq";
 
 			/* Check this */
 			clock-names = "fclk0", "fclk1", "fclk2";
@@ -185,6 +260,86 @@
 			sbt,init-dma = <0>;
 			sbt,targ-dma = <0>;
 			sbt,shadow-dma = <0>;
+
+			/* Tuning for dynamic discovery */
+			sbt,device-id-min = <1>;
+			sbt,device-id-max = <6>;
+			sbt,device-id-rep = <5>;
+
+			/* Debugging and filtering flags */
+			sbt,init-flags   = <0x001E>;
+			sbt,targ-flags   = <0x001E>;
+			sbt,shadow-flags = <0x0700>;
+
+			/* "ping" function implemented with dbells: if both values are set then
+			 * respond to dbell messages with info equal to ping[0], and respond with a
+			 * dbell containing info value ping[1]. */
+			sbt,ping = <0xFFF0>,<0xFFF1>;
+		};
+
+		fifo-dev {
+			compatible = "sbt,fifo-dev";
+
+			reg = <
+				0x79000000 0x00010000  /* ADI1 new regs */
+				0x79020000 0x00010000  /* ADI2 new regs */
+			>;
+			reg-names = "adi1-new", "adi2-new";
+		};
+
+		pipe-dev {
+			compatible = "sbt,pipe-dev";
+
+			reg = <
+				0x52000000 0x00001000  /* adi2axis_0            */
+				0x52200000 0x00001000  /* adi2axis_1            */
+				0x52600000 0x00001000  /* srio_dma_comb_0       */
+				0x52700000 0x00001000  /* srio_dma_split_0      */
+				0x53000000 0x00001000  /* vita49_clk            */
+				0x53100000 0x00001000  /* axis_vita49_pack_0    */
+				0x53200000 0x00001000  /* axis_vita49_pack_1    */
+				0x53300000 0x00001000  /* axis_vita49_unpack_0  */
+				0x53400000 0x00001000  /* axis_vita49_unpack_1  */
+				0x53500000 0x00001000  /* vita49_assem_0        */
+				0x53600000 0x00001000  /* vita49_assem_1        */
+				0x52800000 0x00001000  /* adi_dma_comb_0        */
+				0x52900000 0x00001000  /* adi_dma_comb_1        */
+				0x52A00000 0x00001000  /* adi_dma_split_0       */
+				0x52B00000 0x00001000  /* adi_dma_split_1       */
+				0x53700000 0x00001000  /* vita49_trig_adc_0     */
+				0x53800000 0x00001000  /* vita49_trig_adc_1     */
+				0x53900000 0x00001000  /* vita49_trig_dac_0     */
+				0x53A00000 0x00001000  /* vita49_trig_dac_1     */
+				0x54000000 0x00001000  /* srio_swrite_pack_0    */
+				0x54100000 0x00001000  /* srio_swrite_pack_1    */
+				0x54200000 0x00001000  /* srio_swrite_unpack_0  */
+				0x52400000 0x00001000  /* routing_reg_0         */
+			>;
+
+			reg-names =
+				"adi2axis-0",
+				"adi2axis-1",
+				"srio-dma-comb",
+				"srio-dma-split",
+				"vita49-clk",
+				"vita49-pack-0",
+				"vita49-pack-1",
+				"vita49-unpack-0",
+				"vita49-unpack-1",
+				"vita49-assem-0",
+				"vita49-assem-1",
+				"adi-dma-comb-0",
+				"adi-dma-comb-1",
+				"adi-dma-split-0",
+				"adi-dma-split-1",
+				"vita49-trig-adc-0",
+				"vita49-trig-adc-1",
+				"vita49-trig-dac-0",
+				"vita49-trig-dac-1",
+				"swrite-pack-0",
+				"swrite-pack-1",
+				"swrite-unpack",
+				"routing-reg";
 		};
 
 		leds_4bits: gpio@41200000 {

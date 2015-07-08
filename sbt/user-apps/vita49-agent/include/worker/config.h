@@ -19,7 +19,6 @@
  */
 #ifndef INCLUDE_WORKER_CONFIG_H
 #define INCLUDE_WORKER_CONFIG_H
-#include <lib/log.h>
 
 
 /** Global first-pass config

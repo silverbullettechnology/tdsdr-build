@@ -17,30 +17,15 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <config/include/config.h>
+#include <config/config.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 
 #include <worker/config.h>
 
 
 LOG_MODULE_STATIC("worker_config", LOG_LEVEL_WARN);
-
-
-/** Global section item handler
- */
-static int worker_config_cb (const char *section, const char *tag, const char *val,
-                             const char *file, int line, void *data)
-{
-	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
-	      section, tag, val, file, line, data);
-RETURN_ERRNO_VALUE(0, "%d", 0);
-
-	if ( !tag || !val )	RETURN_ERRNO_VALUE(0, "%d", 0);
-
-	RETURN_ERRNO_VALUE(ENOENT, "%d", -1);
-}
 
 
 /** Global first-pass config
@@ -57,7 +42,7 @@ int worker_config (const char *path, const char *section)
 	struct config_section_map cm[] =
 	{
 		// first configure sections related to overall application 
-		{ section,  worker_config_cb,  NULL },
+		{ "log",     log_config,             NULL },
 		{ NULL }
 	};
 	struct config_context cc =

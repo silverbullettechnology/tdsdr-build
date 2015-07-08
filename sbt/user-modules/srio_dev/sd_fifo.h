@@ -24,6 +24,17 @@
 #include <linux/platform_device.h>
 
 
+/** Bits for flags in sd_fifo */
+#define SD_FL_TRACE     0x00000001
+#define SD_FL_DEBUG     0x00000002
+#define SD_FL_INFO      0x00000004
+#define SD_FL_WARN      0x00000008
+#define SD_FL_ERROR     0x00000010
+#define SD_FL_NO_RX     0x00000100
+#define SD_FL_NO_TX     0x00000200
+#define SD_FL_NO_RSP    0x00000400
+
+
 /** Bits for sd_fifo_reset mask parameter */
 #define SD_FR_TX  1
 #define SD_FR_RX  2
@@ -95,6 +106,7 @@ struct sd_fifo
 	struct srio_dev             *sd;
 	int                          irq;
 	char                         name[32];
+	unsigned                     flags;
 
 	/* Note: sd_fifo_regs always maps to an AXI-Lite interface for register access, but 
 	 * sd_fifo_data may point to an AXI-Full interface for burst data. */
@@ -123,7 +135,7 @@ struct sd_fifo
  *
  *  \return  sd_fifo struct on success, NULL on error
  */
-struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref);
+struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigned flags);
 
 
 /** Free FIFO
@@ -188,6 +200,12 @@ static inline unsigned sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *d
 {
 	return sd_fifo_tx_burst(sf, &desc, 1);
 }
+
+/** Flush all TX descriptors
+ *
+ *  \param  sf  Pointer to sd_fifo struct
+ */
+void sd_fifo_tx_discard (struct sd_fifo *sf);
 
 
 #endif /* _INCLUDE_SD_FIFO_H_ */

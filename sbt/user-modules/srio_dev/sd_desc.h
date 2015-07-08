@@ -32,10 +32,10 @@ struct srio_dev;
 
 struct sd_desc
 {
+	struct list_head list;  /* List pointers for queuing */
 	dma_addr_t       phys;  /* Physical address for data buffer */
 	size_t           used;  /* Size of data in buffer */
 	size_t           offs;  /* Cursor for chunked transfer */
-	struct list_head list;  /* List pointers for queuing */
 	uint32_t         resp;  /* Expected response value (top 24 bits) & TTL (low 8) */
 	unsigned         info;  /* Used for TX cookie */
 #ifdef CONFIG_USER_MODULES_SRIO_DEV_FIFO_DEST
@@ -45,9 +45,14 @@ struct sd_desc
 };
 
 
-struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags);
 
-void sd_desc_free (struct srio_dev *sd, struct sd_desc *desc);
+
+
+#define sd_desc_alloc(sd, flags) _sd_desc_alloc(sd, flags, __func__, __LINE__)
+struct sd_desc *_sd_desc_alloc (struct srio_dev *sd, gfp_t flags, const char *func, int line);
+
+#define sd_desc_free(sd, desc) _sd_desc_free(sd, desc, __func__, __LINE__)
+void _sd_desc_free (struct srio_dev *sd, struct sd_desc *desc, const char *func, int line);
 
 int sd_desc_init (struct srio_dev *sd);
 

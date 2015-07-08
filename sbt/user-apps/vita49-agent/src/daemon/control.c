@@ -19,8 +19,8 @@
  */
 #include <sys/select.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 #include <daemon/control.h>
 
 
@@ -83,7 +83,15 @@ struct control *control_alloc (const char *name)
 		RETURN_VALUE("%p", NULL);
 
 	ai->class = ac;
-	growlist_append(&control_list, ai);
+	if ( growlist_append(&control_list, ai) < 0 )
+	{
+		int err = errno;
+		if ( ac->ops->free_fn )
+			ac->ops->free_fn(ai);
+		else
+			free(ai);
+		RETURN_ERRNO_VALUE(err, "%p", NULL);
+	}
 
 	mqueue_init(&ai->send, 0);
 	mqueue_init(&ai->recv, 0);

@@ -42,7 +42,7 @@ tests/lib/packlist.c/bin: lib/packlist.c $(DEPS)
 	$(CC) $(CFLAGS) -DUNIT_TEST $(filter-out $(patsubst %.c,%.o,$<),$^) -o$@
 
 tests/lib/timer.c/bin: lib/timer.c $(DEPS) lib/clocks.o
-	$(CC) $(CFLAGS) $(LFLAGS) -DUNIT_TEST $(filter-out $(patsubst %.c,%.o,$<),$^) -o$@ -lrt
+	$(CC) $(CFLAGS) $(LDFLAGS) -DUNIT_TEST $(filter-out $(patsubst %.c,%.o,$<),$^) -o$@ -lrt
 
 tests/lib/util.c/bin: lib/util.c $(DEPS)
 	$(CC) $(CFLAGS) -DUNIT_TEST $(filter-out $(patsubst %.c,%.o,$<),$^) -o$@

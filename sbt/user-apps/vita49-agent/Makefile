@@ -26,18 +26,21 @@ endif
 
 # cross-compile friendly
 CC     ?= $(CROSS_COMPILE)gcc
-CFLAGS += -Iinclude -I../include -I../lib
-LFLAGS += -L../lib/config
+CFLAGS += -Iinclude -I../include
+CFLAGS += -I$(PETALINUX)/software/user-modules/pipe_dev
+CFLAGS += -I$(PETALINUX)/software/user-modules/fifo_dev
+CFLAGS += -I$(PETALINUX)/software/user-modules/srio_dev
+LDFLAGS += -L$(STAGEDIR)/usr/lib
 
 # Compile with debugging
 CFLAGS += -g
-#LFLAGS += -s 
+#LDFLAGS += -s 
 
 # Minimal JPL-style checking
 CFLAGS += -Wall -Werror -std=gnu99
 # -pedantic
 
-export CC CFLAGS LFLAGS
+export CC CFLAGS LDFLAGS
 
 # quick and dirty path setup
 ifneq ($(DESTDIR),)
@@ -46,12 +49,11 @@ endif
 export DESTDIR
 
 all install clean:
-	$(MAKE) -C lib       $@
+	set
 	$(MAKE) -C src       $@
 	$(MAKE) -C script    $@
 
 tests:
-	$(MAKE) -C lib       all
 	$(MAKE) -C src       $@
 
 ifneq ($(PETALINUX),)

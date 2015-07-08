@@ -19,7 +19,6 @@
 #define _INCLUDE_APP_MAIN_H_
 
 
-extern char *argv0;
 extern int   opt_dev_num;
 extern char *opt_dev_node;
 extern int   opt_soft_fail;
@@ -41,4 +40,4 @@ int command (int argc, char **argv);
 
 int dev_reopen (int num, int reinit);
 
-#endif // _INCLUDE_APP_MAIN_H_
+#endif /* _INCLUDE_APP_MAIN_H_ */

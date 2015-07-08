@@ -16,6 +16,7 @@
  * vim:ts=4:noexpandtab
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/miscdevice.h>
@@ -324,7 +325,7 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		// MESSAGE: reassembly done by sd_mbox_reasm(), returns NULL while reassembling
 		// the message, or an sd_mesg for dispatch to users when complete.
 		case 11: 
-			mbox = (desc->virt[1] >> 3) & 0x3F;
+			mbox = (desc->virt[1] >> 4) & 0x3F;
 			if ( mbox < RIO_MAX_MBOX && sd_user_dev->mbox_users[mbox] )
 			{
 				struct sd_mesg *mesg;
@@ -332,7 +333,10 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 					sd_user_recv_mbox(mesg, mbox);
 				return;
 			}
-			pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
+			else if ( sd_user_dev->devid != 0xFFFF && mbox == 0x3F )
+				pr_debug("MESSAGE: 0x3F after probe, drop\n");
+			else
+				pr_err("MESSAGE: mbox 0x%x, dropped\n", mbox);
 			break;
 
 		default:
@@ -456,6 +460,8 @@ static int sd_user_open (struct inode *i, struct file *f)
 //sd_user_dbell_count();
 //sd_user_swrite_count();
 
+	__module_get(THIS_MODULE);
+
 	return 0;
 }
 
@@ -545,6 +551,15 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		goto fail;
 	}
 
+	if ( sd_user_dev->devid == 0xFFFF )
+		switch ( mesg->src_addr )
+		{
+			case 0x0000:
+			case 0xFFFF:
+				ret = -EADDRNOTAVAIL;
+				goto fail;
+		}
+
 	if ( !(desc[0] = sd_desc_alloc(sd_user_dev, GFP_KERNEL|GFP_DMA)) )
 	{
 		ret = -ENOMEM;
@@ -624,6 +639,7 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 	unsigned long        val;
 	uint16_t             u16x2[2];
 	uint64_t             u64x2[2];
+	struct sd_user_cm_ctrl  cm_ctrl;
 
 	if ( _IOC_TYPE(cmd) != MAGIC_SD_USER )
 		return -EINVAL;
@@ -732,10 +748,44 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			sd_regs_srio_reset(sd_user_dev);
 			return 0;
 
+		case SD_USER_IOCS_RXDFELPMRESET:
+			pr_debug("SD_USER_IOCS_RXDFELPMRESET:\n");
+			sd_regs_gt_srio_rxdfelpmreset(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_PHY_LINK_RESET:
+			pr_debug("SD_USER_IOCS_PHY_LINK_RESET:\n");
+			sd_regs_gt_phy_link_reset(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_FORCE_REINIT:
+			pr_debug("SD_USER_IOCS_FORCE_REINIT:\n");
+			sd_regs_gt_force_reinit(sd_user_dev);
+			return 0;
+
+		case SD_USER_IOCS_PHY_MCE:
+			pr_debug("SD_USER_IOCS_PHY_MCE:\n");
+			sd_regs_gt_phy_mce(sd_user_dev);
+			return 0;
+
+
+		// SYS_REG status reporting
 		case SD_USER_IOCG_STATUS:
 			val = sd_regs_srio_status(sd_user_dev);
 			pr_trace("SD_USER_IOCG_STATUS: %08lx\n", val);
 			return put_user(val, (unsigned long *)arg);
+
+
+		// Get/set test/tuning values
+		case SD_USER_IOCG_SWRITE_BYPASS:
+			val = sd_regs_get_swrite_bypass(sd_user_dev);
+			pr_debug("SD_USER_IOCG_SWRITE_BYPASS: %lu\n", val);
+			return put_user(val, (unsigned long *)arg);
+
+		case SD_USER_IOCS_SWRITE_BYPASS:
+			pr_debug("SD_USER_IOCS_SWRITE_BYPASS: %lu\n", arg);
+			sd_regs_set_swrite_bypass(sd_user_dev, arg);
+			return 0;
 
 		case SD_USER_IOCG_GT_LOOPBACK:
 			val = sd_regs_get_gt_loopback(sd_user_dev);
@@ -786,6 +836,33 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			pr_debug("SD_USER_IOCS_GT_RXLPMEN: %lu", arg);
 			sd_regs_set_gt_rxlpmen(sd_user_dev, arg);
 			return 0;
+
+		// Control of RX common-mode termination for CH 0..3.
+		case SD_USER_IOCG_CM_CTRL:
+		case SD_USER_IOCS_CM_CTRL:
+			if ( copy_from_user(&cm_ctrl, (void *)arg, sizeof(cm_ctrl)) )
+				return -EFAULT;
+
+			if ( cm_ctrl.ch > 3 )
+				return -EINVAL;
+
+			if ( cmd == SD_USER_IOCS_CM_CTRL )
+			{
+				if ( cm_ctrl.trim > 15 || cm_ctrl.sel > 3 )
+					return -EINVAL;
+
+				pr_debug("SD_USER_IOCS_CM_CTRL: ch %u SET sel %u trim %u\n",
+				         cm_ctrl.ch, cm_ctrl.sel, cm_ctrl.trim);
+				sd_regs_set_cm_sel(sd_user_dev,  cm_ctrl.ch, cm_ctrl.sel);
+				sd_regs_set_cm_trim(sd_user_dev, cm_ctrl.ch, cm_ctrl.trim);
+				return 0;
+			}
+
+			cm_ctrl.sel  = sd_regs_get_cm_sel(sd_user_dev, cm_ctrl.ch);
+			cm_ctrl.trim = sd_regs_get_cm_trim(sd_user_dev, cm_ctrl.ch);
+			pr_debug("SD_USER_IOCG_CM_CTRL: ch %u get sel %u trim %u\n",
+			         cm_ctrl.ch, cm_ctrl.sel, cm_ctrl.trim);
+			return copy_to_user((void *)arg, &cm_ctrl, sizeof(cm_ctrl));
 	}
 
 	return -EINVAL;
@@ -826,6 +903,8 @@ static int sd_user_release (struct inode *i, struct file *f)
 	sd_user_dbell_count();
 	sd_user_swrite_count();
 
+	module_put(THIS_MODULE);
+
 	return 0;
 }
 
@@ -862,13 +941,18 @@ int sd_user_init (struct srio_dev *sd)
 	spin_lock_init(&lock);
 	INIT_LIST_HEAD(&list);
 
+	// success
+	return 0;
+}
+
+
+void sd_user_attach (struct srio_dev *sd)
+{
 	sd_fifo_init_rx(sd->init_fifo, sd_user_recv_init, HZ);
 	sd_fifo_init_rx(sd->targ_fifo, sd_user_recv_targ, HZ);
 	sd_fifo_init_tx(sd->init_fifo, sd_user_tx_done,   HZ);
 	sd_fifo_init_tx(sd->targ_fifo, sd_user_tx_done,   HZ);
 
-	// success
-	return 0;
 }
 
 

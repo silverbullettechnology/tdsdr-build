@@ -23,16 +23,17 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/util.h>
-#include <lib/timer.h>
-#include <lib/growlist.h>
-#include <lib/packlist.h>
+#include <sbt_common/log.h>
+#include <v49_message/log.h>
+
+#include <sbt_common/util.h>
+#include <sbt_common/timer.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/packlist.h>
 
 #include <common/default.h>
-#include <common/resource.h>
+#include <v49_message/resource.h>
 
-#include <daemon/resource.h>
 #include <daemon/worker.h>
 #include <daemon/control.h>
 #include <daemon/message.h>
@@ -43,7 +44,7 @@
 char           *argv0;
 int             daemon_opt_daemon = 1;
 char           *daemon_opt_log    = NULL;
-char           *daemon_opt_config = DEF_CONFIG;
+char           *daemon_opt_config = DEF_CONFIG_PATH;
 struct timeval  daemon_opt_tv_min = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  daemon_opt_tv_max = { .tv_sec = 1, .tv_usec = 0 };
 int             daemon_opt_timer_limit = 5;
@@ -164,7 +165,7 @@ static void usage (void)
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
 	        "-c config     Specify a different config file (default %s)\n",
-	        argv0, DEF_CONFIG);
+	        argv0, DEF_CONFIG_PATH);
 	        
 	exit (1);
 }
@@ -180,6 +181,7 @@ int main (int argc, char **argv)
 
 	// not sure we use random stuff in this project...
 	srand(time(NULL));
+	log_init_module_list();
 	log_dupe(stderr);
 
 	// basic arguments parsing
@@ -330,7 +332,7 @@ int main (int argc, char **argv)
 		}
 
 	// mark timer
-	mark_timer_period = s_to_clocks(5);
+	mark_timer_period = s_to_clocks(60);
 	timer_attach (&mark_timer, mark_timer_period, mark_timer_cb, NULL);
 
 	/* Standard set of vars to support select */
@@ -531,6 +533,21 @@ int main (int argc, char **argv)
 					LOG_DEBUG("all workers stopped, exit main loop\n");
 				}
 				break;
+
+			case ML_RUNNING:
+				growlist_reset(&worker_list);
+				while ( (worker = growlist_next(&worker_list) ) )
+					switch ( (state = worker_state_get(worker)) )
+					{
+						case WS_ZOMBIE:
+							LOG_DEBUG("%s: Reap zombie worker\n", worker_name(worker));
+							worker_free(worker);
+							break;
+
+						default:
+							LOG_DEBUG("%s: state %s, ignore...\n", worker_name(worker),
+							          worker_state_desc(state));
+					}
 
 			default:
 				LOG_TRACE("main loop continues\n");

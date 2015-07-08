@@ -19,7 +19,7 @@
  */
 #include <sys/select.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 #include <daemon/control.h>
 
 
