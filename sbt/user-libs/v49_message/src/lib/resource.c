@@ -151,9 +151,15 @@ static int resource_config_line (const char *section, const char *tag, const cha
 
 	if ( !strcmp(tag, "rate") )
 	{
-		tmp->rate_q8 = strtoul(val, NULL, 0) << 8;
-		LOG_DEBUG("%s[%d]: Resource %s rate %u.0\n", file, line,
-		          uuid_to_str(&tmp->uuid), tmp->rate_q8 >> 8);
+		unsigned long long rate = strtoul(val, NULL, 0);
+
+		rate <<= 8;
+		rate  /= 1000000;
+
+		tmp->rate_q8 = rate;
+		LOG_DEBUG("%s[%d]: Resource %s rate %u.%03u\n", file, line,
+		          uuid_to_str(&tmp->uuid), tmp->rate_q8 >> 8,
+		          (1000 * (tmp->rate_q8 & 0xFF)) >> 8);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 

@@ -141,7 +141,7 @@ int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char
 	growlist_reset(res_enum);
 	if ( (res = growlist_search(res_enum, uuid_cmp, &buf)) )
 	{
-		resource_dump(LOG_LEVEL_INFO, "Matched by UUID: ", res);
+		LOG_INFO("Matched by UUID: %s -> %s\n", uuid_to_str(&buf), res->name);
 		memcpy(dest, res, sizeof(struct resource_info));
 		goto out;
 	}
@@ -151,14 +151,18 @@ int seq_enum (struct socket *sock, uuid_t *cid, struct resource_info *dest, char
 	while ( (res = growlist_next(res_enum)) )
 		if ( !strcmp(res->name, name) )
 		{
-			resource_dump(LOG_LEVEL_INFO, "Matched by name: ", res);
+			LOG_INFO("Matched by name: %s -> %s\n", res->name, uuid_to_str(&res->uuid));
 			memcpy(dest, res, sizeof(struct resource_info));
 			goto out;
 		}
 		else
 			LOG_DEBUG("Not matched: '%s'\n", res->name);
 
-	LOG_ERROR("Enum for '%s' failed: not in list returned\n", name);
+	LOG_ERROR("Enum for '%s' failed: not in list returned:\n", name);
+	growlist_reset(res_enum);
+	while ( (res = growlist_next(res_enum)) )
+		resource_dump(LOG_LEVEL_ERROR, "  ", res);
+
 	ret = -1;
 
 out:

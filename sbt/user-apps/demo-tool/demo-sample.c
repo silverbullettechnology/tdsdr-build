@@ -319,7 +319,13 @@ int main (int argc, char **argv)
 		goto exit_sock;
 
 	memcpy(&demo_rid, &demo_res.uuid, sizeof(demo_rid));
-	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource: ", &demo_res);
+	resource_dump(LOG_LEVEL_DEBUG, "Found requested resource:\n  ", &demo_res);
+
+	if ( ! demo_res.rxch )
+	{
+		LOG_ERROR("Resource '%s' has no RX channels, can't sample with it\n", demo_adi);
+		goto exit_sock;
+	}
 
 
 	opt_remote &= 0xFFFF;
