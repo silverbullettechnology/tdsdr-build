@@ -12,11 +12,16 @@
 # KIND, either express or implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
-### NOTE: This script is not run by default.  To enable it, use the petalinux-config-apps
-### tool, or edit the file
-###   sbt/vendors/SilverBulletTech/TDSDR/config.vendor
-### and set
-###   CONFIG_USER_LIBS_AD9361_INIT_AUTOLOAD=y
+### NOTE: This script may not run by default; whether it does is controlled by the
+### Petalinux configuration variable CONFIG_USER_LIBS_AD9361_INIT_AUTOLOAD.
+###
+### You can enable or disable it using the petalinux-config-apps tool:
+###   User Libraries  --->
+###     ad9361  --->
+###       Auto run init script at boot
+###
+### Alternatively you can edit the config.vendor file under the appropriate board
+### directory under sbt/vendors/SilverBulletTech/
 ###
 ### After changing this file run:
 ###   make setup reset
