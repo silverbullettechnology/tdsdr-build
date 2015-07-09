@@ -12,6 +12,17 @@
 # KIND, either express or implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
+### NOTE: This script is not run by default.  To enable it, use the petalinux-config-apps
+### tool, or edit the file
+###   sbt/vendors/SilverBulletTech/TDSDR/config.vendor
+### and set
+###   CONFIG_USER_LIBS_AD9361_INIT_AUTOLOAD=y
+###
+### After changing this file run:
+###   make setup reset
+### to apply the change.  Note this makes mrproper in the Petalinux tree and may affect
+### other config changes you've made.
+
 # Run the ad9361 tool startup script for the Wimax example
 /usr/bin/ad9361 /usr/lib/ad9361/script/startup_fdd-4msps-t2r2
 
