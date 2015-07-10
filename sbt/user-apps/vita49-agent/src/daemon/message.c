@@ -17,15 +17,15 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/timer.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/timer.h>
+#include <sbt_common/growlist.h>
 
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
-#include <common/vita49/command.h>
-#include <common/vita49/context.h>
-#include <common/vita49/control.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/command.h>
+#include <v49_message/context.h>
+#include <v49_message/control.h>
 
 #include <daemon/worker.h>
 #include <daemon/control.h>
@@ -103,26 +103,17 @@ void daemon_southbound (struct mbuf *mbuf)
 	}
 
 	// search workers next by SID, for context and command
-	struct worker *worker;
-	growlist_reset(&worker_list);
-	while ( (worker = growlist_next(&worker_list)) )
-		if ( v49.sid == worker->sid )
-		{
-			LOG_DEBUG("%s: Message matched by SID\n", worker_name(worker));
-			break;
-#if 0
-			if ( user->control )
+	struct worker *worker = NULL;
+	if ( v49.sid != V49_CMD_RSVD_SID )
+	{
+		growlist_reset(&worker_list);
+		while ( (worker = growlist_next(&worker_list)) )
+			if ( v49.sid == worker->sid )
 			{
-				if ( control_connect(user->control, user->socket, worker) )
-					LOG_WARN("%s: failed to connect socket %s.%d: %s\n",
-					         worker_name(worker), control_name(user->control),
-					         user->socket, strerror(errno));
-				else
-					LOG_DEBUG("%s: connected socket %s.%d\n", worker_name(worker),
-					         control_name(user->control), user->socket);
+				LOG_DEBUG("%s: Message matched by SID\n", worker_name(worker));
+				break;
 			}
-#endif
-		}
+	}
 
 	// command request messages handled in daemon layer; pass the worker for the manager
 	// to manipulate, or NULL if not matched
@@ -132,9 +123,12 @@ void daemon_southbound (struct mbuf *mbuf)
 			case V49_CMD_REQ_DISCO:   // Discovery / Advertisement
 			case V49_CMD_REQ_ENUM:    // Enumeration
 			case V49_CMD_REQ_ACCESS:  // Access
-			case V49_CMD_REQ_RELEASE: // Release
 				daemon_manager_command_recv(&v49, mbuf_user(mbuf), worker);
 				RETURN_ERRNO(0);
+
+			case V49_CMD_REQ_RELEASE:  // Release falls through to worker deliver
+				daemon_manager_command_recv(&v49, mbuf_user(mbuf), worker);
+				break;
 
 			default:
 				break;
@@ -144,6 +138,8 @@ void daemon_southbound (struct mbuf *mbuf)
 	if ( worker )
 	{
 		LOG_DEBUG("%s: Dispatch southbound\n", worker_name(worker));
+		mbuf_cur_set_beg(mbuf);
+		mbuf_dump(mbuf);
 		worker_enqueue(worker, mbuf);
 		RETURN_ERRNO(0);
 	}
@@ -172,7 +168,8 @@ void daemon_northbound (struct mbuf *mbuf)
 	// early-out: if it has an explicit control destination trust that
 	if ( user->control )
 	{
-		LOG_DEBUG("%s: unicast %p\n", control_name(user->control), mbuf);
+		LOG_DEBUG("%s: unicast %p (socket %d)\n", control_name(user->control), mbuf,
+		          user->socket);
 		control_enqueue(user->control, mbuf);
 		RETURN_ERRNO(0);
 	}

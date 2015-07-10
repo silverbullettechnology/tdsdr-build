@@ -19,16 +19,18 @@
  */
 #ifndef INCLUDE_WORKER_CONTEXT_H
 #define INCLUDE_WORKER_CONTEXT_H
-#include <lib/mbuf.h>
+
+#include <v49_message/types.h>
+#include <v49_message/common.h>
 
 
 /** Receive a context packet for config purposes
  *
- *  \param  mbuf  Message buffer containing VITA-49 context packet
+ *  \param  v49  Parsed context packet
  *
  *  \return 0 on success, <0 on fatal error
  */
-int worker_context_recv (struct mbuf *mbuf);
+int worker_context_recv (struct v49_common *v49);
 
 
 #endif // INCLUDE_WORKER_CONTEXT_H

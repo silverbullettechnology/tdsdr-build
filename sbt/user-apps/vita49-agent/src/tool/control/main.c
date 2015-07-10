@@ -35,29 +35,34 @@
 #include <stdarg.h>
 #include <getopt.h>
 
-#include <lib/log.h>
-#include <lib/clocks.h>
+#include <config/config.h>
+
+#include <sbt_common/log.h>
+#include <v49_message/log.h>
+#include <v49_client/log.h>
+
+#include <sbt_common/clocks.h>
 #include <common/default.h>
 #include <common/control/local.h>
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
-#include <common/vita49/control.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/control.h>
 
-#include "control.h"
-#include "sequence.h"
+#include <v49_client/socket.h>
+#include <v49_client/sequence.h>
 
 
-LOG_MODULE_STATIC("control_main", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_main", LOG_LEVEL_INFO);
 
 
 char *argv0;
 char *opt_log       = NULL;
-char *opt_config    = DEF_CONFIG;
+char *opt_config    = DEF_CONFIG_PATH;
 long  opt_reps      = 1;
 long  opt_pause     = 0;
 
-int   opt_sock_type = AF_UNIX;
-char *opt_sock_path = NULL;
+char *opt_sock_type = "srio";
+char *opt_sock_addr = NULL;
 
 char *default_argv[] = { "list", NULL };
 
@@ -68,6 +73,7 @@ int   send_size = 0;
 char  recv_buff[CONTROL_LOCAL_BUFF_SIZE];
 int   recv_size;
 
+struct socket *sock;
 
 
 
@@ -100,14 +106,27 @@ static void signal_fatal (int signum)
 
 static void usage (void)
 {
-	printf ("Usage: %s [-r reps] [-p pause] [-d lvl] [-l log] [-c config] [command [args ...]]\n\n"
+	printf ("Usage: %s [-r reps] [-p pause] [-d lvl] [-l log] [-c config]\n"
+	        "       %*s [-s type[:address]] [command [args ...]]\n\n"
 	        "Where:\n"
 	        "-r reps       Run the command reps repetitions\n"
 	        "-p pause      Pause between reps for pause ms\n"
 	        "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	        "-l log        Set log file (default stderr)\n"
-	        "-c config     Specify a different config file (default %s)\n",
-	        argv0, DEF_CONFIG);
+	        "-c config     Specify a different config file (default %s)\n" 
+	        "-s type[:adr] Specify a different socket type and address than config\n"
+	        "\n"
+	        "Socket types and optional address format.  The type name may be followed by an\n"
+	        "optional address, separated by a : character.  Types recognized:\n"
+	        "unix - Unix Domain socket: address is the filesystem path of the socket:\n"
+	        "       -s unix\n"
+	        "       -s unix:/path/to/socket\n"
+	        "srio - Serial RapidIO type 11 (message): address is the mbox number,\n"
+	        "       optionally followed by the RapidIO device-ID of the agent node:\n"
+	        "       -s srio\n"
+	        "       -s srio:3\n"
+	        "       -s srio:3,12\n",
+	        argv0, strlen(argv0), " ", DEF_CONFIG_PATH);
 	        
 	exit (1);
 }
@@ -128,11 +147,11 @@ int main (int argc, char **argv)
 		argv0 = *argv;
 
 	// defaults
+	log_init_module_list();
 	log_dupe(stderr);
-	opt_sock_path = strdup(CONTROL_LOCAL_SOCKET_PATH);
 
 	// basic arguments parsing
-	while ( (opt = getopt(argc, argv, "r:p:d:l:c:")) != -1 )
+	while ( (opt = getopt(argc, argv, "r:p:d:l:c:s:")) != -1 )
 		switch ( opt )
 		{
 			case 'l': opt_log    = optarg;  break;
@@ -173,9 +192,44 @@ int main (int argc, char **argv)
 				log_trace(1);
 				break;
 
+			case 's':
+				if ( (ptr = strchr(optarg, ':')) ) // for particular module(s)
+				{
+					*ptr++ = '\0';
+					opt_sock_addr = ptr;
+				}
+				else
+					opt_sock_addr = NULL;
+				opt_sock_type = optarg;
+				LOG_DEBUG("-s set type '%s', addr '%s'\n", opt_sock_type, opt_sock_addr);
+				break;
+
 			default:
 				usage();
 		}
+
+	if ( !(sock = socket_alloc(opt_sock_type)) )
+	{
+		LOG_ERROR("Socket type '%s' unknown.\n", opt_sock_type);
+		usage();
+	}
+
+	// Command-line overrides config file
+	if ( opt_sock_addr )
+	{
+		LOG_DEBUG("Configure sock with addr '%s'\n", opt_sock_addr);
+		if ( socket_cmdline(sock, "addr", opt_sock_addr) )
+		{
+			LOG_ERROR("Bad command-line address: %s", opt_sock_addr);
+			return 1;
+		}
+		LOG_DEBUG("Configured sock with addr '%s'\n", opt_sock_addr);
+	}
+	else if ( socket_config_inst(sock, opt_config) )
+	{
+		LOG_ERROR("Failed to read config file: %s", strerror(errno));
+		return 1;
+	}
 
 	// remaining arguments form the command
 	if ( optind < argc )
@@ -197,19 +251,20 @@ int main (int argc, char **argv)
 		sequence_list(LOG_LEVEL_ERROR);
 		return 1;
 	}
-	LOG_INFO("Command '%s' matched: %s\n", map->name, map->desc);
-
-
-	// read config file
-	if ( config_parse(&config_context, opt_config) )
+	else if ( !strcmp(map->name, "list") )
 	{
-		LOG_ERROR("Failed to read config file: %s", strerror(errno));
-		return 1;
+		LOG_FOCUS("Available commands:\n");
+		sequence_list(LOG_LEVEL_FOCUS);
+		return 0;
 	}
+	LOG_DEBUG("Command '%s' matched: %s\n", map->name, map->desc);
 
 	// open connection to daemon
-	if ( socket_open() < 0 )
+	if ( socket_check(sock) < 0 )
+	{
+		LOG_ERROR("Failed to connect to server: %s", strerror(errno));
 		return 1;
+	}
 
 
 	signal(SIGTERM, signal_fatal);
@@ -217,7 +272,7 @@ int main (int argc, char **argv)
 
 	long rep = 0;
 	while ( rep++ < opt_reps && main_loop )
-		if ( (ret = map->func(cmd_argc, cmd_argv)) < 0 )
+		if ( (ret = map->func(sock, cmd_argc, cmd_argv)) < 0 )
 		{
 			LOG_ERROR("%s: %d: %s\n", map->name, ret, strerror(errno));
 			ret = 1;
@@ -372,7 +427,8 @@ int main (int argc, char **argv)
 	close(sock);
 #endif
 
-	socket_close();
+	socket_close(sock);
+	socket_free(sock);
 
 	return ret;
 }

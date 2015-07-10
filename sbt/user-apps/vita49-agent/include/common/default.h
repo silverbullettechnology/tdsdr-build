@@ -21,7 +21,18 @@
 #define INCLUDE_COMMON_DEFAULT_H
 
 
-#define DEF_CONFIG "./daemon.conf"
+/* Currently sized for a maximum-length SRIO type 11 (message) packet with sd_user header
+ * size reserved */
+#define DEFAULT_MBUF_SIZE  5120
+#define DEFAULT_MBUF_HEAD   256
+
+
+#define DEF_CONFIG_PATH            "/etc/vita49-agent/daemon.conf"
+#define DEF_RESOURCE_CONFIG_PATH   "/etc/vita49-agent/resource.conf"
+#define DEF_WORKER_CLASS           "child"
+#define DEF_WORKER_CONFIG_PATH     "/etc/vita49-agent/worker.conf"
+#define DEF_WORKER_EXEC_PATH       "/usr/bin"
+#define DEF_WORKER_FILENAME        "vita49-agent-worker"
 
 
 #endif /* INCLUDE_COMMON_DEFAULT_H */

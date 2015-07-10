@@ -17,17 +17,17 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#ifndef INCLUDE_CONTROL_CONTROL_H
-#define INCLUDE_CONTROL_CONTROL_H
+#ifndef INCLUDE_DAEMON_CONTROL_H
+#define INCLUDE_DAEMON_CONTROL_H
 #include <sys/select.h>
 
-#include <lib/growlist.h>
-#include <lib/descript.h>
-#include <lib/mqueue.h>
-#include <lib/mbuf.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/descript.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/mbuf.h>
 #include <daemon/worker.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
 
 /** Allocate a control instance, usually a private which starts with a control struct for
@@ -364,5 +364,5 @@ static inline const char *control_name (struct control *ctrl)
 }
 
 
-#endif /* INCLUDE_CONTROL_CONTROL_H */
+#endif /* INCLUDE_DAEMON_CONTROL_H */
 /* Ends */

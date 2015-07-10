@@ -20,11 +20,11 @@
 #ifndef INCLUDE_DAEMON_MANAGER_H
 #define INCLUDE_DAEMON_MANAGER_H
 
-#include <common/vita49/types.h>
-#include <common/vita49/common.h>
-#include <common/vita49/command.h>
-#include <common/vita49/context.h>
-#include <common/vita49/control.h>
+#include <v49_message/types.h>
+#include <v49_message/common.h>
+#include <v49_message/command.h>
+#include <v49_message/context.h>
+#include <v49_message/control.h>
 
 #include <daemon/message.h>
 #include <daemon/worker.h>

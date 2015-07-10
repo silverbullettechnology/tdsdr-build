@@ -12,6 +12,22 @@
 # KIND, either express or implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
+### NOTE: This script may not run by default; whether it does is controlled by the
+### Petalinux configuration variable CONFIG_USER_LIBS_AD9361_INIT_AUTOLOAD.
+###
+### You can enable or disable it using the petalinux-config-apps tool:
+###   User Libraries  --->
+###     ad9361  --->
+###       Auto run init script at boot
+###
+### Alternatively you can edit the config.vendor file under the appropriate board
+### directory under sbt/vendors/SilverBulletTech/
+###
+### After changing this file run:
+###   make setup reset
+### to apply the change.  Note this makes mrproper in the Petalinux tree and may affect
+### other config changes you've made.
+
 # Run the ad9361 tool startup script for the Wimax example
 /usr/bin/ad9361 /usr/lib/ad9361/script/startup_fdd-4msps-t2r2
 

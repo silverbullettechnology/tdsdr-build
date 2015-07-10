@@ -50,7 +50,8 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += spi_shim.o
 
-#CFLAGS_spi_shim.o += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
+#EXTRA_CFLAGS += -Werror
 
 all:  modules
 

@@ -1,0 +1,28 @@
+# Configuration options for VITA49 message library
+#
+# Copyright 2015 Silver Bullet Technology
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+# file except in compliance with the License.  You may obtain a copy of the License at:
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the specific language governing
+# permissions and limitations under the License.
+#
+
+if USER_LIBS_V49_MESSAGE
+ 	config USER_LIBS_V49_MESSAGE_STATIC
+	bool "Install static library files to target"
+	help
+	  Select this to copy static library files to the target.  This is only required
+	  to compile code on the target itself; if unsure say N.
+
+ 	config USER_LIBS_V49_MESSAGE_INCLUDES
+	bool "Install include files to target"
+	help
+	  Select this to copy include files to the target.  This is only required to
+	  compile code on the target itself, and only if using -static; if unsure say N.
+
+endif

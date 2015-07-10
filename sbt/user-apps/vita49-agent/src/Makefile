@@ -15,10 +15,10 @@
 
 # output targets
 BINS := \
-	../bin/control \
+	../bin/vita49-agent \
 	../bin/test-stub \
-	../bin/worker \
-	../bin/daemon
+	../bin/vita49-agent-worker \
+	../bin/vita49-agent-daemon
 
 
 # Daemon core
@@ -31,6 +31,7 @@ DAEMON_OBJS += \
 
 # Control classes for user control
 DAEMON_OBJS += \
+	daemon/control/srio.o \
 	daemon/control/local.o \
 	daemon/control/dummy.o
 
@@ -41,39 +42,16 @@ DAEMON_OBJS += \
 
 # Manager 
 DAEMON_OBJS += \
-	daemon/resource.o \
 	daemon/manager/config.o \
 	daemon/manager/command.o \
 	daemon/manager/control.o \
 	daemon/manager/message.o
 
-# Common application code used in daemon
-DAEMON_OBJS += \
-	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/control.o \
-	common/vita49/types.o \
-	common/vita49/common.o
-
-# Common library code used in daemon
-DAEMON_OBJS += \
-	lib/buffer.o \
-	lib/child.o \
-	lib/clocks.o \
-	lib/descript.o \
-	lib/log.o \
-	lib/growlist.o \
-	lib/packlist.o \
-	lib/genlist.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/timer.o \
-	lib/uuid.o \
-	lib/util.o
-
 # Daemon library code - never cleaned 
 DAEMON_LIBS := \
+	-lsbt_common \
+	-lv49_message \
+	-ldsa_util \
 	-lrt \
 	-lconfig
 
@@ -82,33 +60,21 @@ DAEMON_LIBS := \
 WORKER_OBJS += \
 	worker/config.o  \
 	worker/command.o \
+	worker/command/open.o \
+	worker/command/start.o \
+	worker/command/stop.o \
+	worker/command/close.o \
 	worker/context.o \
+	worker/message.o \
 	worker/main.o
 
-# Common application code used in worker
-WORKER_OBJS += \
-	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/types.o \
-	common/vita49/common.o
-
-# Common library code used in worker
-WORKER_OBJS += \
-	lib/clocks.o \
-	lib/descript.o \
-	lib/genlist.o \
-	lib/growlist.o \
-	lib/log.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/packlist.o \
-	lib/timer.o \
-	lib/uuid.o \
-	lib/util.o
-
-# Daemon library code - never cleaned 
+# Worker library code - never cleaned 
 WORKER_LIBS := \
+	-lsbt_common \
+	-lv49_message \
+	-ldsa_util \
+	-lpipe_dev \
+	-lfifo_dev \
 	-lrt \
 	-lconfig
 
@@ -120,32 +86,19 @@ TEST_STUB_OBJS := \
 
 # Control tool
 CONTROL_OBJS := \
-	lib/log.o \
-	lib/descript.o \
-	lib/packlist.o \
-	lib/clocks.o \
-	lib/genlist.o \
-	lib/growlist.o \
-	lib/mbuf.o \
-	lib/mqueue.o \
-	lib/util.o \
-	lib/uuid.o \
-	common/resource.o \
-	common/vita49/command.o \
-	common/vita49/context.o \
-	common/vita49/control.o \
-	common/vita49/types.o \
-	common/vita49/common.o \
 	tool/control/config.o \
-	tool/control/expect.o \
-	tool/control/socket.o \
-	tool/control/sequence.o \
 	tool/control/main.o
 
 CONTROL_OBJS += tool/control/sequence/disco.o
-#CONTROL_OBJS += tool/control/sequence/enum.o
+CONTROL_OBJS += tool/control/sequence/enum.o
+CONTROL_OBJS += tool/control/sequence/access.o
+CONTROL_OBJS += tool/control/sequence/release.o
 
 CONTROL_LIBS := \
+	-lsbt_common \
+	-lv49_client \
+	-lv49_message \
+	-ldsa_util \
 	-lrt \
 	-lconfig
 
@@ -172,28 +125,28 @@ tests: $(BINS)
 		$(SHELL) tests/harness.sh $$d; \
 	done
 
-../bin/daemon: $(DAEMON_OBJS)
+../bin/vita49-agent-daemon: $(DAEMON_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(DAEMON_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(DAEMON_LIBS) -o $@
 
-../bin/worker: $(WORKER_OBJS)
+../bin/vita49-agent-worker: $(WORKER_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(WORKER_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(WORKER_LIBS) -o $@
 
-../bin/control: $(CONTROL_OBJS)
+../bin/vita49-agent: $(CONTROL_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(CONTROL_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(CONTROL_LIBS) -o $@
 
 ../bin/test-stub: $(TEST_STUB_OBJS)
 	mkdir -p ../bin
-	$(CC) $(CFLAGS) $(LFLAGS) $^ $(TEST_STUB_LIBS) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(TEST_STUB_LIBS) -o $@
 
 
 install:
 	mkdir -p $(DESTDIR)/usr/bin $(DESTDIR)/usr/sbin
-	install -m755 ../bin/daemon         $(DESTDIR)/usr/sbin
-	install -m755 ../bin/worker         $(DESTDIR)/usr/bin
-	install -m755 ../bin/control        $(DESTDIR)/usr/bin
+	install -m755 ../bin/vita49-agent-daemon  $(DESTDIR)/usr/sbin
+	install -m755 ../bin/vita49-agent-worker  $(DESTDIR)/usr/bin
+	install -m755 ../bin/vita49-agent         $(DESTDIR)/usr/bin
 
 clean:
 	rm -f $(BUILT_OBJS)

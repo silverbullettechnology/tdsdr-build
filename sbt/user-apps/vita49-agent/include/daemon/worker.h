@@ -21,13 +21,20 @@
 #define INCLUDE_DAEMON_WORKER_H
 #include <sys/select.h>
 
-#include <lib/growlist.h>
-#include <lib/descript.h>
-#include <lib/clocks.h>
-#include <lib/mqueue.h>
-#include <lib/mbuf.h>
+#include <sbt_common/growlist.h>
+#include <sbt_common/descript.h>
+#include <sbt_common/clocks.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/uuid.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
+
+#include <v49_message/resource.h>
+
+
+extern char *worker_config_path;
+extern char *worker_exec_path;
 
 
 #define  WF_AUTO_START     (1 << 0)
@@ -43,6 +50,7 @@ typedef enum
 	WS_NORMAL,  /** Worker is running, goes to _STOP or _ERROR                       */
 	WS_STOP,    /** Worker is stopping (can _set manually), goes to _READY           */
 	WS_LIMIT,   /** Worker is waiting for rate-limited timer, goes to _READY         */
+	WS_ZOMBIE,  /** Worker has exited, waiting for de-allocation                     */
 	WS_MAX      /** For sizing arrays, never returned                                */
 }
 worker_state_t;
@@ -53,6 +61,11 @@ worker_state_t;
  *  setting to default values any fields within the private structure.  It should not
  *  initialize any of the fields in the ancestor worker; worker_alloc() does that. */
 typedef struct worker * (* worker_alloc_fn) (void);
+
+/** Command-line configuration of a worker, usually instead of a config-file parse.
+ *  Return nonzero if the passed argument is invalid. */
+typedef int (* worker_cmdline_fn) (struct worker *worker,
+                                   const char *tag, const char *val);
 
 
 /** Get state of a worker.  May be used for logging messages if the auto (re)start flags
@@ -115,6 +128,7 @@ typedef void (* worker_free_fn) (struct worker *worker);
 struct worker_ops
 {
 	worker_alloc_fn      alloc_fn;
+	worker_cmdline_fn    cmdline_fn;
 	config_func_t        config_fn;
 	worker_state_get_fn  state_get_fn;
 	worker_state_set_fn  state_set_fn;
@@ -150,6 +164,8 @@ struct worker
 {
 	const char                 *name;
 	const struct worker_class  *class;
+	struct control             *control;
+	int                         socket;
 	unsigned                    sid;
 	unsigned long               flags;
 	worker_state_t              state;
@@ -157,6 +173,9 @@ struct worker
 	struct mqueue               recv;
 	struct mqueue               send;
 	clocks_t                    clocks;
+	uuid_t                      cid;
+	uuid_t                      rid;
+	struct resource_info       *res;
 };
 
 
@@ -196,6 +215,26 @@ int worker_config_inst (struct worker *worker, const char *path);
  */
 int worker_config_common (const char *section, const char *tag, const char *val,
                           const char *file, int line, struct worker *worker);
+
+
+/** Command-line config of a worker
+ *
+ *  \param worker Instance to be configured
+ *  \param tag  Argument name
+ *  \param val  Argument value
+ *
+ *  \return 0 on success, <0 on failure
+ */
+static inline int worker_cmdline (struct worker *worker, const char *tag, const char *val)
+{
+	if ( !worker )
+		return -1;
+
+	if ( !worker->class->ops->cmdline_fn )
+		return 0;
+
+	return worker->class->ops->cmdline_fn(worker, tag, val);
+}
 
 
 /** Get worker state

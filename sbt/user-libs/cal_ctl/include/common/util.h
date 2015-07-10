@@ -64,4 +64,4 @@ int proc_scanf (const char *path, const char *fmt, ...);
 char *path_match (char *dst, size_t max, const char *search, const char *leaf);
 
 
-#endif // _INCLUDE_APP_CAL_CTL_UTIL_H_
+#endif /* _INCLUDE_APP_CAL_CTL_UTIL_H_ */

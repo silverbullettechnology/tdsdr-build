@@ -18,13 +18,21 @@
  *  vim:ts=4:noexpandtab
  */
 #include <sys/select.h>
+#include <limits.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
-#include <lib/child.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+#include <sbt_common/child.h>
+#include <sbt_common/packlist.h>
+
+#include <v49_message/resource.h>
+
+#include <common/default.h>
+
 #include <daemon/worker.h>
 #include <daemon/message.h>
+#include <daemon/daemon.h>
 
 
 LOG_MODULE_STATIC("worker_child", LOG_LEVEL_WARN);
@@ -38,7 +46,52 @@ struct worker_child_priv
 {
 	struct worker  worker;
 	struct child   child;
+	char          *filename;
 };
+
+
+static char **worker_child_argv (struct worker_child_priv *priv)
+{
+	ENTER("priv %p", priv);
+
+	if ( !priv || !priv->filename )
+		RETURN_ERRNO_VALUE(EFAULT, "%p", NULL);
+
+	struct packlist  pack;
+	char             exec[128];
+	char             conf[128];
+	char             rid[48];
+	char             addr[16];
+	char             sid[16];
+	char           **argv;
+
+	snprintf(exec, sizeof(exec), "%s/%s", worker_exec_path, priv->filename);
+	snprintf(conf, sizeof(conf), "-c%s",  worker_config_path);
+	snprintf(addr, sizeof(addr), "-R%u",  priv->worker.socket);
+	snprintf(rid,  sizeof(rid),  "%s",    uuid_to_str(&priv->worker.rid));
+	snprintf(sid,  sizeof(sid),  "%u",    priv->worker.sid);
+
+	memset (&pack, 0, sizeof(pack));
+	packlist_size(&pack, exec, -1);
+	packlist_size(&pack, conf, -1);
+	packlist_size(&pack, addr, -1);
+	packlist_size(&pack, rid,  -1);
+	packlist_size(&pack, sid,  -1);
+	packlist_size(&pack, NULL,  0);
+
+	errno = 0;
+	if ( !(argv = packlist_alloc(&pack)) )
+		RETURN_VALUE("%p", NULL);
+
+	packlist_data(&pack, exec, -1);
+	packlist_data(&pack, conf, -1);
+	packlist_data(&pack, addr, -1);
+	packlist_data(&pack, rid,  -1);
+	packlist_data(&pack, sid,  -1);
+	packlist_data(&pack, NULL,  0);
+
+	RETURN_ERRNO_VALUE(0, "%p", argv);
+}
 
 
 static struct worker *worker_child_alloc (void)
@@ -53,10 +106,35 @@ static struct worker *worker_child_alloc (void)
 	priv->child.read  = -1;
 	priv->child.pid   = -1;
 
-	// temporary
-	priv->child.argv = child_argv("bin/test-stub", NULL);
-
 	RETURN_ERRNO_VALUE(0, "%p", (struct worker *)priv);
+}
+
+/** Command-line configuration of a worker, usually instead of a config-file parse.
+ *  Return nonzero if the passed argument is invalid. */
+static int worker_child_cmdline (struct worker *worker, const char *tag, const char *val)
+{
+	ENTER("worker %p, tag %s, val %s", worker, tag, val);
+	struct worker_child_priv *priv = (struct worker_child_priv *)worker;
+	char                    **pp;
+
+	LOG_DEBUG("%s: tag '%s', val '%s'\n", worker_name(worker), tag, val);
+
+	if ( !strcmp(tag, "filename") )
+	{
+		free(priv->filename);
+		priv->filename = strdup(val);
+
+		free(priv->child.argv);
+		priv->child.argv = worker_child_argv(priv);
+
+		LOG_DEBUG("%s: config/filename setup argv:\n", worker_name(worker));
+		for ( pp = priv->child.argv; *pp; pp++ )
+			LOG_DEBUG("  '%s'\n", *pp);
+
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	RETURN_ERRNO_VALUE(0, "%d", 0);
 }
 
 static int worker_child_config (const char *section, const char *tag, const char *val,
@@ -64,9 +142,14 @@ static int worker_child_config (const char *section, const char *tag, const char
 {
 	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
 	      section, tag, val, file, line, data);
+	struct worker *worker = (struct worker *)data;
+	int            ret;
+
+	if ( !tag || !val )
+		RETURN_ERRNO_VALUE(0, "%d", 0);
 
 	errno = 0;
-	int ret = worker_config_common(section, tag, val, file, line, (struct worker *)data);
+	ret = worker_child_cmdline(worker, tag, val);
 	RETURN_VALUE("%d", ret);
 }
 
@@ -102,7 +185,8 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 	if ( !worker )
 		RETURN_ERRNO_VALUE(EFAULT, "%d", -1);
 
-	struct worker_child_priv *priv = (struct worker_child_priv *)worker;
+	struct worker_child_priv  *priv = (struct worker_child_priv *)worker;
+	char                     **pp;
 
 	switch ( worker->state )
 	{
@@ -128,12 +212,16 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 			{
 				if ( !priv->child.ret && !(worker->flags & WF_RESTART_CLEAN) )
 				{
-					LOG_DEBUG("%s: waiting for manual (re)START\n", worker->name);
+					LOG_DEBUG("%s: waiting for manual (re)START after clean exit\n",
+					          worker->name);
+					worker->state = WS_ZOMBIE;
 					RETURN_ERRNO_VALUE(0, "%d", worker->state);
 				}
-				if ( priv->child.ret && !(worker->flags & WF_RESTART_CLEAN) )
+				if ( priv->child.ret && !(worker->flags & WF_RESTART_ERROR) )
 				{
-					LOG_DEBUG("%s: waiting for manual (re)START\n", worker->name);
+					LOG_DEBUG("%s: waiting for manual (re)START after error exit (%d)\n",
+					          worker->name, priv->child.ret);
+					worker->state = WS_ZOMBIE;
 					RETURN_ERRNO_VALUE(0, "%d", worker->state);
 				}
 			}
@@ -158,12 +246,16 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 				RETURN_ERRNO_VALUE(0, "%d", worker->state);
 			}
 			worker->starts++;
+			LOG_DEBUG("%s: argv to spawn:\n", worker_name(worker));
+			for ( pp = priv->child.argv; *pp; pp++ )
+				LOG_DEBUG("  '%s'\n", *pp);
 			if ( child_spawn(&priv->child, 1) < 0 )
 			{
 				LOG_ERROR("%s: child_spawn(): %s\n", worker->name, strerror(errno));
 				worker->state = WS_READY;
 				RETURN_VALUE("%d", worker->state);
 			}
+			LOG_INFO("%s: child spawned with PID %d, goto NORMAL\n", worker->name, priv->child.pid);
 			worker->state = WS_NORMAL;
 			// fall-through
 
@@ -230,9 +322,13 @@ static worker_state_t worker_child_state_get (struct worker *worker)
 				LOG_DEBUG("%s: rate-limited, waiting...\n", worker->name);
 				RETURN_ERRNO_VALUE(0, "%d", worker->state);
 			}
-			LOG_INFO("%s: rate-limit done, move to START\n", worker->name);
-			worker->state = WS_START;
+			LOG_INFO("%s: rate-limit done, move to READY\n", worker->name);
+			worker->state = WS_READY;
 			break;
+
+		case WS_ZOMBIE:
+			LOG_DEBUG("%s: zombie, waiting...\n", worker->name);
+			RETURN_ERRNO_VALUE(0, "%d", worker->state);
 
 		default:
 			LOG_DEBUG("Weird state %d (%s)\n", worker->state,
@@ -302,7 +398,7 @@ static int worker_child_read (struct worker *worker, fd_set *rfds)
 	int                       len;
 
 	// Receive into failsafe buffer if mbuf_alloc failed
-	if ( !(mbuf = mbuf_alloc(4096, sizeof(struct message))) )
+	if ( !(mbuf = mbuf_alloc(DEFAULT_MBUF_SIZE, sizeof(struct message))) )
 	{
 		char  buff[128];
 		LOG_WARN("%s: mbuf_alloc() failed, message dropped\n", worker_name(worker));
@@ -313,8 +409,11 @@ static int worker_child_read (struct worker *worker, fd_set *rfds)
 
 		RETURN_VALUE("%d", 0);
 	}
+	mbuf_beg_set(mbuf, DEFAULT_MBUF_HEAD);
 	user = mbuf_user(mbuf);
-	user->worker = worker;
+	user->worker  = worker;
+	user->control = worker->control;
+	user->socket  = worker->socket;
 
 	// error handling
 	if ( (len = mbuf_read(mbuf, priv->child.read, 4096)) < 0 )
@@ -434,6 +533,7 @@ static void worker_child_free (struct worker *worker)
 static struct worker_ops worker_child_ops =
 {
 	alloc_fn:      worker_child_alloc,
+	cmdline_fn:    worker_child_cmdline,
 	config_fn:     worker_child_config,
 	state_get_fn:  worker_child_state_get,
 	fd_set_fn:     worker_child_fd_set,

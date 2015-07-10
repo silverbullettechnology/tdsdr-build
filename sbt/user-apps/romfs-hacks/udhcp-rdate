@@ -1,0 +1,8 @@
+#!/bin/sh
+
+case "$1" in
+	renew|bound)
+		(sleep 1 && [ -n "$ntpsrv" ] && rdate -s $ntpsrv) &
+		;;
+esac
+
