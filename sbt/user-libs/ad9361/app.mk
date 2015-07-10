@@ -113,7 +113,9 @@ romfs: $(APPS)
 	chmod -R +x $(ROMFSDIR)$(LIB_DIR)/script
 	install -m755 script/init/ad9361-init.sh $(ROMFSDIR)/etc/init.d
 	rm -f $(ROMFSDIR)/etc/rcS.d/S95ad9361-init.sh
+ifeq ($(CONFIG_USER_LIBS_AD9361_INIT_AUTOLOAD),y)
 	ln -s ../init.d/ad9361-init.sh $(ROMFSDIR)/etc/rcS.d/S95ad9361-init.sh
+endif
 
 clean:
 	rm -f $(OBJS)
