@@ -38,9 +38,9 @@ int main(int argc, char *argv[])
 	asfe_ctl_hal_linux_attach();
 	asfe_ctl_dev_reopen(0,0);
 
-	//set both ADI devices to alert mode to permit chip configuration
-	ad9361_set_ensm_mode(0,2);
-	ad9361_set_ensm_mode(1,2);
+	//set both ADI devices to fdd mode to permit chip configuration
+	ad9361_set_ensm_mode(0,5);
+	ad9361_set_ensm_mode(1,5);
 
 	//set the rx port configuration for both AD9361 devices to AD9361_IN_RF_PORT_SELECT_A_BALANCED
 	ad9361_set_in_voltage1_rf_port_select(0,0);
@@ -55,16 +55,16 @@ int main(int argc, char *argv[])
 	ad9361_set_out_voltage1_rf_port_select(1,0);
 	
 	//set the analog filters (rf bandwidth) for tx and rx on both ad9361 devices
-	ad9361_set_in_voltage_rf_bandwidth(0,3500000);
-	ad9361_set_out_voltage_rf_bandwidth(0,3500000);
-	ad9361_set_in_voltage_rf_bandwidth(1,3500000);
-	ad9361_set_out_voltage_rf_bandwidth(1,3500000);
+	ad9361_set_in_voltage_rf_bandwidth(0,50000000);
+	ad9361_set_out_voltage_rf_bandwidth(0,50000000);
+	ad9361_set_in_voltage_rf_bandwidth(1,50000000);
+	ad9361_set_out_voltage_rf_bandwidth(1,50000000);
 
-	//set the sampling frequency of both ad9361 devices to 4 MHz
-	ad9361_set_in_voltage_sampling_frequency(0,4000000);
-	ad9361_set_out_voltage_sampling_frequency(0,4000000);
-	ad9361_set_in_voltage_sampling_frequency(1,4000000);
-	ad9361_set_out_voltage_sampling_frequency(1,4000000);
+	//set the sampling frequency of both ad9361 deviced
+	ad9361_set_in_voltage_sampling_frequency(0,38000000);
+	ad9361_set_out_voltage_sampling_frequency(0,38000000);
+	ad9361_set_in_voltage_sampling_frequency(1,38000000);
+	ad9361_set_out_voltage_sampling_frequency(1,38000000);
 
 	//set the tx and rx frequencies to 2400 MHz
 	ad9361_set_out_altvoltage0_RX_LO_frequency(0,2400000000ULL);
@@ -72,23 +72,18 @@ int main(int argc, char *argv[])
 	ad9361_set_out_altvoltage0_RX_LO_frequency(1,2400000000ULL);
 	ad9361_set_out_altvoltage1_TX_LO_frequency(1,2400000000ULL);
 
-	//load the FIR filter configuration and activate the FIR filters.  Filters must be loaded twice.	
-	ad9361_load_filter_fir_config (0, "/usr/lib/ad9361/filter/wimax");
-	ad9361_load_filter_fir_config (1, "/usr/lib/ad9361/filter/wimax");
+	//disable the FIR filters.
+	ad9361_set_in_out_voltage_filter_fir_en (0, 0);
+	ad9361_set_in_out_voltage_filter_fir_en (1, 0);
 
-	ad9361_set_in_out_voltage_filter_fir_en (0, 1);
-	ad9361_set_in_out_voltage_filter_fir_en (1, 1);
+	//run a TX quadrature calibration
+	ad9361_start_calib(0,2,13);
+	ad9361_start_calib(1,2,13);
 
-	ad9361_load_filter_fir_config (0, "/usr/lib/ad9361/filter/wimax");
-	ad9361_load_filter_fir_config (1, "/usr/lib/ad9361/filter/wimax");
+	ad9361_set_ensm_mode(0,0);
+	ad9361_set_ensm_mode(1,0);
 
-	//set some GPIOs and write some data to the ASFE spi interface in preparation for transmit.	
-	asfe_ctl_spitransaction(&asfe_data[0], &asfe_rd_data[0], 5);
-	asfe_ctl_adi1_tx_en(1);
-	asfe_ctl_adi2_tx_en(1);
-
-	//start transmitting the example waveform	
-	system("dma_streamer_app adt /usr/lib/ad9361/data/802.16d-64q-cp16.iqw cont");
+	printf("AD9361 configured for high sample rates.\n");
 
 	return 0;
 }
