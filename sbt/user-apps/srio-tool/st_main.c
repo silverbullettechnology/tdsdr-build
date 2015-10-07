@@ -44,6 +44,7 @@ struct sd_mesg        *mesg;
 struct sd_mesg_mbox   *mbox;
 struct sd_mesg_swrite *swrite;
 struct sd_mesg_dbell  *dbell;
+struct sd_mesg_stream *stream;
 
 uint32_t  buff[8192];
 int       size;
@@ -54,11 +55,14 @@ uint16_t  opt_rem_addr = 2;
 long      opt_mbox_sub        = 0xF; // sub all 4 mboxes
 uint16_t  opt_dbell_range[2]  = { 0, 0xFFFF }; // sub all dbells 
 uint64_t  opt_swrite_range[2] = { 0, 0x3FFFFFFFF }; // sub all swrites
+uint16_t  opt_stream_range[2] = { 0, 0xFFFF }; // sub all streams
 
 long      opt_mbox_send    = 0;
 long      opt_mbox_letter  = 0;
 uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
+uint16_t  opt_stream_sid   = 0x1234;
+uint8_t   opt_stream_cos   = 0x55;
 
 uint32_t  prev_status;
 time_t    periodic = -1;
@@ -108,9 +112,9 @@ void menu (void)
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
 	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
 	       "7 - Send a Vita49 DISCO message (40 bytes)\n"
-	       "8 - Send a burst of 2 SWRITEs, 256 bytes each\n"
-	       "9 - Send a burst of 4 SWRITEs, 256 bytes each\n"
-	       "0 - Send a burst of 8 SWRITEs, 256 bytes each\n"
+	       "8 - Send a single type 9 packet, 128 bytes\n"
+	       "9 - Send a single type 9 packet, 127 bytes\n"
+	       "0 - Send a single type 9 packet, 126 bytes\n"
 	       "\n");
 }
 
@@ -249,7 +253,6 @@ int main (int argc, char **argv)
 
 	/* RX CM_CTRL buffer */
 	struct sd_user_cm_ctrl cm_ctrl;
-	int                    swrite_burst;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
@@ -257,11 +260,15 @@ int main (int argc, char **argv)
 	unsigned         diff_count = 0;
 	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
+	int              type9_length;
+	int              idx;
+	uint8_t          val;
 
 	mesg   = (struct sd_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
 	swrite = &mesg->mesg.swrite;
 	dbell  = &mesg->mesg.dbell;
+	stream = &mesg->mesg.stream;
 
 	menu();
 	while ( main_loop )
@@ -408,7 +415,7 @@ int main (int argc, char **argv)
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
-			swrite_burst = 2;
+			type9_length = 128;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -499,40 +506,27 @@ int main (int argc, char **argv)
 					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
-				// note: depends on swrite_burst being reset to 2 before switch
+				// note: depends on type9_length being reset before switch
 				case '0':
-					swrite_burst <<= 1; // fall-through
+					type9_length--; // fall-through
 				case '9':
-					swrite_burst <<= 1; // fall-through
+					type9_length--; // fall-through
 				case '8':
 				{
-					int        slot, byte;
-					uint16_t   paint;
-					uint16_t  *word;
-					for ( slot = 0; slot < swrite_burst; slot++ )
-					{
-						mesg   = (struct sd_mesg *)&buff[slot * 128];
-						swrite = &mesg->mesg.swrite;
+					mesg->type   = 9;
+					stream->sid  = opt_stream_sid;
+					stream->cos  = opt_stream_cos;
 
-						mesg->type     = 6;
-						mesg->size     = 256;
-						mesg->size    += offsetof(struct sd_mesg,        mesg);
-						mesg->size    += offsetof(struct sd_mesg_swrite, data);
-						mesg->src_addr = opt_loc_addr;
-						mesg->dst_addr = opt_rem_addr;
-						swrite->addr   = 0;
+					val = type9_length & 0xFF;
+					for ( idx = 0; idx < type9_length; idx++ )
+						stream->data[idx] = val--;
 
-						word  = (uint16_t *)swrite->data;
-						paint = slot << 8;
-						for ( byte = 0; byte < 128; byte++ )
-							*word++ = paint++;
-					}
-
-					size = mesg->size;
-					for ( slot = 0; slot < swrite_burst; slot++ )
-						if ( (ret = write(dev, &buff[slot * 128], size)) < size )
-							perror("write() to driver");
-					size = 0;
+					size = type9_length;
+					printf("\nSEND: STREAM to SID 0x%04x, cos 0x%02x, payload %d:\n",
+					       opt_stream_sid, opt_stream_cos, size);
+					hexdump_buff(stream->data, size);
+					size += offsetof(struct sd_mesg_stream, data);
+					size += offsetof(struct sd_mesg,        mesg);
 					break;
 				}
 

@@ -27,7 +27,7 @@
 
 
 // Max size of an sd_mesg, plus some headroom
-#define  SD_MESG_SIZE  (1024 + 4096)
+#define  SD_MESG_SIZE  (1024 + 65536)
 
 
 struct sd_mesg_mbox
@@ -48,7 +48,12 @@ struct sd_mesg_dbell
 	uint16_t  info;
 };
 
-//TODO: response type
+struct sd_mesg_stream
+{
+	uint16_t  sid;
+	uint8_t   cos;
+	uint8_t   data[0];
+};
 
 struct sd_mesg
 {
@@ -63,6 +68,7 @@ struct sd_mesg
 		struct sd_mesg_mbox    mbox;
 		struct sd_mesg_dbell   dbell;
 		struct sd_mesg_swrite  swrite;
+		struct sd_mesg_stream  stream;
 		char                   data[0];
 	}
 	mesg;
