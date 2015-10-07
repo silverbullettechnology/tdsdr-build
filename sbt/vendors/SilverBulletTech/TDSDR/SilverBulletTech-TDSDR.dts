@@ -239,14 +239,11 @@ status = "disabled";
 			reg = <
 				0x90000000 0x01000000  /* Maintanence port */
 				0x80000000 0x00001000  /* Initiator FIFO Regs */
-				0x80100000 0x00001000  /* Initiator FIFO Data */
 				0x80200000 0x00001000  /* Target FIFO Regs */
-				0x80300000 0x00001000  /* Target FIFO Data */
 				0x81000000 0x00010000  /* DRP regs */
 				0x42000000 0x00001000  /* Misc SYS_REG */
 			>;
-			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
-			            "drp-regs", "sys-regs";
+			reg-names = "maint", "init-regs", "targ-regs", "drp-regs", "sys-regs";
 
 			interrupts       = < 0 52 4  0 53 4  0 55 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
@@ -267,8 +264,8 @@ status = "disabled";
 			sbt,device-id-rep = <5>;
 
 			/* Debugging and filtering flags */
-			sbt,init-flags   = <0x001E>;
-			sbt,targ-flags   = <0x001E>;
+			sbt,init-flags   = <0x001F>;
+			sbt,targ-flags   = <0x001F>;
 			sbt,shadow-flags = <0x0700>;
 
 			/* "ping" function implemented with dbells: if both values are set then

@@ -34,7 +34,7 @@ export SBT_PETALINUX_VER := 2013.04
 export SBT_BSP := TDSDR
 
 # Boot.bin selection
-export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/TDSDR/fsbl_8596688e8a5a_u-boot_5d918b1c_pl_bdb0df03.bin
+export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/TDSDR/tdsdr_2ch_srio9_viv20153_10_06_2015_1322.bin
 
 
 # You shouldn't need to modify anything beyond here
