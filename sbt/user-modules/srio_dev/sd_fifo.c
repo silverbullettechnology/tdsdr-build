@@ -118,10 +118,8 @@ void sd_dump_regs (struct sd_fifo *sf)
 	sd_dump_ixr(sf, "ISR", REG_READ(&sf->regs->isr));
 	sd_dump_ixr(sf, "IER", REG_READ(&sf->regs->ier));
 	pr_debug("%s: tdfr   : %08x\n", sf->name, REG_READ(&sf->regs->tdfr   ));
-	pr_debug("%s: tdfd   : %08x\n", sf->name, REG_READ(&sf->regs->tdfd   ));
 	pr_debug("%s: tlr    : %08x\n", sf->name, REG_READ(&sf->regs->tlr    ));
 	pr_debug("%s: rdfo   : %08x\n", sf->name, REG_READ(&sf->regs->rdfo   ));
-	pr_debug("%s: rdfd   : %08x\n", sf->name, REG_READ(&sf->regs->rdfd   ));
 	pr_debug("%s: rlr    : %08x\n", sf->name, REG_READ(&sf->regs->rlr    ));
 	pr_debug("%s: srr    : %08x\n", sf->name, REG_READ(&sf->regs->srr    ));
 	pr_debug("%s: tdr    : %08x\n", sf->name, REG_READ(&sf->regs->tdr    ));
@@ -412,7 +410,7 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	REG_RMW(&sf->regs->ier, TFPE|TC|TSE|TPOE, 0);
 	while ( left )
 	{
-		REG_WRITE(&sf->data->tdfd, *walk);
+		REG_WRITE(sf->data + sf->tdfd, *walk);
 		walk++;
 		left -= sizeof(uint32_t);
 		desc->offs += sizeof(uint32_t);
@@ -642,7 +640,7 @@ static void sd_fifo_rx_flush (struct sd_fifo *sf, uint32_t size)
 
 	while ( size )
 	{
-		(void)REG_READ(&sf->data->rdfd);
+		(void)REG_READ(sf->data + sf->rdfd);
 		size -= sizeof(uint32_t);
 	}
 }
@@ -922,7 +920,7 @@ static void sd_fifo_rx_pio (struct sd_fifo *sf, uint32_t size)
 	desc->offs += size;
 	while ( size )
 	{
-		*walk++ = REG_READ(&sf->data->rdfd);
+		*walk++ = REG_READ(sf->data + sf->rdfd);
 		size   -= sizeof(uint32_t);
 	}
 	sf->rx.stats.chunks++;
@@ -1361,6 +1359,8 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigne
 	}
 	sf_debug(sf, "%s: regs mapped %08x -> %p\n", sf->name, regs->start, sf->regs);
 
+	sf->tdfd = offsetof(struct sd_fifo_regs, tdfd);
+	sf->rdfd = offsetof(struct sd_fifo_regs, rdfd);
 	if ( data == regs )
 		sf->data = sf->regs;
 	else
@@ -1372,8 +1372,18 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigne
 			goto unmap_regs;
 		}
 		sf_debug(sf, "%s: data mapped %08x -> %p\n", sf->name, data->start, sf->data);
+
+		snprintf(name, sizeof(name), "sbt,%s-v4.1-axi-full", pref);
+		if ( of_property_read_bool(pdev->dev.of_node, name) )
+		{
+			sf_debug(sf, "%s: '%s' found and true, use new offsets\n", sf->name, name);
+			sf->tdfd = 0;
+			sf->rdfd = 0x1000;
+		}
 	}
 	sf->phys = data->start;
+	sf_debug(sf, "%s: phys %08x, tdfd 0x%x, rdfd 0x%x\n", sf->name,
+	         sf->phys, sf->tdfd, sf->rdfd);
 
 	sf->irq = irq->start;
 	ret = request_irq(sf->irq, sd_fifo_interrupt, IRQF_TRIGGER_HIGH, dev_name(sf->dev), sf);
@@ -1395,7 +1405,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigne
 			ret = -1;
 			goto irq;
 		}
-		sf->tx.phys = sf->phys + offsetof(struct sd_fifo_regs, tdfd);
+		sf->tx.phys = sf->phys + sf->tdfd;
 		sf_debug(sf, "%s: TDFD: %08x phys\n", sf->name, sf->tx.phys);
 	}
 
@@ -1407,7 +1417,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigne
 			ret = -1;
 			goto dma;
 		}
-		sf->rx.phys = sf->phys + offsetof(struct sd_fifo_regs, rdfd);
+		sf->rx.phys = sf->phys + sf->rdfd;
 		sf_debug(sf, "%s: RDFD: %08x phys\n", sf->name, sf->rx.phys);
 	}
 

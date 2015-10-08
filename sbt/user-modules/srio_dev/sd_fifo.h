@@ -49,11 +49,11 @@ struct sd_fifo_regs
 	uint32_t  ier;      /* 0x04: RW: Interrupt Enable Register                      */
 	uint32_t  tdfr;     /* 0x08: WO: Transmit Data FIFO Reset                       */
 	uint32_t  tdfv;     /* 0x0C: RO: Transmit Data FIFO Vacancy                     */
-	uint32_t  tdfd;     /* 0x10: WO: Transmit Data FIFO 32-bit Wide Data Write Port */
+	uint32_t  tdfd;     /* 0x10: WO: Use sf->tdfd for offset                        */
 	uint32_t  tlr;      /* 0x14: WO: Transmit Length Register                       */
 	uint32_t  rdfr;     /* 0x18: WO: Receive Data FIFO reset                        */
 	uint32_t  rdfo;     /* 0x1C: RO: Receive Data FIFO Occupancy                    */
-	uint32_t  rdfd;     /* 0x20: RO: Receive Data FIFO 32-bit Wide Data Read Port   */
+	uint32_t  rdfd;     /* 0x20: RO: Use sf->rdfd for offset                        */
 	uint32_t  rlr;      /* 0x24: RO: Receive Length Register                        */
 	uint32_t  srr;      /* 0x28: WO: AXI4-Stream Reset                              */
 	uint32_t  tdr;      /* 0x2C: WO: Transmit Destination Register                  */
@@ -108,11 +108,16 @@ struct sd_fifo
 	char                         name[32];
 	unsigned                     flags;
 
-	/* Note: sd_fifo_regs always maps to an AXI-Lite interface for register access, but 
-	 * sd_fifo_data may point to an AXI-Full interface for burst data. */
+	/* Note: regs always points to an AXI-Lite interface for register access.  data may be
+	 * the same if the AXI-Lite interface is used for data, or may instead point to an 
+	 * AXI-Full interface.  From v4.1 of the FIFO core the TDFD/RDFD regs may be at a
+	 * different offset for AXI-Full, so calculate the offsets at init time and add to
+	 * data when accessing */
 	struct sd_fifo_regs __iomem *regs;
-	struct sd_fifo_regs __iomem *data;
+	void                __iomem *data;
 	dma_addr_t                   phys;
+	unsigned                     tdfd;
+	unsigned                     rdfd;
 
 	struct sd_fifo_dir           rx;
 	struct sd_fifo_dir           tx;
