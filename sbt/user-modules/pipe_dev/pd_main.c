@@ -1191,9 +1191,9 @@ static int pd_probe (struct platform_device *pdev)
 		msleep(1);
 	}
 
-	// route SWRITEs to FIFO for now
-	REG_WRITE(&routing_reg->adc_sw_dest, PD_ROUTING_REG_SWRITE_FIFO);
-
+	// route SWRITEs / Type 9 to FIFO for now
+	REG_WRITE(&routing_reg->adc_sw_dest, PD_ROUTING_REG_SWRITE_FIFO |
+	                                     PD_ROUTING_REG_TYPE9_FIFO);
 
 	spin_lock_init(&pd_lock);
 	INIT_LIST_HEAD(&pd_users);

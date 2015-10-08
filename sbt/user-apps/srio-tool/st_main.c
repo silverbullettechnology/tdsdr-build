@@ -62,7 +62,7 @@ long      opt_mbox_letter  = 0;
 uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
 uint16_t  opt_stream_sid   = 0x1234;
-uint8_t   opt_stream_cos   = 0x55;
+uint8_t   opt_stream_cos   = 0x07;
 
 uint32_t  prev_status;
 time_t    periodic = -1;
@@ -243,6 +243,9 @@ int main (int argc, char **argv)
 	if ( ioctl(dev, SD_USER_IOCS_SWRITE_SUB, opt_swrite_range) )
 		perror("SD_USER_IOCG_SWRITE_SUB");
 
+	if ( ioctl(dev, SD_USER_IOCS_STREAM_ID_SUB, opt_stream_range) )
+		perror("SD_USER_IOCG_STREAM_ID_SUB");
+
 
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
@@ -346,6 +349,14 @@ int main (int argc, char **argv)
 						size -= offsetof(struct sd_mesg_swrite, data);
 						printf("SWRITE to %09llx, payload %d:\n", swrite->addr, size);
 						hexdump_buff(swrite->data, size);
+						break;
+
+					case 9:
+						size -= offsetof(struct sd_mesg,        mesg);
+						size -= offsetof(struct sd_mesg_stream, data);
+						printf("STREAM ID %04x, COS %02x, payload %d:\n",
+						       stream->sid, stream->cos, size);
+						hexdump_buff(stream->data, size);
 						break;
 
 					case 10:

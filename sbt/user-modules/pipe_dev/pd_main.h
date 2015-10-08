@@ -80,6 +80,10 @@
 #define PD_ROUTING_REG_SWRITE_ADI      0x00000000  /* swrites get sent to adi chain */
 #define PD_ROUTING_REG_SWRITE_FIFO     0x00000010  /* swrites get sent to srio_fifo */
 #define PD_ROUTING_REG_SWRITE_DMA      0x00000020  /* swrites get sent to srio_dma  */
+#define PD_ROUTING_REG_TYPE9_MASK      0x000000C0  /* type9_bypass mask */
+#define PD_ROUTING_REG_TYPE9_ADI       0x00000000  /* type9 gets sent to adi chain */
+#define PD_ROUTING_REG_TYPE9_FIFO      0x00000040  /* type9 gets sent to srio_fifo */
+#define PD_ROUTING_REG_TYPE9_DMA       0x00000080  /* type9 gets sent to srio_dma  */
 
 /* SRIO_DMA_COMB bits */
 #define PD_SRIO_DMA_COMB_CMD_ENABLE   0x00000001  /* enable   */
@@ -102,6 +106,19 @@
 #define PD_ADI_DMA_SPLIT_CMD_RESET    0x00000002  /* reset    */
 #define PD_ADI_DMA_SPLIT_CMD_PASSTHRU 0x00000004  /* passthru */
 #define PD_ADI_DMA_SPLIT_STAT_DONE    0x00000001  /* done bit */
+
+/* TYPE9_PACK bits */
+#define PD_TYPE9_PACK_CMD_ENABLE        0x00000001  /* start module            */
+#define PD_TYPE9_PACK_CMD_RESET         0x00000002  /* reset module            */
+#define PD_TYPE9_PACK_ADDR_LENGTH_MASK  0x0000FFFF  /* type 9 packet length    */
+#define PD_TYPE9_PACK_ADDR_STRMID_MASK  0xFFFF0000  /* type 9 packet stream ID */
+#define PD_TYPE9_PACK_COS_MSAK          0x000000FF  /* type 9 cos field        */
+
+/* SRIO_TYPE9_UNPACK */
+#define PD_TYPE9_UNPACK_CMD_ENABLE       0x00000001  /* start module          */
+#define PD_TYPE9_UNPACK_CMD_RESET        0x00000002  /* reset module          */
+#define PD_TYPE9_UNPACK_STREAMID_0_MASK  0x0000FFFF  /* streamID for AD9361_0 */
+#define PD_TYPE9_UNPACK_STREAMID_1_MASK  0xFFFF0000  /* streamID for AD9361_1 */
 
 
 /* Integer + Fractional timestamp struct */
@@ -295,6 +312,9 @@ struct pd_vita49_unpack
 #define  PD_IOCG_ADI_DMA_SPLIT_1_NPKTS  _IOR(PD_IOCTL_MAGIC, 219, unsigned long *)
 #define  PD_IOCG_ADI_DMA_SPLIT_0_PSIZE  _IOR(PD_IOCTL_MAGIC, 220, unsigned long *)
 #define  PD_IOCG_ADI_DMA_SPLIT_1_PSIZE  _IOR(PD_IOCTL_MAGIC, 221, unsigned long *)
+
+
+
 
 
 #endif /* _INCLUDE_PD_MAIN_H */

@@ -280,6 +280,60 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	sd_desc_free(sd_user_dev, desc);
 }
 
+void sd_user_recv_stream (struct sd_desc *desc, uint16_t sid)
+{
+	struct sd_user_priv *priv;
+	struct list_head    *walk;
+	unsigned long        flags;
+	uint32_t            *hdr  = desc->virt;
+	size_t               size = offsetof(struct sd_user_mesg,   mesg) + 
+	                            offsetof(struct sd_mesg,        mesg) + 
+	                            offsetof(struct sd_mesg_stream, data) + 
+	                            desc->used - 12;
+
+	pr_debug("STREAM: dispatch %zu bytes to %d listeners (%zu payload)\n",
+	         size, sd_user_dev->sid_users, desc->used - 12);
+
+	/* Dispatch to users */
+	spin_lock_irqsave(&lock, flags);
+	list_for_each(walk, &list)
+	{
+		priv = container_of(walk, struct sd_user_priv, list);
+		pr_debug("  %p: %04x..%04x\n", priv, priv->sid_min, priv->sid_max);
+		if ( sid >= priv->sid_min && sid <= priv->sid_max )
+		{
+			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
+			if ( !qm )
+			{
+				pr_err("stream dropped: kmalloc() failed\n");
+				continue;
+			}
+			pr_debug("    dispatch\n");
+
+			INIT_LIST_HEAD(&qm->list);
+
+			qm->mesg.type     = 9;
+			qm->mesg.size     = size - offsetof(struct sd_user_mesg, mesg);
+			qm->mesg.dst_addr = hdr[0] >> 16;
+			qm->mesg.src_addr = hdr[0] & 0xFFFF;
+			qm->mesg.hello[0] = hdr[1];
+			qm->mesg.hello[1] = hdr[2];
+
+			qm->mesg.mesg.stream.sid = sid;
+			qm->mesg.mesg.stream.cos = (hdr[1] >> 4) & 0xFF;
+			memcpy(qm->mesg.mesg.stream.data, desc->virt + SD_HEAD_SIZE, desc->used - 12);
+
+			list_add_tail(&qm->list, &priv->queue);
+
+			hexdump_buff(qm, size);
+			wake_up_interruptible(&priv->wait);
+		}
+	}
+	spin_unlock_irqrestore(&lock, flags);
+	sd_desc_free(sd_user_dev, desc);
+}
+
+
 
 //static const char *fifo_name[2] = { "targ", "init" };
 void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
@@ -317,13 +371,13 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 		case 9:
 			printk("STREAM dropped at dispatch:\n");
 			hexdump_buff(desc->virt, desc->used);
-//			if ( sd_user_dev->sid_users )
-//			{
-//				uint16_t  sid = desc->virt[1] >> 16;
-//				sd_user_recv_stream(desc, sid);
+			if ( sd_user_dev->sid_users )
+			{
+				uint16_t  sid = desc->virt[1] & 0xFFFF;
+				sd_user_recv_stream(desc, sid);
 				return;
-//			}
-//			pr_debug("STREAM dropped: no users listening\n");
+			}
+			pr_debug("STREAM dropped: no users listening\n");
 			break;
 
 		// DBELL: dispatch if users registered
@@ -647,12 +701,15 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 				goto fail;
 			}
 
+//			desc[0]->virt[0] &= 0x0000FFFF; // discard "from" in Tuser?
+
 			desc[0]->virt[1]   = mesg->mesg.stream.sid;
 			desc[0]->virt[1] <<= 16;
-			desc[0]->virt[1]  |= size - 1;
+			desc[0]->virt[1]  |= size;
 
 			desc[0]->virt[2]  = mesg->mesg.stream.cos;
-			desc[0]->virt[2] |= 0x00A00000;
+			desc[0]->virt[2] <<= 4;
+			desc[0]->virt[2] |= 0x00902000;
 			desc[0]->virt[2] |= 0x80000000; // S always set for single-frag PDU
 			desc[0]->virt[2] |= 0x40000000; // E always set for single-frag PDU
 

@@ -180,7 +180,8 @@ struct pd_swrite_unpack_regs
  * switches on where to direct the ADI data; either to/from DDR or to/from SRIO.  */
 struct pd_routing_reg
 {
-	uint32_t  adc_sw_dest;  /* 0x0  RW  bitmap of PD_ROUTING_REG_* */
+	uint32_t  adc_sw_dest;      /* 0x00  RW  bitmap of PD_ROUTING_REG_*       */
+	uint32_t  adc_fifo_resetn;  /* 0x04  RW  any 0 bits will reset adc_fifos  */
 };
 
 
@@ -232,6 +233,28 @@ struct pd_adi_dma_split
 	uint32_t  stat;   /* 0x04  STATUS  R   bitmap of PD_ADI_DMA_SPLIT_STAT_*     */
 	uint32_t  npkts;  /* 0x08  NPKTS   RW  number of vita49 packets to generate  */
 	uint32_t  psize;  /* 0x0C  PSIZE   R   size of each vita49 packet            */
+};
+
+
+/* SRIO_TYPE9_PACK - Takes the incoming data stream and packages into SRIO Type 9 packets
+ * in HELLO format. */
+struct pd_type9_pack_regs
+{
+	uint32_t  cmd;      /* 0x00  RW  bitmap of PD_TYPE9_PACK_CMD_*      */
+	uint32_t  addr;     /* 0x04  RW  PD_TYPE9_PACK_ADDR_* fields (length and stream ID) */
+	uint32_t  srcdest;  /* 0x08  RW  source and destination device id for SRIO routing  */
+	uint32_t  cos;      /* 0x0C  RW  class of service field                             */
+};
+
+
+/* SRIO_TYPE9_UNPACK - Takes incoming SRIO Type 9 packets removes the hello header and
+ * transfers the payload.  TDEST is generated based on the stream ID field of SRIO HELLO
+ * header.  The SRIO stream ID refers to the ad9361 branch in TD-SDR board and may or may
+ * not be the same as the VITA stream ID value. */
+struct pd_type9_unpack_regs
+{
+	uint32_t  cmd;       /* 0x00  RW  bitmap of PD_TYPE9_UNPACK_CMD_*               */
+	uint32_t  streamid;  /* 0x04  RW  PD_TYPE9_UNPACK_CMD_* (stream ID per ADI)     */ 
 };
 
 
