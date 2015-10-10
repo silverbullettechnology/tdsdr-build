@@ -112,9 +112,11 @@ void menu (void)
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
 	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
 	       "7 - Send a Vita49 DISCO message (40 bytes)\n"
-	       "8 - Send a single type 9 packet, 128 bytes\n"
-	       "9 - Send a single type 9 packet, 127 bytes\n"
-	       "0 - Send a single type 9 packet, 126 bytes\n"
+	       "8 - Send a single type 9 packet, 64 bytes\n"
+	       "9 - Send two type 9 packets, 64 bytes each\n"
+	       "0 - Send three type 9 packets, 64 bytes each\n"
+	       "- - Send four type 9 packets, 64 bytes each\n"
+	       "+ - Send five type 9 packets, 64 bytes each\n"
 	       "\n");
 }
 
@@ -263,9 +265,7 @@ int main (int argc, char **argv)
 	unsigned         diff_count = 0;
 	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
-	int              type9_length;
-	int              idx;
-	uint8_t          val;
+	int              type9_burst;
 
 	mesg   = (struct sd_mesg *)buff;
 	mbox   = &mesg->mesg.mbox;
@@ -426,7 +426,7 @@ int main (int argc, char **argv)
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
-			type9_length = 128;
+			type9_burst = 1;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -517,27 +517,55 @@ int main (int argc, char **argv)
 					size += offsetof(struct sd_mesg,      mesg);
 					break;
 
-				// note: depends on type9_length being reset before switch
+				case '+':
+				case '=':
+					type9_burst++; // fall-through
+				case '-':
+					type9_burst++; // fall-through
 				case '0':
-					type9_length--; // fall-through
+					type9_burst++; // fall-through
 				case '9':
-					type9_length--; // fall-through
+					type9_burst++; // fall-through
 				case '8':
 				{
-					mesg->type   = 9;
-					stream->sid  = opt_stream_sid;
-					stream->cos  = opt_stream_cos;
+					int        slot, byte;
+					uint16_t  *word;
+					for ( slot = 0; slot < type9_burst; slot++ )
+					{
+						mesg   = (struct sd_mesg *)&buff[slot * 128];
+						stream = &mesg->mesg.stream;
 
-					val = type9_length & 0xFF;
-					for ( idx = 0; idx < type9_length; idx++ )
-						stream->data[idx] = val--;
+						mesg->type     = 9;
+						mesg->crf      = 0;
+						mesg->pri      = 0;
+						mesg->size     = 64;
+						mesg->src_addr = opt_loc_addr;
+						mesg->dst_addr = opt_rem_addr;
 
-					size = type9_length;
-					printf("\nSEND: STREAM to SID 0x%04x, cos 0x%02x, payload %d:\n",
-					       opt_stream_sid, opt_stream_cos, size);
-					hexdump_buff(stream->data, size);
-					size += offsetof(struct sd_mesg_stream, data);
-					size += offsetof(struct sd_mesg,        mesg);
+						stream->sid   = opt_stream_sid;
+						stream->cos   = opt_stream_cos;
+						stream->flags = 0;
+						if ( slot == 0 )
+							stream->flags |= SD_MESG_SF_S;
+						if ( slot == type9_burst - 1 )
+							stream->flags |= SD_MESG_SF_E;
+
+						word  = (uint16_t *)stream->data;
+						for ( byte = 0; byte < mesg->size; byte += 4 )
+						{
+							*word++ = 0x3412;
+							*word++ = ((slot + 8) << 4) | (byte << 8);
+						}
+
+						mesg->size    += offsetof(struct sd_mesg,        mesg);
+						mesg->size    += offsetof(struct sd_mesg_stream, data);
+					}
+
+					size = mesg->size;
+					for ( slot = 0; slot < type9_burst; slot++ )
+						if ( (ret = write(dev, &buff[slot * 128], size)) < size )
+							perror("write() to driver");
+					size = 0;
 					break;
 				}
 

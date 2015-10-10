@@ -369,8 +369,6 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 
 		// STREAM: dispatch if users registered
 		case 9:
-			printk("STREAM dropped at dispatch:\n");
-			hexdump_buff(desc->virt, desc->used);
 			if ( sd_user_dev->sid_users )
 			{
 				uint16_t  sid = desc->virt[1] & 0xFFFF;
@@ -695,31 +693,40 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			}
 			size -= offsetof(struct sd_mesg_stream, data);
 
-			if ( size > 256 ) // TODO: frag on TX, only full words for now
+			if ( size > 256 )
 			{
 				ret = -EFBIG;
 				goto fail;
 			}
 
-//			desc[0]->virt[0] &= 0x0000FFFF; // discard "from" in Tuser?
-
-			desc[0]->virt[1]   = mesg->mesg.stream.sid;
-			desc[0]->virt[1] <<= 16;
-			desc[0]->virt[1]  |= size;
+			if ( mesg->mesg.stream.flags & (SD_MESG_SF_S|SD_MESG_SF_E) )
+			{
+				desc[0]->virt[1]   = mesg->mesg.stream.sid;
+				desc[0]->virt[1] <<= 16;
+				desc[0]->virt[1]  |= size;
+			}
+			else
+				desc[0]->virt[1] = 0;
 
 			desc[0]->virt[2]  = mesg->mesg.stream.cos;
 			desc[0]->virt[2] <<= 4;
-			desc[0]->virt[2] |= 0x00902000;
-			desc[0]->virt[2] |= 0x80000000; // S always set for single-frag PDU
-			desc[0]->virt[2] |= 0x40000000; // E always set for single-frag PDU
+			desc[0]->virt[2] |= 0x00900000;
+			if ( mesg->mesg.stream.flags & SD_MESG_SF_S )
+				desc[0]->virt[2] |= 0x80000000;
+			if ( mesg->mesg.stream.flags & SD_MESG_SF_E )
+				desc[0]->virt[2] |= 0x40000000;
 
 			if ( size & 0x01 )
 			{
-				size++;
+				mesg->mesg.stream.data[size++] = '\0';
 				desc[0]->virt[2] |= 0x01000000; // P set for padding byte
 			}
 			if ( size & 0x02 )
+			{
 				desc[0]->virt[2] |= 0x02000000; // O set for odd number of half-words
+				mesg->mesg.stream.data[size++] = '\0';
+				mesg->mesg.stream.data[size++] = '\0';
+			}
 
 			memcpy(desc[0]->virt + SD_HEAD_SIZE, mesg->mesg.stream.data, size);
 			desc[0]->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
