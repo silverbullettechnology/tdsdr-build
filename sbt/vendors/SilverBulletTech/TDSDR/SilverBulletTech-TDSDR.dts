@@ -239,14 +239,19 @@ status = "disabled";
 			reg = <
 				0x90000000 0x01000000  /* Maintanence port */
 				0x80000000 0x00001000  /* Initiator FIFO Regs */
-				0x80100000 0x00001000  /* Initiator FIFO Data */
 				0x80200000 0x00001000  /* Target FIFO Regs */
-				0x80300000 0x00001000  /* Target FIFO Data */
 				0x81000000 0x00010000  /* DRP regs */
 				0x42000000 0x00001000  /* Misc SYS_REG */
+				0x80100000 0x00004000  /* Initiator FIFO Data */
+				0x80300000 0x00004000  /* Target FIFO Data */
 			>;
-			reg-names = "maint", "init-regs", "init-data", "targ-regs", "targ-data",
-			            "drp-regs", "sys-regs";
+			reg-names = "maint", "init-regs", "targ-regs", "drp-regs", "sys-regs",
+			            "init-data", "targ-data";
+
+			/* v4.1 of the AXI-FIFO uses different offsets in the AXI-Full interface;
+			 * if these and the -data regs are set the new offsets will be used */
+/*			sbt,init-v4.1-axi-full; */
+/*			sbt,targ-v4.1-axi-full; */
 
 			interrupts       = < 0 52 4  0 53 4  0 55 4 >;
 			interrupt-parent = <&ps7_scugic_0>;
