@@ -74,7 +74,7 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: srio-send [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] [-b bytes] [-h bytes]\n"
+	       "                 [-n npkts] [-L local] [-R remote] [-B bytes]\n"
 	       "                 in-file [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
@@ -87,7 +87,7 @@ static void usage (void)
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
-	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-B bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
 	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
@@ -157,7 +157,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvrR:L:c:s:S:t:n:p:o:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvrR:L:c:s:S:t:n:p:o:B:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -184,7 +184,7 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
-			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
+			case 'B': opt_body = (size_bin(optarg) + 7) & ~7; break;
 
 			default:
 				usage();
@@ -491,7 +491,7 @@ int main (int argc, char **argv)
 	pipe_srio_dma_split_set_npkts(opt_npkts);
 
 	// New splitter for type 9 needs length including HELLO headers but excluding TUSER +
-	// padding, in 64-bit words.  
+	// padding, in 64-bit words.
 	pipe_srio_dma_split_set_psize((sd_fmt_opts.packet / DSM_BUS_WIDTH) - 1);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
