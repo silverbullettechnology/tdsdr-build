@@ -155,6 +155,8 @@ int pipe_srio_dma_split_get_stat  (unsigned long *reg);
 int pipe_srio_dma_split_set_npkts (unsigned long  reg);
 int pipe_srio_dma_split_get_npkts (unsigned long *reg);
 int pipe_srio_dma_split_get_tuser (unsigned long *reg);
+int pipe_srio_dma_split_set_psize (unsigned long  reg);
+int pipe_srio_dma_split_get_psize (unsigned long *reg);
 
 
 /******* ADI_DMA_COMB IOCTLs *******/

@@ -117,3 +117,12 @@ pipe_dev_0.1 {
 	local:
 		*;
 };
+
+pipe_dev_0.2 {
+	global:
+		/* src/lib/srio_dma_split.c */
+		pipe_srio_dma_split_set_psize;
+		pipe_srio_dma_split_get_psize;
+	local:
+		*;
+};

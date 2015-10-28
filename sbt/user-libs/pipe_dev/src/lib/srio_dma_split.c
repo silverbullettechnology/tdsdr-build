@@ -87,3 +87,23 @@ int pipe_srio_dma_split_get_tuser (unsigned long *reg)
 	return ret;
 }
 
+int pipe_srio_dma_split_set_psize (unsigned long reg)
+{
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCS_SRIO_DMA_SPLIT_PSIZE, reg)) )
+		ERROR("PD_IOCS_SRIO_DMA_SPLIT_PSIZE: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
+int pipe_srio_dma_split_get_psize (unsigned long *reg)
+{
+	int ret;
+
+	if ( (ret = ioctl(pipe_dev_fd, PD_IOCG_SRIO_DMA_SPLIT_PSIZE, reg)) )
+		ERROR("PD_IOCG_SRIO_DMA_SPLIT_PSIZE: %d: %s\n", ret, strerror(errno));
+
+	return ret;
+}
+
