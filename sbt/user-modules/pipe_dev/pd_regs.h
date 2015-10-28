@@ -209,6 +209,8 @@ struct pd_srio_dma_split
 	uint32_t  stat;   /* 0x04  STATUS  R   bitmap of PD_SRIO_DMA_SPLIT_STAT_*         */
 	uint32_t  npkts;  /* 0x08  NPKTS   RW  number of srio swrite packets to generate  */
 	uint32_t  tuser;  /* 0x0C  TUSER   R   last TUSER value sent (for debugging)      */
+	uint32_t  psize;  /* 0x10  PSIZE   RW  size packet inc HELLO in 64 bit words      */
+	                  /*                   (defaults to 32+1 for 256-byte pkt)        */
 };
 
 

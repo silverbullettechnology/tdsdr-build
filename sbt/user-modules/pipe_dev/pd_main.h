@@ -286,6 +286,8 @@ struct pd_vita49_unpack
 #define  PD_IOCS_SRIO_DMA_SPLIT_NPKTS  _IOW(PD_IOCTL_MAGIC, 183, unsigned long)
 #define  PD_IOCG_SRIO_DMA_SPLIT_NPKTS  _IOR(PD_IOCTL_MAGIC, 184, unsigned long *)
 #define  PD_IOCG_SRIO_DMA_SPLIT_TUSER  _IOR(PD_IOCTL_MAGIC, 185, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_SPLIT_PSIZE  _IOW(PD_IOCTL_MAGIC, 186, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_PSIZE  _IOR(PD_IOCTL_MAGIC, 187, unsigned long *)
 
 /* ADI_DMA_COMB IOCTLs */
 #define  PD_IOCS_ADI_DMA_COMB_0_CMD    _IOW(PD_IOCTL_MAGIC,  190, unsigned long)

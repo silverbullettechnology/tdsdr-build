@@ -901,6 +901,24 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			return put_user(reg, (unsigned long *)arg);
 
 
+		case PD_IOCS_SRIO_DMA_SPLIT_PSIZE:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			printk("PD_IOCS_SRIO_DMA_SPLIT_PSIZE %08lx\n", arg);
+			REG_WRITE(&srio_dma_split->psize, arg);
+			return 0;
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_PSIZE:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->psize);
+			printk("PD_IOCG_SRIO_DMA_SPLIT_PSIZE %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
 
 		/* ADI_DMA_COMB IOCTLs */
 		case PD_IOCS_ADI_DMA_COMB_0_CMD:
