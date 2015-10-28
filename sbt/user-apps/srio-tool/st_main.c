@@ -530,6 +530,8 @@ int main (int argc, char **argv)
 				{
 					int        slot, byte;
 					uint16_t  *word;
+					printf("\nSEND: %d STREAM packets to STRM-ID x%04x, cos x%02x payload %d:\n",
+					       type9_burst, opt_stream_sid, opt_stream_cos, 256);
 					for ( slot = 0; slot < type9_burst; slot++ )
 					{
 						mesg   = (struct sd_mesg *)&buff[slot * 128];
@@ -538,7 +540,7 @@ int main (int argc, char **argv)
 						mesg->type     = 9;
 						mesg->crf      = 0;
 						mesg->pri      = 0;
-						mesg->size     = 64;
+						mesg->size     = 256;
 						mesg->src_addr = opt_loc_addr;
 						mesg->dst_addr = opt_rem_addr;
 
@@ -554,7 +556,7 @@ int main (int argc, char **argv)
 						for ( byte = 0; byte < mesg->size; byte += 4 )
 						{
 							*word++ = 0x3412;
-							*word++ = ((slot + 8) << 4) | (byte << 8);
+							*word++ = ((slot + 8) << 4) | (byte << 6);
 						}
 
 						mesg->size    += offsetof(struct sd_mesg,        mesg);

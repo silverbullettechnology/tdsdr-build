@@ -40,26 +40,13 @@ size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = 256;
+size_t      opt_vita     = VITA_HEAD;
 FILE       *opt_debug    = NULL;
 char       *opt_rawfile  = NULL;
 
 char                *opt_out_file = NULL;
 struct format_class *opt_out_fmt  = NULL;
-
-
-struct recv_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
 
 
 static struct format_options sd_fmt_opts =
@@ -68,26 +55,26 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 4,
+	.head     = 16,
 	.flags    = FO_ENDIAN,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-recv [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [out-file]\n"
+	printf("Usage: srio-recv [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-n npkts] [-b bytes] [-h bytes] out-file\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
+	       "-r          Raw mode: skip VITA49 headers\n"
 	       "-c channel  DMA channel to use\n"
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
 	       "-n npkts    Set number of packets for combiner\n"
 	       "-o rawfile  Write raw buffer to rawfile (with packet headers)\n"
+	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
 	       "\n"
 	       "out-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
@@ -134,22 +121,23 @@ static void progress (size_t done, size_t size)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct recv_packet    *pkt;
 	unsigned long          routing;
 	unsigned long          reg;
 	void                  *buff;
 	int                    ret = 0;
 	int                    opt;
-	int                    idx;
+//	int                    idx;
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvc:s:S:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvrc:s:S:t:n:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				opt_debug = stderr;
 				format_debug_setup(stderr);
 				break;
+
+			case 'r': opt_vita = 0; break;
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
@@ -165,11 +153,17 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
+
 			default:
 				usage();
 				return 1;
 		}
 	
+	sd_fmt_opts.head  += opt_vita;
+	sd_fmt_opts.data   = opt_body;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
+
 	if ( optind < argc )
 	{
 		char *format = argv[optind];
@@ -192,6 +186,11 @@ int main (int argc, char **argv)
 			usage();
 			return 1;
 		}
+	}
+	else
+	{
+		usage();
+		return 1;
 	}
 
 	// open devs
@@ -289,8 +288,8 @@ int main (int argc, char **argv)
 		goto exit_free;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_RESET);
@@ -365,16 +364,6 @@ int main (int argc, char **argv)
 			perror("format_write");
 
 		fclose(fp);
-	}
-	else
-	{
-		pkt = buff;
-		for ( idx = 0; idx < opt_npkts; idx++ )
-		{
-			printf("\n%d: SWRITE %02x->%02x, HELLO %08x.%08x, bytes:\n", idx,
-			       pkt->tuser >> 16, pkt->tuser & 0xFFFF, pkt->hello[1], pkt->hello[0]);
-			hexdump_buff(pkt->data, sizeof(pkt->data));
-		}
 	}
 
 	if ( opt_rawfile )

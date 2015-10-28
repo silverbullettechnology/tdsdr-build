@@ -48,28 +48,16 @@ size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = 256;
+size_t      opt_vita     = VITA_HEAD;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
+uint32_t    opt_cos      = 0x11;
 uint8_t     opt_paint    = 0xFF;
 char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
-
-
-struct send_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
 
 
 static struct format_options sd_fmt_opts =
@@ -78,21 +66,20 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 0,
+	.head     = SRIO_HEAD,
 	.flags    = FO_ENDIAN,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] in-file stream-id\n"
+	printf("Usage: srio-send [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-n npkts] [-L local] [-R remote] [-b bytes] [-h bytes]\n"
+	       "                 in-file [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-d remote   SRIO destination device-ID (default %d)\n"
+	       "-r          Raw mode: skip VITA49 headers\n"
+	       "-R remote   SRIO destination device-ID (default %d)\n"
 	       "-L local    SRIO local device-ID (if not auto-probed)\n"
 	       "-c channel  DMA channel to use (default %d)\n"
 	       "-S sammples Set payload size in samples (K or M optional)\n"
@@ -100,6 +87,8 @@ static void usage (void)
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
+	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
@@ -149,7 +138,8 @@ static void progress (size_t done, size_t size)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct send_packet    *pkt;
+	struct srio_header    *srio_hdr;
+	struct vita_header    *vita_hdr;
 	unsigned long          routing;
 	unsigned long          reg;
 	unsigned long          tuser;
@@ -158,6 +148,8 @@ int main (int argc, char **argv)
 	char                  *format;
 	FILE                  *in_fp = NULL;
 	void                  *buff;
+	void                  *pkt;
+	void                  *ptr;
 	int                    srio_dev;
 	int                    ret = 0;
 	int                    opt;
@@ -165,13 +157,15 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:p:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvrR:L:c:s:S:t:n:p:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				opt_debug = stderr;
 				format_debug_setup(stderr);
 				break;
+
+			case 'r': opt_vita = 0; break;
 
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
@@ -190,11 +184,16 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
 
 			default:
 				usage();
 				return 1;
 		}
+
+	sd_fmt_opts.head  += opt_vita;
+	sd_fmt_opts.data   = opt_body;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
 
 	if ( opt_debug )
 	{
@@ -209,7 +208,8 @@ int main (int argc, char **argv)
 		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
 	}
 
-	if ( (argc - optind) < 2 )
+
+	if ( (argc - optind) < 1 )
 	{
 		usage();
 		return 1;
@@ -257,8 +257,8 @@ int main (int argc, char **argv)
 
 	printf("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
-	opt_sid = strtoul(argv[optind + 1], NULL, 0);
-
+	if ( (argc - optind) >= 2 )
+		opt_sid = strtoul(argv[optind + 1], NULL, 0) & 0xFFFF;
 
 	opt_remote &= 0xFFFF;
 	if ( !opt_remote || opt_remote >= 0xFFFF )
@@ -387,27 +387,52 @@ int main (int argc, char **argv)
 	tuser  |= opt_remote;
 	printf("tuser word: 0x%08x\n", tuser);
 
-	// build packet headers - just tuser initially
+	// build packet headers - precalc header fields as much as possible
+	// length in HELLO header is total packet minus TUSER+HELLO, may need -1
+	uint32_t  hello0 = (opt_sid << 16) | (sd_fmt_opts.packet - SRIO_HEAD);
+	uint32_t  hello1 = (opt_cos <<  4) | 0x00900000;
+	size_t    left   = opt_data;
+
 	pkt = buff;
 	for ( idx = 0; idx < opt_npkts; idx++ )
 	{
-		// SRIO header
-		pkt->tuser    = tuser;
-		pkt->padding  = 0xFFFFFFFF;
-		pkt->hello[1] = 0x00600000;
-		pkt->hello[0] = opt_sid;
+		srio_hdr = ptr = pkt;
 
-		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F0003F;
-		pkt->v49_hdr  = ntohl(hdr);
-		pkt->v49_sid  = ntohl(opt_sid);
-		pkt->v49_tsi  = 0;
-		pkt->v49_tsf1 = 0;
-		pkt->v49_tsf2 = ntohl(smp);
-		pkt->v49_trailer = 0xaaaaaaaa;
+		// SRIO header - TUSER, alignment, and HELLO header
+		srio_hdr->tuser    = tuser;
+		srio_hdr->hello[1] = hello1;
+		srio_hdr->hello[0] = hello0;
+		if ( left < sd_fmt_opts.data )
+		{
+			srio_hdr->hello[0] &= 0xFFFF0000;
+			srio_hdr->hello[0] |= left & 0xFFFF;
+		}
+		else
+			left -= sd_fmt_opts.data;
 
-		pkt++;
-		smp += 29;
+		// VITA49 header if enabled
+		if ( opt_vita )
+		{
+			ptr += sizeof(*srio_hdr);
+			vita_hdr = ptr;
+
+			if ( left < sd_fmt_opts.data )
+				hdr = left;
+			else
+				hdr = sd_fmt_opts.data;
+			hdr >>= 2;
+			hdr  |= (idx & 0xf) << 16;
+			hdr  |= 0x10300000;	// With SID + V49_HDR_TSF 
+
+			vita_hdr->hdr  = ntohl(hdr);
+			vita_hdr->sid  = ntohl(opt_sid);
+			vita_hdr->tsf1 = 0;
+			vita_hdr->tsf2 = ntohl(smp);
+		}
+
+		// sample advance based on data payload, packet based on payload + headers
+		smp += sd_fmt_opts.data / 8;
+		pkt += sd_fmt_opts.packet;
 	}
 
 	if ( opt_rawfile )
@@ -458,12 +483,16 @@ int main (int argc, char **argv)
 		goto exit_free;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_RESET);
 	pipe_srio_dma_split_set_cmd(0);
 	pipe_srio_dma_split_set_npkts(opt_npkts);
+
+	// New splitter for type 9 needs length including HELLO headers but excluding TUSER +
+	// padding, in 64-bit words.  
+	pipe_srio_dma_split_set_psize((sd_fmt_opts.packet / DSM_BUS_WIDTH) - 1);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
 	// start DMA transaction on all mapped channels, then start data-source module
