@@ -272,8 +272,8 @@ status = "disabled";
 			sbt,device-id-rep = <5>;
 
 			/* Debugging and filtering flags */
-			sbt,init-flags   = <0x001F>;
-			sbt,targ-flags   = <0x001F>;
+			sbt,init-flags   = <0x001E>;
+			sbt,targ-flags   = <0x001E>;
 			sbt,shadow-flags = <0x0700>;
 
 			/* "ping" function implemented with dbells: if both values are set then
@@ -315,9 +315,9 @@ status = "disabled";
 				0x53800000 0x00001000  /* vita49_trig_adc_1     */
 				0x53900000 0x00001000  /* vita49_trig_dac_0     */
 				0x53A00000 0x00001000  /* vita49_trig_dac_1     */
-				0x54000000 0x00001000  /* srio_swrite_pack_0    */
-				0x54100000 0x00001000  /* srio_swrite_pack_1    */
-				0x54200000 0x00001000  /* srio_swrite_unpack_0  */
+				0x54000000 0x00001000  /* srio_type9_pack_0     */
+				0x54100000 0x00001000  /* srio_type9_pack_1     */
+				0x54200000 0x00001000  /* srio_type9_unpack_0   */
 				0x52400000 0x00001000  /* routing_reg_0         */
 			>;
 
@@ -341,9 +341,9 @@ status = "disabled";
 				"vita49-trig-adc-1",
 				"vita49-trig-dac-0",
 				"vita49-trig-dac-1",
-				"swrite-pack-0",
-				"swrite-pack-1",
-				"swrite-unpack",
+				"type9-pack-0",
+				"type9-pack-1",
+				"type9-unpack",
 				"routing-reg";
 		};
 

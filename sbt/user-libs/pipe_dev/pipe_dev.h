@@ -180,4 +180,27 @@ int pipe_adi_dma_split_get_npkts (int dev, unsigned long *reg);
 int pipe_adi_dma_split_get_psize (int dev, unsigned long *reg);
 
 
+/******* TYPE9_PACK IOCTLs *******/
+
+int pipe_type9_pack_set_cmd     (int dev, unsigned long  reg);
+int pipe_type9_pack_get_cmd     (int dev, unsigned long *reg);
+int pipe_type9_pack_set_length  (int dev, unsigned long  reg);
+int pipe_type9_pack_get_length  (int dev, unsigned long *reg);
+int pipe_type9_pack_set_strmid  (int dev, unsigned long  reg);
+int pipe_type9_pack_get_strmid  (int dev, unsigned long *reg);
+int pipe_type9_pack_set_srcdest (int dev, unsigned long  reg);
+int pipe_type9_pack_get_srcdest (int dev, unsigned long *reg);
+int pipe_type9_pack_set_cos     (int dev, unsigned long  reg);
+int pipe_type9_pack_get_cos     (int dev, unsigned long *reg);
+
+
+/******* SWRITE_UNPACK IOCTLs *******/
+
+
+int pipe_type9_unpack_set_cmd    (unsigned long  reg);
+int pipe_type9_unpack_get_cmd    (unsigned long *reg);
+int pipe_type9_unpack_set_strmid (int dev, unsigned long  reg);
+int pipe_type9_unpack_get_strmid (int dev, unsigned long *reg);
+
+
 #endif /* _INCLUDE_PIPE_DEV_H_ */

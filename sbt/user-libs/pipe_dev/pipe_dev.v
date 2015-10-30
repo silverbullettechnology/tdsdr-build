@@ -123,6 +123,23 @@ pipe_dev_0.2 {
 		/* src/lib/srio_dma_split.c */
 		pipe_srio_dma_split_set_psize;
 		pipe_srio_dma_split_get_psize;
+		/* src/lib/type9_pack.c */
+		pipe_type9_pack_set_cmd;
+		pipe_type9_pack_get_cmd;
+		pipe_type9_pack_set_length;
+		pipe_type9_pack_get_length;
+		pipe_type9_pack_set_strmid;
+		pipe_type9_pack_get_strmid;
+		pipe_type9_pack_set_srcdest;
+		pipe_type9_pack_get_srcdest;
+		pipe_type9_pack_set_cos;
+		pipe_type9_pack_get_cos;
+		/* src/lib/type9_unpack.c */
+		pipe_type9_unpack_set_cmd;
+		pipe_type9_unpack_get_cmd;
+		pipe_type9_unpack_set_strmid;
+		pipe_type9_unpack_get_strmid;
 	local:
 		*;
 };
+

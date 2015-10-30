@@ -394,12 +394,14 @@ int main (int argc, char **argv)
 	size_t    left   = opt_data;
 
 	pkt = buff;
+	smp = 0;
 	for ( idx = 0; idx < opt_npkts; idx++ )
 	{
 		srio_hdr = ptr = pkt;
 
 		// SRIO header - TUSER, alignment, and HELLO header
 		srio_hdr->tuser    = tuser;
+		srio_hdr->padding  = 0;
 		srio_hdr->hello[1] = hello1;
 		srio_hdr->hello[0] = hello0;
 		if ( left < sd_fmt_opts.data )
@@ -428,10 +430,10 @@ int main (int argc, char **argv)
 			vita_hdr->sid  = ntohl(opt_sid);
 			vita_hdr->tsf1 = 0;
 			vita_hdr->tsf2 = ntohl(smp);
+			smp += sd_fmt_opts.data / 8;
 		}
 
 		// sample advance based on data payload, packet based on payload + headers
-		smp += sd_fmt_opts.data / 8;
 		pkt += sd_fmt_opts.packet;
 	}
 

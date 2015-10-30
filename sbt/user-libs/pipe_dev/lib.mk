@@ -37,6 +37,8 @@ OBJS := \
 	src/lib/srio_dma_split.o \
 	src/lib/adi_dma_comb.o \
 	src/lib/adi_dma_split.o \
+	src/lib/type9_pack.o \
+	src/lib/type9_unpack.o \
 	src/lib/dev.o
 
 CFLAGS += -Wall -Werror -fpic
