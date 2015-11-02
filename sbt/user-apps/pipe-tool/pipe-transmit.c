@@ -198,7 +198,7 @@ int main (int argc, char **argv)
 	pipe_vita49_assem_set_cmd(opt_adi,     PD_VITA49_ASSEM_CMD_RESET);
 	pipe_vita49_unpack_set_ctrl(opt_adi,   PD_VITA49_UNPACK_CTRL_RESET);
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
@@ -207,15 +207,15 @@ int main (int argc, char **argv)
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, 0);
 
 
-	// Set swrite routing to ADI
+	// Set TYPE9 routing to ADI
 	pipe_routing_reg_get_adc_sw_dest(&reg);
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_ADI;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_ADI;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 
-	// SWRITE unpacker setup 
-	pipe_swrite_unpack_set_addr(opt_adi, opt_sid);
+	// TYPE9 unpacker setup
+	pipe_type9_unpack_set_strmid(opt_adi, opt_sid);
 
 
 	// V49 unpacker setup
@@ -250,7 +250,7 @@ int main (int argc, char **argv)
 	// manual trigger
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
 	pipe_vita49_assem_set_cmd(opt_adi,     PD_VITA49_ASSEM_CMD_ENABLE);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_START);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_ENABLE);
 
 
 	// wait for complete or timeout
@@ -306,7 +306,7 @@ int main (int argc, char **argv)
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
 	pipe_vita49_unpack_set_ctrl(opt_adi,   PD_VITA49_UNPACK_CTRL_RESET);
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);

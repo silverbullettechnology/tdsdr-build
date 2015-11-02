@@ -33,12 +33,14 @@ struct vita_header
 {
 	uint32_t  hdr;
 	uint32_t  sid;
+	uint32_t  tsi;
 	uint32_t  tsf1;
 	uint32_t  tsf2;
 };
 
 #define SRIO_HEAD  sizeof(struct srio_header)
 #define VITA_HEAD  sizeof(struct vita_header)
+#define VITA_TAIL  sizeof(uint32_t)
 
 
 void stop (const char *fmt, ...);

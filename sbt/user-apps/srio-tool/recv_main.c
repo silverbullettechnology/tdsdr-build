@@ -41,7 +41,8 @@ size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
-size_t      opt_vita     = VITA_HEAD;
+size_t      opt_head     = VITA_HEAD;
+size_t      opt_foot     = VITA_TAIL;
 FILE       *opt_debug    = NULL;
 char       *opt_rawfile  = NULL;
 
@@ -137,7 +138,10 @@ int main (int argc, char **argv)
 				format_debug_setup(stderr);
 				break;
 
-			case 'r': opt_vita = 0; break;
+			case 'r':
+				opt_head = 0;
+				opt_foot = 0;
+				break;
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
@@ -160,9 +164,24 @@ int main (int argc, char **argv)
 				return 1;
 		}
 	
-	sd_fmt_opts.head  += opt_vita;
-	sd_fmt_opts.data   = opt_body;
-	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
+	sd_fmt_opts.head  += opt_head;
+	sd_fmt_opts.foot  += opt_foot;
+	sd_fmt_opts.data   = opt_body - (opt_head + opt_foot);
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
+
+	if ( opt_debug )
+	{
+		fprintf(opt_debug, "format:\n");
+		fprintf(opt_debug, "  channels: %lu\n",  sd_fmt_opts.channels);
+		fprintf(opt_debug, "  single  : %zu\n",  sd_fmt_opts.single);
+		fprintf(opt_debug, "  sample  : %zu\n",  sd_fmt_opts.sample);
+		fprintf(opt_debug, "  bits    : %zu\n",  sd_fmt_opts.bits);
+		fprintf(opt_debug, "  packet  : %zu\n",  sd_fmt_opts.packet);
+		fprintf(opt_debug, "  head    : %zu\n",  sd_fmt_opts.head);
+		fprintf(opt_debug, "  data    : %zu\n",  sd_fmt_opts.data);
+		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
+	}
+
 
 	if ( optind < argc )
 	{
