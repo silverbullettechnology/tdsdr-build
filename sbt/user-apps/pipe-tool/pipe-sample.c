@@ -46,22 +46,22 @@ FILE       *opt_debug    = NULL;
 
 static void usage (void)
 {
-	printf("Usage: pipe-sample [-v] [-R dest] [-s bytes] [-t timeout] [-b bytes]\n"
-	       "                   [-c cos] adi stream-id\n"
+	printf("Usage: pipe-sample [-v] [-R dest] [-s bytes] [-S samples] [-b bytes]\n"
+	       "                   [-t timeout] [-c cos] adi [stream-id]\n"
 	       "Where:\n"
 	       "-R dest     SRIO destination address (default 2)\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-S samples  Set payload size in samples (K or M optional)\n"
-	       "-b samples  Set packet size in bytes (K or M optional)\n"
-	       "-t timeout  Set timeout in jiffies\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
+	       "-S samples  Set payload size in samples (K or M optional)\n"
+	       "-b bytes    Set packet size in bytes (K or M optional)\n"
+	       "-t timeout  Set timeout in jiffies\n"
 	       "-c cos      Set type 9 COS byte\n"
 	       "\n"
 	       "adi is required value, and be 0 or 1 for the ADI chain to use (T2R2 mode only,\n"
 	       "this will be aligned with DSA syntax in future.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
-	       "receiver side, if that receiver implements stream-ID filtering.\n"
-		   "\n");
+	       "stream-id is optional, and must match the expected stream-id on the receiver\n"
+	       "side, if that receiver implements stream-ID filtering.\n"
+	       "\n");
 }
 
 
@@ -94,7 +94,6 @@ int main (int argc, char **argv)
 
 			case 'b':
 				opt_body = (size_bin(optarg) + 7) & ~7;
-				printf("-b: '%s' -> %d\n", optarg, opt_body);
 				break;
 
 			case 'c':
@@ -106,7 +105,7 @@ int main (int argc, char **argv)
 				return 1;
 		}
 
-	if ( (argc - optind) < 2 )
+	if ( (argc - optind) < 1 )
 	{
 		usage();
 		return 1;
@@ -116,7 +115,8 @@ int main (int argc, char **argv)
 		usage();
 		return 1;
 	}
-	opt_sid = strtoul(argv[optind + 1], NULL, 0);
+	if ( (argc - optind) >= 2 )
+		opt_sid = strtoul(argv[optind + 1], NULL, 0);
 	opt_remote &= 0xFFFF;
 	printf("ADI %u, SID 0x%x, remote 0x%04x\n", opt_adi, opt_sid, opt_remote);
 

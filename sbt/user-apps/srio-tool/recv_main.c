@@ -67,7 +67,9 @@ static void usage (void)
 	       "                 [-n npkts] [-b bytes] [-h bytes] out-file\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-r          Raw mode: skip VITA49 headers\n"
+	       "-r          Raw mode: skip VITA49 headers (implies -ei)\n"
+	       "-e          Disable endian swap (default enabled)\n"
+	       "-i          Disable I/Q swap (default enabled)\n"
 	       "-c channel  DMA channel to use\n"
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
@@ -130,7 +132,7 @@ int main (int argc, char **argv)
 //	int                    idx;
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvrc:s:S:t:n:o:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreic:s:S:t:n:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -141,7 +143,11 @@ int main (int argc, char **argv)
 			case 'r':
 				opt_head = 0;
 				opt_foot = 0;
+				sd_fmt_opts.flags &= ~(FO_ENDIAN|FO_IQ_SWAP);
 				break;
+
+			case 'e': sd_fmt_opts.flags &= ~FO_ENDIAN;  break;
+			case 'i': sd_fmt_opts.flags &= ~FO_IQ_SWAP; break;
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;

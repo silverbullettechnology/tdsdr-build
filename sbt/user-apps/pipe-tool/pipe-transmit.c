@@ -38,6 +38,7 @@
 
 uint16_t    opt_remote   = 2;
 size_t      opt_data     = 8000000;
+size_t      opt_body     = 256;
 size_t      opt_npkts    = 0;
 long        opt_timeout  = 1500;
 uint32_t    opt_adi      = 0;
@@ -48,19 +49,21 @@ long        opt_dma_mode = 4;
 
 static void usage (void)
 {
-	printf("Usage: pipe-transmit [-v] [-s bytes] [-t timeout] [-m mode] adi stream-id\n"
+	printf("Usage: pipe-transmit [-v] [-s bytes] [-S samples] [-b bytes] [-t timeout]\n"
+	       "                     [-m mode] adi stream-id\n"
 	       "Where:\n"
 	       "-R dest     SRIO destination address (default 2)\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-S samples  Set payload size in samples (K or M optional)\n"
+	       "-b bytes    Set packet size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
 	       "-m mode     DMA mode select for new ADI FIFOs (0-15, default 4)\n"
 	       "\n"
 	       "adi is required value, and be 0 or 1 for the ADI chain to use (T2R2 mode only,\n"
 	       "this will be aligned with DSA syntax in future.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
-	       "receiver side, if that receiver implements stream-ID filtering.\n"
+	       "stream-id is a required value, and must match the stream-id on the transmitter\n"
+	       "side.\n"
 		   "\n");
 }
 

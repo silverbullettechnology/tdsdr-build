@@ -49,7 +49,8 @@ size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
-size_t      opt_vita     = VITA_HEAD;
+size_t      opt_head     = VITA_HEAD;
+size_t      opt_foot     = VITA_TAIL;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
 uint32_t    opt_cos      = 0x11;
@@ -67,18 +68,20 @@ static struct format_options sd_fmt_opts =
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
 	.head     = SRIO_HEAD,
-	.flags    = FO_ENDIAN,
+	.flags    = FO_ENDIAN|FO_IQ_SWAP,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-send [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] [-B bytes]\n"
+	printf("Usage: srio-send [-vrei] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-n npkts] [-L local] [-R remote] [-b bytes] [-h bytes]\n"
 	       "                 in-file [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-r          Raw mode: skip VITA49 headers\n"
+	       "-r          Raw mode: skip VITA49 headers (implies -ei)\n"
+	       "-e          Disable endian swap (default enabled)\n"
+	       "-i          Disable I/Q swap (default enabled)\n"
 	       "-R remote   SRIO destination device-ID (default %d)\n"
 	       "-L local    SRIO local device-ID (if not auto-probed)\n"
 	       "-c channel  DMA channel to use (default %d)\n"
@@ -87,13 +90,13 @@ static void usage (void)
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
-	       "-B bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
 	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
+	       "stream-id is optional, and must match the expected stream-id on the\n"
 	       "receiver side, if that receiver implements stream-ID filtering.\n"
 	       "\n", 
 		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
@@ -157,7 +160,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvrR:L:c:s:S:t:n:p:o:B:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:n:p:o:B:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -165,7 +168,14 @@ int main (int argc, char **argv)
 				format_debug_setup(stderr);
 				break;
 
-			case 'r': opt_vita = 0; break;
+			case 'r':
+				opt_head = 0;
+				opt_foot = 0;
+				sd_fmt_opts.flags &= ~(FO_ENDIAN|FO_IQ_SWAP);
+				break;
+
+			case 'e': sd_fmt_opts.flags &= ~FO_ENDIAN;  break;
+			case 'i': sd_fmt_opts.flags &= ~FO_IQ_SWAP; break;
 
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
@@ -191,9 +201,10 @@ int main (int argc, char **argv)
 				return 1;
 		}
 
-	sd_fmt_opts.head  += opt_vita;
-	sd_fmt_opts.data   = opt_body;
-	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
+	sd_fmt_opts.head  += opt_head;
+	sd_fmt_opts.foot  += opt_foot;
+	sd_fmt_opts.data   = opt_body - (opt_head + opt_foot);
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
 
 	if ( opt_debug )
 	{
@@ -389,7 +400,8 @@ int main (int argc, char **argv)
 
 	// build packet headers - precalc header fields as much as possible
 	// length in HELLO header is total packet minus TUSER+HELLO, may need -1
-	uint32_t  hello0 = (opt_sid << 16) | (sd_fmt_opts.packet - SRIO_HEAD);
+	size_t    packet = sd_fmt_opts.packet - SRIO_HEAD;
+	uint32_t  hello0 = (opt_sid << 16) | packet;
 	uint32_t  hello1 = (opt_cos <<  4) | 0x00900000;
 	size_t    left   = opt_data;
 
@@ -404,30 +416,29 @@ int main (int argc, char **argv)
 		srio_hdr->padding  = 0;
 		srio_hdr->hello[1] = hello1;
 		srio_hdr->hello[0] = hello0;
-		if ( left < sd_fmt_opts.data )
+		if ( left < packet )
 		{
 			srio_hdr->hello[0] &= 0xFFFF0000;
 			srio_hdr->hello[0] |= left & 0xFFFF;
 		}
-		else
-			left -= sd_fmt_opts.data;
 
 		// VITA49 header if enabled
-		if ( opt_vita )
+		if ( opt_head )
 		{
 			ptr += sizeof(*srio_hdr);
 			vita_hdr = ptr;
 
-			if ( left < sd_fmt_opts.data )
+			if ( left < packet )
 				hdr = left;
 			else
-				hdr = sd_fmt_opts.data;
+				hdr = packet;
 			hdr >>= 2;
 			hdr  |= (idx & 0xf) << 16;
-			hdr  |= 0x10300000;	// With SID + V49_HDR_TSF 
+			hdr  |= 0x10F00000;	// With SID + V49_HDR_TSF 
 
 			vita_hdr->hdr  = ntohl(hdr);
 			vita_hdr->sid  = ntohl(opt_sid);
+			vita_hdr->tsi  = 0;
 			vita_hdr->tsf1 = 0;
 			vita_hdr->tsf2 = ntohl(smp);
 			smp += sd_fmt_opts.data / 8;
@@ -435,6 +446,7 @@ int main (int argc, char **argv)
 
 		// sample advance based on data payload, packet based on payload + headers
 		pkt += sd_fmt_opts.packet;
+		left -= sd_fmt_opts.data;
 	}
 
 	if ( opt_rawfile )
