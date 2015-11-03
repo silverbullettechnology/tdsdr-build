@@ -33,6 +33,7 @@
 #include <sd_user.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <format.h>
 
 #include "common.h"
 
@@ -45,6 +46,16 @@ uint32_t    opt_adi      = 0;
 uint32_t    opt_sid      = 0;
 FILE       *opt_debug    = NULL;
 long        opt_dma_mode = 4;
+
+
+static struct format_options sd_fmt_opts =
+{
+	.channels = 3,
+	.single   = sizeof(uint16_t) * 2,
+	.sample   = sizeof(uint16_t) * 4,
+	.bits     = 16,
+	.head     = VITA_HEAD,
+};
 
 
 static void usage (void)
@@ -83,7 +94,7 @@ int main (int argc, char **argv)
 	int                      opt;
 	int                      ch;
 
-	while ( (opt = getopt(argc, argv, "?hvR:s:S:t:m:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:s:S:t:m:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -110,10 +121,18 @@ int main (int argc, char **argv)
 				printf("DMA mode set to %d\n", opt_dma_mode);
 				break;
 
+			case 'b':
+				opt_body = size_bin(optarg);
+				break;
+
 			default:
 				usage();
 				return 1;
 		}
+
+	sd_fmt_opts.data   = opt_body - sd_fmt_opts.head;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
 
 	printf("optind %d, argc %d\n", optind, argc);
 	if ( (argc - optind) < 2 )
@@ -190,9 +209,6 @@ int main (int argc, char **argv)
 
 	// using legacy fixed-length mode
 	printf("Expecting %zu bytes / %zu samples\n", opt_data, opt_data / 8);
-	opt_npkts = opt_data / 232;
-	if ( opt_data % 232 )
-		opt_npkts++;
 	printf("Expecting %zu packets\n", opt_npkts);
 
 
@@ -223,8 +239,7 @@ int main (int argc, char **argv)
 
 	// V49 unpacker setup
 	pipe_vita49_unpack_set_strm_id(opt_adi, opt_sid);
-	pipe_vita49_unpack_set_ctrl(opt_adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
-	                                        PD_VITA49_UNPACK_CTRL_TRAILER);
+	pipe_vita49_unpack_set_ctrl(opt_adi,    PD_VITA49_UNPACK_CTRL_ENABLE);
 	pipe_vita49_unpack_get_ctrl(opt_adi, &reg);
 	printf("vita49_unpack.ctrl: 0x%08lx\n",  reg);
 

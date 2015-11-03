@@ -42,7 +42,7 @@ unsigned    opt_timeout  = 1500;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
 size_t      opt_head     = VITA_HEAD;
-size_t      opt_foot     = VITA_TAIL;
+size_t      opt_foot     = 0;
 FILE       *opt_debug    = NULL;
 char       *opt_rawfile  = NULL;
 

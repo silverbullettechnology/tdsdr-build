@@ -50,7 +50,7 @@ unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
 size_t      opt_head     = VITA_HEAD;
-size_t      opt_foot     = VITA_TAIL;
+size_t      opt_foot     = 0;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
 uint32_t    opt_cos      = 0x11;
@@ -91,7 +91,7 @@ static void usage (void)
 	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
 	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
-	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
+	       "-h bytes    Set PDU header size in bytes (K or M optional, default %zu)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
@@ -99,7 +99,7 @@ static void usage (void)
 	       "stream-id is optional, and must match the expected stream-id on the\n"
 	       "receiver side, if that receiver implements stream-ID filtering.\n"
 	       "\n", 
-		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
+		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT, VITA_HEAD);
 }
 
 static void dump_channels (void)
@@ -160,7 +160,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:n:p:o:B:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:n:p:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -194,7 +194,7 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
-			case 'B': opt_body = (size_bin(optarg) + 7) & ~7; break;
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
 
 			default:
 				usage();
@@ -434,11 +434,10 @@ int main (int argc, char **argv)
 				hdr = packet;
 			hdr >>= 2;
 			hdr  |= (idx & 0xf) << 16;
-			hdr  |= 0x10F00000;	// With SID + V49_HDR_TSF 
+			hdr  |= 0x10300000;	// With SID + V49_HDR_TSF 
 
 			vita_hdr->hdr  = ntohl(hdr);
 			vita_hdr->sid  = ntohl(opt_sid);
-			vita_hdr->tsi  = 0;
 			vita_hdr->tsf1 = 0;
 			vita_hdr->tsf2 = ntohl(smp);
 			smp += sd_fmt_opts.data / 8;

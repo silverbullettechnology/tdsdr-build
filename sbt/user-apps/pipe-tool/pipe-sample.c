@@ -193,9 +193,8 @@ int main (int argc, char **argv)
 	// V49 packer setup
 	pipe_vita49_pack_set_streamid(opt_adi, opt_sid);
 	pipe_vita49_pack_set_pkt_size(opt_adi, opt_body / 4);
-	pipe_vita49_pack_set_trailer(opt_adi,  0xaaaaaaaa); // trailer for alignment
-	pipe_vita49_pack_set_ctrl(opt_adi,     PD_VITA49_PACK_CTRL_ENABLE |
-	                                       PD_VITA49_PACK_CTRL_TRAILER);
+//	pipe_vita49_pack_set_trailer(opt_adi,  0xaaaaaaaa); // trailer for alignment
+	pipe_vita49_pack_set_ctrl(opt_adi,     PD_VITA49_PACK_CTRL_ENABLE);
 
 	// type9 packer setup
 	tuser <<= 16;

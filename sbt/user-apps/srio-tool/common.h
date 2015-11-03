@@ -33,7 +33,6 @@ struct vita_header
 {
 	uint32_t  hdr;
 	uint32_t  sid;
-	uint32_t  tsi;
 	uint32_t  tsf1;
 	uint32_t  tsf2;
 };

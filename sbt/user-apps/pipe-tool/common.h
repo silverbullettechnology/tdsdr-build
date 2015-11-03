@@ -21,6 +21,26 @@
 #include <stdint.h>
 
 
+struct srio_header
+{
+	uint32_t  tuser;
+	uint32_t  padding;
+	uint32_t  hello[2];
+};
+
+struct vita_header
+{
+	uint32_t  hdr;
+	uint32_t  sid;
+	uint32_t  tsf1;
+	uint32_t  tsf2;
+};
+
+#define SRIO_HEAD  sizeof(struct srio_header)
+#define VITA_HEAD  sizeof(struct vita_header)
+#define VITA_TAIL  sizeof(uint32_t)
+
+
 void stop (const char *fmt, ...);
 size_t size_bin (const char *str);
 size_t size_dec (const char *str);

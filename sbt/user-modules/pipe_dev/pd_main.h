@@ -44,6 +44,7 @@
 #define PD_VITA49_PACK_CTRL_RESET     0x00000002 /* reset module        */
 #define PD_VITA49_PACK_CTRL_PASSTHRU  0x00000004 /* enable pass-through */
 #define PD_VITA49_PACK_CTRL_TRAILER   0x00000008 /* enable trailer value */
+#define PD_VITA49_PACK_CTRL_TSI       0x00000010 /* enable TSI word      */
 
 /* VITA49_UNPACK bits */
 #define PD_VITA49_UNPACK_CTRL_ENABLE    0x00000001  /* enable module       */
