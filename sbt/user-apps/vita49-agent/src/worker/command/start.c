@@ -51,7 +51,7 @@ static void worker_command_start_tx (int ident)
 	// manual trigger
 	pipe_vita49_trig_dac_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
 	pipe_vita49_assem_set_cmd(worker_adi,     PD_VITA49_ASSEM_CMD_ENABLE);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_START);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_ENABLE);
 	worker_run = 1;
 }
 

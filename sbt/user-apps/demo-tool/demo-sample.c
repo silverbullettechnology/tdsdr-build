@@ -50,6 +50,7 @@ LOG_MODULE_STATIC("demo-sample", LOG_LEVEL_INFO);
 unsigned    opt_chan     = 4;
 unsigned    opt_remote   = 5;
 size_t      opt_data     = 8000000;
+size_t      opt_body     = 256;
 size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
@@ -64,39 +65,21 @@ struct format_class *opt_out_fmt  = NULL;
 struct socket *sock;
 
 
-struct recv_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
-
-
 static struct format_options sd_fmt_opts =
 {
 	.channels = 0,
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 12,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 4,
+	.head     = SRIO_HEAD + VITA_HEAD,
 	.flags    = FO_ENDIAN | FO_IQ_SWAP,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: demo-sample [-vei12] [-d lvl] [-R remote] [-s|-S size] [-t timeout] [-o raw]\n"
-	       "                   adi-name out-file\n"
+	printf("Usage: demo-sample [-vei12] [-d lvl] [-R remote] [-s|-S size] [-t timeout]\n"
+	       "                   [-o raw] [-b bytes] adi-name out-file\n"
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
 	       "-e            Toggle endian swap (default on)\n"
@@ -109,6 +92,7 @@ static void usage (void)
 	       "-s size       Set payload size in bytes (K or M optional)\n"
 	       "-t timeout    Set timeout in jiffies\n"
 	       "-o rawfile    Write raw buffer to rawfile (with packet headers)\n"
+	       "-b bytes      Set PDU body size in bytes (K optional, default 256)\n"
 	       "\n"
 	       "adi-name is specified as a UUID or human-readable name, and must operate in the\n"
 	       "RX direction for sampling\n"
@@ -173,7 +157,7 @@ int main (int argc, char **argv)
 	log_dupe(stderr);
 	format_error_setup(stderr);
 
-	while ( (opt = getopt(argc, argv, "?hvei12d:R:c:s:S:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:c:s:S:t:n:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -234,10 +218,28 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
+
 			default:
 				usage();
 		}
 	
+	sd_fmt_opts.data   = opt_body - VITA_HEAD;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
+
+	if ( opt_debug )
+	{
+		fprintf(opt_debug, "format:\n");
+		fprintf(opt_debug, "  channels: %lu\n",  sd_fmt_opts.channels);
+		fprintf(opt_debug, "  single  : %zu\n",  sd_fmt_opts.single);
+		fprintf(opt_debug, "  sample  : %zu\n",  sd_fmt_opts.sample);
+		fprintf(opt_debug, "  bits    : %zu\n",  sd_fmt_opts.bits);
+		fprintf(opt_debug, "  packet  : %zu\n",  sd_fmt_opts.packet);
+		fprintf(opt_debug, "  head    : %zu\n",  sd_fmt_opts.head);
+		fprintf(opt_debug, "  data    : %zu\n",  sd_fmt_opts.data);
+		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
+	}
+
 	if ( argc - optind < 2 )
 		usage();
 
@@ -433,8 +435,8 @@ int main (int argc, char **argv)
 		goto exit_unmap;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_RESET);

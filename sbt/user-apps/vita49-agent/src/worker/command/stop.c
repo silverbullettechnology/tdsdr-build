@@ -21,6 +21,7 @@
 
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <format.h>
 
 #include <dsa_util.h>
 #include <v49_message/common.h>
@@ -30,6 +31,16 @@
 
 
 LOG_MODULE_STATIC("worker_command_stop", LOG_LEVEL_WARN);
+
+
+static struct format_options fmt_opts =
+{
+	.channels = 3,
+	.single   = sizeof(uint16_t) * 2,
+	.sample   = sizeof(uint16_t) * 4,
+	.bits     = 16,
+	.head     = VITA_HEAD,
+};
 
 
 /** stop command
@@ -42,7 +53,7 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 {
 	ENTER("req %p, rsp %p", req, rsp);
 
-	LOG_INFO("STOP: requested %s -> adi %d\n",
+	LOG_INFO("STOP: ReQuEsTeD %s -> adi %d\n",
 	         dsa_util_chan_desc(worker_res.dc_bits), worker_adi);
 
 	if ( !(req->command.indicator & (1 << V49_CMD_IND_BIT_TSTAMP_INT)) )
@@ -58,12 +69,13 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp)
 		RETURN_ERRNO(EINVAL);
 	}
 
+	fmt_opts.data   = worker_opt_body - fmt_opts.head;
+	fmt_opts.packet = worker_opt_body;
+
 	worker_tsi = req->ts_int;
 	worker_tsf = req->ts_frac;
-	worker_len = worker_tsf * 8; // XXX: assumes T2R2
-	worker_pkt = worker_len / 232;
-	if ( worker_len % 232 )
-		worker_pkt ++;
+	worker_len = worker_tsf * fmt_opts.sample;
+	worker_pkt = format_num_packets_from_data(&fmt_opts, worker_len);
 	LOG_DEBUG("Stop: TSI %d, TSF %zu -> len %zu, %zu pkts\n",
 	          (int)worker_tsi, worker_tsf, worker_len, worker_pkt);
 	rsp->command.result = V49_CMD_RES_SUCCESS;

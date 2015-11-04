@@ -75,6 +75,7 @@ WORKER_LIBS := \
 	-ldsa_util \
 	-lpipe_dev \
 	-lfifo_dev \
+	-lformat \
 	-lrt \
 	-lconfig
 

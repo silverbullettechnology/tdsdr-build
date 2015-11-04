@@ -59,6 +59,8 @@ struct timeval  worker_opt_tv_min  = { .tv_sec = 0, .tv_usec = 1000 };
 struct timeval  worker_opt_tv_max  = { .tv_sec = 0, .tv_usec = 100000 };
 int             worker_opt_timer   = 5;
 int             worker_opt_remote  = 2;
+size_t          worker_opt_body    = 256;
+uint8_t         worker_opt_cos     = 0x7F;
 
 // globals used by various command handlers
 struct resource_info  worker_res;

@@ -57,28 +57,16 @@ size_t      opt_words    = 0;
 size_t      opt_trail    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = 256;
 int         opt_paint    = 0;
 char       *opt_rawfile  = NULL;
+FILE       *opt_debug    = NULL;
+uint8_t     opt_cos      = 0x7F;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
 
 struct socket *sock;
-
-
-struct send_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
 
 
 static struct format_options sd_fmt_opts =
@@ -87,10 +75,7 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 12,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 4,
+	.head     = SRIO_HEAD + VITA_HEAD,
 	.flags    = FO_ENDIAN | FO_IQ_SWAP,
 };
 
@@ -98,7 +83,7 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: demo-transmit [-vei12] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                     [-R remote] [-p paint] [-z words] adi-name in-file\n"
+	       "                     [-R remote] [-p paint] [-z words] [-b bytes] adi-name in-file\n"
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
 	       "-e            Toggle endian swap (default on)\n"
@@ -113,6 +98,7 @@ static void usage (void)
 	       "-t timeout    Set timeout in jiffies (default %u)\n"
 	       "-p paint      Set byte to paint buffer before load (default 0)\n"
 	       "-z words      Leave some number of paint samples at the buffer end (default none)\n"
+	       "-b bytes      Set PDU body size in bytes (K optional, default 256)\n"
 	       "\n"
 	       "adi-name is specified as a UUID or human-readable name, and must operate in the\n"
 	       "TX direction for transmit\n"
@@ -164,7 +150,8 @@ static void progress (size_t done, size_t size)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct send_packet    *pkt;
+	struct srio_header    *srio_hdr;
+	struct vita_header    *vita_hdr;
 	unsigned long          routing;
 	unsigned long          reg;
 	unsigned long          tuser;
@@ -174,6 +161,8 @@ int main (int argc, char **argv)
 	char                  *format;
 	FILE                  *in_fp = NULL;
 	void                  *buff;
+	void                  *pkt_base;
+	void                  *pkt_head;
 	int                    srio_dev;
 	int                    ret = 0;
 	int                    opt;
@@ -183,10 +172,11 @@ int main (int argc, char **argv)
 	log_dupe(stderr);
 	format_error_setup(stderr);
 
-	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:c:s:S:t:p:o:z:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:c:s:S:t:p:o:z:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
+				opt_debug = stderr;
 				format_error_setup(stderr);
 				format_debug_setup(stderr);
 				break;
@@ -249,11 +239,28 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
 
 			default:
 				usage();
 				return 1;
 		}
+
+	sd_fmt_opts.data   = opt_body;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
+
+	if ( opt_debug )
+	{
+		fprintf(opt_debug, "format:\n");
+		fprintf(opt_debug, "  channels: %lu\n",  sd_fmt_opts.channels);
+		fprintf(opt_debug, "  single  : %zu\n",  sd_fmt_opts.single);
+		fprintf(opt_debug, "  sample  : %zu\n",  sd_fmt_opts.sample);
+		fprintf(opt_debug, "  bits    : %zu\n",  sd_fmt_opts.bits);
+		fprintf(opt_debug, "  packet  : %zu\n",  sd_fmt_opts.packet);
+		fprintf(opt_debug, "  head    : %zu\n",  sd_fmt_opts.head);
+		fprintf(opt_debug, "  data    : %zu\n",  sd_fmt_opts.data);
+		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
+	}
 
 	if ( argc - optind < 2 )
 		usage();
@@ -493,6 +500,7 @@ int main (int argc, char **argv)
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_RESET);
 	pipe_srio_dma_split_set_cmd(0);
 	pipe_srio_dma_split_set_npkts(opt_npkts);
+	pipe_srio_dma_split_set_psize((sd_fmt_opts.packet / DSM_BUS_WIDTH) - 1);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
 
@@ -514,27 +522,52 @@ int main (int argc, char **argv)
 	tuser  |= opt_remote;
 	LOG_DEBUG("tuser word: 0x%08lx\n", tuser);
 
+	// build packet headers - precalc header fields as much as possible
+	// length in HELLO header is total packet minus TUSER+HELLO, may need -1
+	size_t    packet = sd_fmt_opts.packet - SRIO_HEAD;
+	uint32_t  hello0 = (demo_sid << 16) | packet;
+	uint32_t  hello1 = (opt_cos  <<  4) | 0x00900000;
+	size_t    left   = opt_data;
+
 	// build packet headers - just tuser initially
-	pkt = buff;
+	pkt_base = buff;
+	smp = 0;
 	for ( idx = 0; idx < opt_npkts; idx++ )
 	{
-		// SRIO header
-		pkt->tuser    = tuser;
-		pkt->padding  = 0xFFFFFFFF;
-		pkt->hello[1] = 0x00600000;
-		pkt->hello[0] = demo_sid;
+		srio_hdr = pkt_head = pkt_base;
 
-		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F0003F;
-		pkt->v49_hdr  = ntohl(hdr);
-		pkt->v49_sid  = ntohl(demo_sid);
-		pkt->v49_tsi  = 0;
-		pkt->v49_tsf1 = 0;
-		pkt->v49_tsf2 = ntohl(smp);
-		pkt->v49_trailer = 0;
+		// SRIO header - TUSER, alignment, and HELLO header
+		srio_hdr->tuser    = tuser;
+		srio_hdr->padding  = 0;
+		srio_hdr->hello[1] = hello1;
+		srio_hdr->hello[0] = hello0;
+		if ( left < packet )
+		{
+			srio_hdr->hello[0] &= 0xFFFF0000;
+			srio_hdr->hello[0] |= left & 0xFFFF;
+		}
 
-		pkt++;
-		smp += 29;
+		// VITA49 header always enabled
+		pkt_head += sizeof(*srio_hdr);
+		vita_hdr = pkt_head;
+
+		if ( left < packet )
+			hdr = left;
+		else
+			hdr = packet;
+		hdr >>= 2;
+		hdr  |= (idx & 0xf) << 16;
+		hdr  |= 0x10300000;	// With SID + V49_HDR_TSF
+
+		vita_hdr->hdr  = ntohl(hdr);
+		vita_hdr->sid  = ntohl(demo_sid);
+		vita_hdr->tsf1 = 0;
+		vita_hdr->tsf2 = ntohl(smp);
+		smp += sd_fmt_opts.data / 8;
+
+		// sample advance based on data payload, packet based on payload + headers
+		pkt_base += sd_fmt_opts.packet;
+		left     -= sd_fmt_opts.data;
 	}
 
 
