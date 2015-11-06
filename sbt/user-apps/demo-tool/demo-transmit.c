@@ -54,7 +54,7 @@ unsigned    opt_chan     = DEF_CHAN;
 size_t      opt_data     = 0;
 size_t      opt_buff     = 0;
 size_t      opt_words    = 0;
-size_t      opt_trail    = 0;
+size_t      opt_trail    = 1;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
@@ -227,7 +227,6 @@ int main (int argc, char **argv)
 
 			case 'z':
 				opt_trail = strtoul(optarg, NULL, 0);
-				opt_trail *= DSM_BUS_WIDTH;
 				break;
 
 			case 's':
@@ -246,7 +245,7 @@ int main (int argc, char **argv)
 				return 1;
 		}
 
-	sd_fmt_opts.data   = opt_body;
+	sd_fmt_opts.data   = opt_body - VITA_HEAD;
 	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
 
 	if ( opt_debug )
@@ -324,11 +323,20 @@ int main (int argc, char **argv)
 	else if ( !(in_fp = fopen(opt_in_file, "r")) )
 		perror(opt_in_file);
 
-	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data + opt_trail);
+	/* If trailing padding enabled, use limit in format_read(), then increase the opt_data
+	 * by the amount for subsequent ops */
+	if ( opt_trail )
+	{
+		sd_fmt_opts.limit = opt_data;
+		opt_trail *= DSM_BUS_WIDTH;
+		opt_data += opt_trail;
+	}
+
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
 	opt_buff  = opt_npkts * sd_fmt_opts.packet;
 	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu (%zu data + %zu trail) gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data + opt_trail, opt_data, opt_trail, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_data - opt_trail, opt_trail, opt_buff, opt_npkts, opt_words);
 
 	LOG_DEBUG("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
@@ -477,7 +485,18 @@ int main (int argc, char **argv)
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
 	sd_fmt_opts.prog_step = opt_buff / 100;
-	memset(buff, opt_paint, opt_buff);
+
+	if ( opt_paint < 0 )
+	{
+		uint16_t *walk = buff;
+		size_t    left = opt_buff / sizeof(uint16_t);
+
+		while ( left-- )
+			*walk++ = ntohs(~(1 << (left % 12)));
+	}
+	else
+		memset(buff, opt_paint, opt_buff);
+
 	if ( in_fp )
 	{
 		if ( !format_read(opt_in_fmt, &sd_fmt_opts, buff, opt_buff, in_fp) )
@@ -543,6 +562,7 @@ int main (int argc, char **argv)
 		srio_hdr->hello[0] = hello0;
 		if ( left < packet )
 		{
+			left += VITA_HEAD;
 			srio_hdr->hello[0] &= 0xFFFF0000;
 			srio_hdr->hello[0] |= left & 0xFFFF;
 		}
@@ -565,7 +585,11 @@ int main (int argc, char **argv)
 		vita_hdr->tsf2 = ntohl(smp);
 		smp += sd_fmt_opts.data / 8;
 
+		LOG_DEBUG("%2d/%2d: +%d, left %zu: HELLO %08x, VITA %08x\n",
+		          idx, opt_npkts, pkt_base - buff, left, srio_hdr->hello[0], hdr);
+
 		// sample advance based on data payload, packet based on payload + headers
+		// XXX: don't use left for control, it'll underflow on the last packet
 		pkt_base += sd_fmt_opts.packet;
 		left     -= sd_fmt_opts.data;
 	}
@@ -597,7 +621,6 @@ int main (int argc, char **argv)
 		else
 			perror(opt_rawfile);
 	}
-
 
 
 	// hand buffer to kernelspace driver and build scatterlist

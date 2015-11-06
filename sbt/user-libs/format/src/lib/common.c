@@ -494,6 +494,8 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 	state.opt  = opt;
 	state.buff = size;
 	state.data = format_size_data_from_buff(opt, size);
+	if ( opt->limit && opt->limit < state.data )
+		state.data = opt->limit;
 
 	LOG_DEBUG("%s: starting out, page %ld, size %zu\n", __func__, page, size);
 	if ( page < 1024 )
@@ -535,9 +537,17 @@ size_t format_read (struct format_class *fmt, struct format_options *opt,
 		state.new_pass = 1;
 
 		data = format_size_data_from_buff(opt, size);
+		if ( opt->limit && opt->limit < data )
+		{
+			data = opt->limit;
+			LOG_DEBUG("%s: pass %d: start: data %zu from limit %zu\n", __func__,
+			          state.cur_pass, data, opt->limit);
+		}
+		else
+			LOG_DEBUG("%s: pass %d: start: data %zu from buff size %zu\n", __func__,
+			          state.cur_pass, data, size);
+
 		dst  = buff;
-		LOG_DEBUG("%s: pass %d: start: data %zu from buff size %zu\n", __func__,
-		          state.cur_pass, data, size);
 
 		while ( data )
 		{
@@ -712,6 +722,8 @@ size_t format_write (struct format_class *fmt, struct format_options *opt,
 	state.opt  = opt;
 	state.buff = size;
 	state.data = format_size_data_from_buff(opt, size);
+	if ( opt->limit && opt->limit < state.data )
+		state.data = opt->limit;
 
 	if ( opt->packet )
 	{
@@ -750,6 +762,16 @@ size_t format_write (struct format_class *fmt, struct format_options *opt,
 		state.new_pass = 1;
 
 		data = format_size_data_from_buff(opt, size);
+		if ( opt->limit && opt->limit < data )
+		{
+			data = opt->limit;
+			LOG_DEBUG("%s: pass %d: start: data %zu from limit %zu\n", __func__,
+			          state.cur_pass, data, opt->limit);
+		}
+		else
+			LOG_DEBUG("%s: pass %d: start: data %zu from buff size %zu\n", __func__,
+			          state.cur_pass, data, size);
+
 		src = buff;
 
 		while ( data )
