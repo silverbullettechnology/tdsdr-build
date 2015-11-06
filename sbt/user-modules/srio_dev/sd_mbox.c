@@ -149,7 +149,7 @@ int sd_mbox_frag (struct srio_dev *sd, struct sd_desc **desc, struct sd_mesg *me
 
 	// Letter number 0..3 is normally a rolling counter per mbox, but allow the user the
 	// flexibility of trading off smaller messages and more mailboxes
-	if ( mesg->mesg.mbox.mbox > 3 )
+	if ( mesg->mesg.mbox.letter > 3 )
 		ltr = mesg->mesg.mbox.letter;
 	else
 		ltr = sd->mbox_letter[mesg->mesg.mbox.mbox]++;

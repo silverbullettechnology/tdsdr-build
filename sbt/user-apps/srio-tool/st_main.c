@@ -82,10 +82,13 @@ static void signal_fatal (int signum)
 
 void usage (void)
 {
-	printf("Usage: %s [-L devid] [-R devid]\n"
+	printf("Usage: %s [-L devid] [-R devid] [-d dbell] [-m mbox] [-l ltr]\n"
 	       "Where:\n"
 	       "-L devid  Set local device-ID\n"
-	       "-R devid  Set remote device-ID\n",
+	       "-R devid  Set remote device-ID\n"
+	       "-d dbell  Set DBELL info value (base, each sent will post-increment)\n"
+	       "-m mbox   Set MESSAGE mbox value (default 0)\n"
+	       "-l ltr    Set MESSAGE letter value (default cycles in driver)\n",
 	       argv0);
 
 	exit(1);
@@ -193,7 +196,7 @@ int main (int argc, char **argv)
 	argv0 = argv[0];
 
 	int opt;
-	while ( (opt = getopt(argc, argv, "L:R:")) > -1 )
+	while ( (opt = getopt(argc, argv, "L:R:d:m:l:")) > -1 )
 		switch ( opt )
 		{
 			case 'L':
@@ -202,6 +205,18 @@ int main (int argc, char **argv)
 
 			case 'R':
 				opt_rem_addr = strtoul(optarg, NULL, 0);
+				break;
+
+			case 'd':
+				opt_dbell_send = strtoul(optarg, NULL, 0);
+				break;
+
+			case 'm':
+				opt_mbox_send = strtoul(optarg, NULL, 0) & 0x3F;
+				break;
+
+			case 'l':
+				opt_mbox_letter = (strtoul(optarg, NULL, 0) & 0x03) | 0x40;
 				break;
 
 			default:
@@ -443,7 +458,7 @@ int main (int argc, char **argv)
 					mbox->data[5] = 0x66666666;
 					size = sizeof(uint32_t) * 6;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
+					       opt_mbox_send, opt_mbox_letter & 3, size);
 					hexdump_buff(mbox->data, size);
 					size += offsetof(struct sd_mesg_mbox, data);
 					size += offsetof(struct sd_mesg,      mesg);
