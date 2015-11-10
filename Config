@@ -34,10 +34,11 @@ export SBT_PETALINUX_VER := 2013.04
 #export SBT_BSP := TDSDR
 export SBT_BSP := SDR-M1
 
-# Boot.bin selection
+# Boot.bin selection - Use 11_09_2015_1207 with Schroff 23005-466 52 chassis,
+# 11_09_2015_1349 with Schroff 23005-484 52 chassis.
 SBT_PREBUILT := $(SBT_TOP)/sbt/prebuilt/SDR-M1
-#SBT_BOOT_BIN := $(SBT_PREBUILT)/sdr-m1_10_28_2015_1538.bin
-SBT_BOOT_BIN := $(SBT_PREBUILT)/sdr-m1_10_29_2015_0658.bin
+SBT_BOOT_BIN := $(SBT_PREBUILT)/sdr-m1_11_09_2015_1207.bin
+#SBT_BOOT_BIN := $(SBT_PREBUILT)/sdr-m1_11_09_2015_1349.bin
 export SBT_BOOT_BIN
 
 

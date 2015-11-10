@@ -1,6 +1,0 @@
-the_ROM_image:
-{
-	[bootloader]zynq_fsbl-sdr-m1.elf
-	[checksum=md5]sdr-m1_10_29_2015_0658.bit
-	[checksum=md5]u-boot-sdr-m1.elf
-}
