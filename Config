@@ -13,7 +13,7 @@
 
 # Linux kernel source
 SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
-SBT_KERNEL_GIT_BRANCH := tdsdr-devel
+SBT_KERNEL_GIT_BRANCH := sdr-m1-devel
 #SBT_KERNEL_GIT_USER   := 
 #SBT_KERNEL_GIT_EMAIL  := 
 export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
