@@ -45,7 +45,6 @@ unsigned    opt_local    = 0;
 unsigned    opt_chan     = DEF_CHAN;
 size_t      opt_data     = 0;
 size_t      opt_buff     = 0;
-size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
@@ -54,7 +53,7 @@ size_t      opt_foot     = 0;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
 uint32_t    opt_cos      = 0x11;
-uint8_t     opt_paint    = 0xFF;
+uint8_t     opt_paint    = 0;
 char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
@@ -75,7 +74,7 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: srio-send [-vrei] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] [-b bytes] [-h bytes]\n"
+	       "                 [-L local] [-R remote] [-b bytes] [-h bytes]\n"
 	       "                 in-file [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
@@ -88,7 +87,6 @@ static void usage (void)
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
-	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
 	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
 	       "-h bytes    Set PDU header size in bytes (K or M optional, default %zu)\n"
@@ -160,7 +158,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:n:p:o:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:p:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -181,7 +179,6 @@ int main (int argc, char **argv)
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
 
@@ -253,6 +250,17 @@ int main (int argc, char **argv)
 		else
 			opt_data = format_size_data_from_buff(&sd_fmt_opts, opt_buff);
 
+		// loaded data file is not an even multiple of the sample size: increase buffer
+		// size and restrict format to loading only those bytes.
+		if ( opt_data & 7 )
+		{
+			sd_fmt_opts.limit = opt_data;
+			opt_data += 7;
+			opt_data &= ~7;
+			printf("Note: file size %zu not a multiple of 8, padding with paint to %zu\n",
+			       sd_fmt_opts.limit, opt_data);
+		}
+
 		if ( !in_fp || !opt_buff )
 		{
 			fclose(in_fp);
@@ -262,10 +270,8 @@ int main (int argc, char **argv)
 	else if ( !(in_fp = fopen(opt_in_file, "r")) )
 		perror(opt_in_file);
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
-
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff  = format_size_buff_from_data(&sd_fmt_opts,   opt_data);
 	printf("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
 	if ( (argc - optind) >= 2 )
@@ -356,9 +362,8 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_buff, opt_npkts, opt_buff / DSM_BUS_WIDTH);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -374,13 +379,15 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
-	if ( !(buff = dsm_user_alloc(opt_words)) )
+	if ( !(buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n",
+		       opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("Buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
@@ -418,6 +425,7 @@ int main (int argc, char **argv)
 		srio_hdr->hello[0] = hello0;
 		if ( left < packet )
 		{
+			left += VITA_HEAD;
 			srio_hdr->hello[0] &= 0xFFFF0000;
 			srio_hdr->hello[0] |= left & 0xFFFF;
 		}
@@ -454,9 +462,9 @@ int main (int argc, char **argv)
 		if ( fd > -1 )
 		{
 			void   *walk = buff;
-			size_t  left = opt_buff;
 			int     ret;
 
+			left = opt_buff;
 			while ( left >= 4096 )
 			{
 				if ( (ret = write(fd, walk, 4096)) < 0 )
@@ -480,7 +488,7 @@ int main (int argc, char **argv)
 
 
 	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_user(opt_chan, 1, buff, opt_words) )
+	if ( dsm_map_user(opt_chan, 1, buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
@@ -567,7 +575,7 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
-	dsm_user_free(buff, opt_words);
+	dsm_user_free(buff, opt_buff / DSM_BUS_WIDTH);
 	printf("Buffer unlocked and freed\n");
 
 exit_pipe:

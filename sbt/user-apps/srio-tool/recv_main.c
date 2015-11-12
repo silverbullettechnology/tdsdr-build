@@ -37,7 +37,6 @@
 unsigned    opt_chan     = 4;
 size_t      opt_data     = 8000000;
 size_t      opt_buff     = 0;
-size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
 unsigned    opt_npkts    = 0;
 size_t      opt_body     = 256;
@@ -64,7 +63,7 @@ static struct format_options sd_fmt_opts =
 static void usage (void)
 {
 	printf("Usage: srio-recv [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-b bytes] [-h bytes] out-file\n"
+	       "                 [-b bytes] [-h bytes] out-file\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-r          Raw mode: skip VITA49 headers (implies -ei)\n"
@@ -74,7 +73,6 @@ static void usage (void)
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
-	       "-n npkts    Set number of packets for combiner\n"
 	       "-o rawfile  Write raw buffer to rawfile (with packet headers)\n"
 	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
 	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
@@ -132,7 +130,7 @@ int main (int argc, char **argv)
 //	int                    idx;
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvreic:s:S:t:n:o:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreic:s:S:t:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -151,7 +149,6 @@ int main (int argc, char **argv)
 
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
 
 			case 's':
@@ -248,12 +245,8 @@ int main (int argc, char **argv)
 		goto exit_pipe;
 	}
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-
-	// size buffer in total number of packets, since swrite block rounds up... TBD whether
-	// this is a good idea or not
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff  = format_size_buff_from_data(&sd_fmt_opts,   opt_data);
 
 	// validate buffer size against width and channel / total limits
 	if ( opt_buff % DSM_BUS_WIDTH || 
@@ -268,9 +261,8 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_buff, opt_npkts, opt_buff / DSM_BUS_WIDTH);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -286,17 +278,19 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
-	if ( !(buff = dsm_user_alloc(opt_words)) )
+	if ( !(buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n",
+		       opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("Buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 	memset(buff, 0, opt_buff);
 
 	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_user(opt_chan, 0, buff, opt_words) )
+	if ( dsm_map_user(opt_chan, 0, buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
@@ -425,7 +419,7 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
-	dsm_user_free(buff, opt_words);
+	dsm_user_free(buff, opt_buff / DSM_BUS_WIDTH);
 	printf("Buffer unlocked and freed\n");
 
 exit_pipe:
