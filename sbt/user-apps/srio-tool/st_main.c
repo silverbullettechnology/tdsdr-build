@@ -230,8 +230,6 @@ int main (int argc, char **argv)
 				break;
 		}
 
-//	setbuf(stdout, NULL);
-
 	int dev = open(DEV_NODE, O_RDWR|O_NONBLOCK);
 	if ( dev < 0 )
 	{
@@ -241,6 +239,16 @@ int main (int argc, char **argv)
 
 	signal(SIGTERM, signal_fatal);
 	signal(SIGINT,  signal_fatal);
+
+	// freopen the controlling terminal for stdout/stderr before st_term_setuip(), so
+	// setting stdin non-blocking doesn't also affect stdout
+	char tty[256];
+	if ( readlink("/proc/self/fd/1", tty, sizeof(tty)) > 0 )
+	{
+		freopen(tty, "w", stdout);
+		freopen(tty, "w", stderr);
+		setbuf(stderr, NULL);
+	}
 
 	st_term_setup();
 
