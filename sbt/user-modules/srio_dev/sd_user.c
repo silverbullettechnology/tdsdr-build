@@ -53,6 +53,7 @@ struct list_head   list;
 
 struct sd_user_priv
 {
+	char               name[32];
 	wait_queue_head_t  wait;
 	spinlock_t         lock;
 	struct list_head   queue;
@@ -161,7 +162,7 @@ void sd_user_recv_mbox (struct sd_mesg *mesg, int mbox)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -197,7 +198,8 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %09llx..%09llx\n", priv, priv->swrite_min, priv->swrite_max);
+		pr_debug("  %p: %09llx..%09llx %s\n",
+		         priv, priv->swrite_min, priv->swrite_max, priv->name);
 		if ( addr >= priv->swrite_min && addr <= priv->swrite_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -206,7 +208,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -248,7 +250,8 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %04x..%04x\n", priv, priv->dbell_min, priv->dbell_max);
+		pr_debug("  %p: %04x..%04x %s\n",
+		         priv, priv->dbell_min, priv->dbell_max, priv->name);
 		if ( info >= priv->dbell_min && info <= priv->dbell_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -257,7 +260,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 				pr_err("DBELL dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -299,7 +302,7 @@ void sd_user_recv_stream (struct sd_desc *desc, uint16_t sid)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %04x..%04x\n", priv, priv->sid_min, priv->sid_max);
+		pr_debug("  %p: %04x..%04x %s\n", priv, priv->sid_min, priv->sid_max, priv->name);
 		if ( sid >= priv->sid_min && sid <= priv->sid_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -308,8 +311,9 @@ void sd_user_recv_stream (struct sd_desc *desc, uint16_t sid)
 				pr_err("stream dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch %p to %s\n", qm, priv->name);
 
+			memset(qm, 0, size);
 			INIT_LIST_HEAD(&qm->list);
 
 			qm->mesg.type     = 9;
@@ -325,7 +329,7 @@ void sd_user_recv_stream (struct sd_desc *desc, uint16_t sid)
 
 			list_add_tail(&qm->list, &priv->queue);
 
-			hexdump_buff(qm, size);
+//			hexdump_buff(qm, size);
 			wake_up_interruptible(&priv->wait);
 		}
 	}
@@ -531,6 +535,10 @@ static int sd_user_open (struct inode *i, struct file *f)
 	priv->dbell_max  = 0x0000;
 	priv->swrite_min = 0x3FFFFFFFF;
 	priv->swrite_max = 0x000000000;
+	priv->sid_min    = 0xFFFF;
+	priv->sid_max    = 0x0000;
+
+	snprintf(priv->name, sizeof(priv->name), "%s", current->comm);
 
 	f->private_data = priv;
 	pr_debug("%s: open: f %p, priv %p\n", __func__, f, priv);
@@ -572,6 +580,7 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	struct sd_user_mesg *qm;
 	unsigned long        flags;
 	size_t               size;
+	int                  ret;
 
 	// no data available for read: return EAGAIN or sleep
 	while ( list_empty(&priv->queue) )
@@ -597,11 +606,20 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	size = qm->mesg.size;
 	list_del_init(&qm->list);
 	spin_unlock_irqrestore(&priv->lock, flags);
-	pr_debug("%s: type %d size %zu\n", __func__, qm->mesg.type, qm->mesg.size);
+	pr_debug("%s: type %d size %zu for %s\n", __func__,
+	         qm->mesg.type, qm->mesg.size, priv->name);
 
-	if ( size > s || copy_to_user(b, &qm->mesg, size) )
+	if ( size > s )
 	{
-		pr_err("Message dropped\n");
+		pr_err("Message dropped: size %zu exceeds buffer size %zu\n", size, s);
+		kfree(qm);
+		return -ENOSPC;
+	}
+
+	if ( (ret = copy_to_user(b, &qm->mesg, size)) )
+	{
+		pr_err("Message dropped: copy_to_user(b, qm %p, size %zu) returnd %d\n",
+		       qm, size, ret);
 		kfree(qm);
 		return -ENOSPC;
 	}
@@ -623,7 +641,11 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 
 	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
 	if ( s > SD_MESG_SIZE || s < offsetof(struct sd_mesg, mesg) )
+	{
+		pr_err("%s[%d]: size %zu > limit %u, or < header min %zu, discard\n",
+		       __func__, __LINE__, s, SD_MESG_SIZE, offsetof(struct sd_mesg, mesg));
 		return -EINVAL;
+	}
 
 	memset(desc, 0, sizeof(desc));
 	if ( !(mesg = kzalloc(SD_MESG_SIZE, GFP_KERNEL)) )
@@ -667,6 +689,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		case 6: // SWRITE
 			if ( size <= offsetof(struct sd_mesg_swrite, data) )
 			{
+				pr_err("%s[%d]: size %zu < header min %zu, discard\n",
+				       __func__, __LINE__, size, offsetof(struct sd_mesg_swrite, data));
 				ret = -EINVAL;
 				goto fail;
 			}
@@ -688,6 +712,8 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		case 9: // STREAM
 			if ( size <= offsetof(struct sd_mesg_stream, data) )
 			{
+				pr_err("%s[%d]: size %zu < header min %zu, discard\n",
+				       __func__, __LINE__, size, offsetof(struct sd_mesg_stream, data));
 				ret = -EINVAL;
 				goto fail;
 			}
@@ -743,6 +769,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		case 11: // MESSAGE
 			if ( (num = sd_mbox_frag(sd_user_dev, desc, mesg, GFP_KERNEL|GFP_DMA)) < 1 )
 			{
+				pr_err("%s[%d]: failed to frag type 11, discard\n", __func__, __LINE__);
 				ret = -EFBIG;
 				goto fail;
 			}
@@ -759,6 +786,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		default:
+			pr_err("%s[%d]: type %d invalid, discard\n", __func__, __LINE__, mesg->type);
 			ret = -EINVAL;
 			goto fail;
 	}

@@ -46,7 +46,14 @@ struct sd_mesg_swrite *swrite;
 struct sd_mesg_dbell  *dbell;
 struct sd_mesg_stream *stream;
 
-uint32_t  buff[8192];
+#define BUFF_SIZE 1280
+#define RING_BITS 5
+#define RING_SIZE (1 << RING_BITS)
+#define RING_MASK (RING_SIZE - 1)
+uint32_t  rx_buff[RING_SIZE][BUFF_SIZE];
+uint32_t  tx_buff[RING_SIZE][BUFF_SIZE];
+unsigned  rx_slot;
+unsigned  tx_slot;
 int       size;
 
 uint16_t  opt_loc_addr = 0xFFFF;
@@ -243,6 +250,7 @@ int main (int argc, char **argv)
 	// freopen the controlling terminal for stdout/stderr before st_term_setuip(), so
 	// setting stdin non-blocking doesn't also affect stdout
 	char tty[256];
+	memset(tty, 0, sizeof(tty));
 	if ( readlink("/proc/self/fd/1", tty, sizeof(tty)) > 0 )
 	{
 		freopen(tty, "w", stdout);
@@ -289,12 +297,6 @@ int main (int argc, char **argv)
 	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
 	int              type9_burst;
-
-	mesg   = (struct sd_mesg *)buff;
-	mbox   = &mesg->mesg.mbox;
-	swrite = &mesg->mesg.swrite;
-	dbell  = &mesg->mesg.dbell;
-	stream = &mesg->mesg.stream;
 
 	menu();
 	while ( main_loop )
@@ -350,9 +352,16 @@ int main (int argc, char **argv)
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
 		{
-			memset(buff, 0xEE, sizeof(buff));
+			rx_slot++;
+			mesg   = (struct sd_mesg *)&(rx_buff[rx_slot & RING_MASK]);
+			mbox   = &mesg->mesg.mbox;
+			swrite = &mesg->mesg.swrite;
+			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
+
+			memset(mesg, 0, sizeof(rx_buff[0]));
 			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
-			if ( (size = read(dev, buff, sizeof(buff))) < 0 )
+			if ( (size = read(dev, mesg, sizeof(rx_buff[0]))) < 0 )
 			{
 				perror("read() from driver");
 				break;
@@ -422,10 +431,8 @@ int main (int argc, char **argv)
 			else
 			{
 				printf("too short, buffer:\n");
-				hexdump_buff(buff, sizeof(buff));
+				hexdump_buff(mesg, sizeof(rx_buff[0]));
 			}
-
-			size = 0;
 		}
 
 		// data from terminal to buffer
@@ -444,8 +451,14 @@ int main (int argc, char **argv)
 
 		if ( key > '\0' )
 		{
-			size = 0;
-			memset(buff, 0, sizeof(buff));
+			tx_slot++;
+			mesg   = (struct sd_mesg *)&(tx_buff[tx_slot & RING_MASK]);
+			mbox   = &mesg->mesg.mbox;
+			swrite = &mesg->mesg.swrite;
+			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
+
+			memset(mesg, 0, sizeof(tx_buff[0]));
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
@@ -457,19 +470,20 @@ int main (int argc, char **argv)
 					swrite->addr    = opt_swrite_send;
 					swrite->data[0] = 0x12345678;
 					swrite->data[1] = 0x87654321;
-					size = sizeof(uint32_t) * 2;
-					printf("\nSEND: SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
-					hexdump_buff(swrite->data, size);
-					size += offsetof(struct sd_mesg_swrite, data);
-					size += offsetof(struct sd_mesg,        mesg);
+					mesg->size = sizeof(uint32_t) * 2;
+					printf("\nSEND: SWRITE to %09llx, payload %d:\n", opt_swrite_send,
+					mesg->size);
+					hexdump_buff(swrite->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_swrite, data);
+					mesg->size += offsetof(struct sd_mesg,        mesg);
 					break;
 
 				case '2':
 					mesg->type = 10;
 					dbell->info = opt_dbell_send++;
-					size  = sizeof(struct sd_mesg_dbell);
+					mesg->size  = sizeof(struct sd_mesg_dbell);
 					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
-					size += offsetof(struct sd_mesg, mesg);
+					mesg->size += offsetof(struct sd_mesg, mesg);
 					break;
 
 				case '3':
@@ -482,19 +496,19 @@ int main (int argc, char **argv)
 					mbox->data[3] = 0x44444444;
 					mbox->data[4] = 0x55555555;
 					mbox->data[5] = 0x66666666;
-					size = sizeof(uint32_t) * 6;
+					mesg->size = sizeof(uint32_t) * 6;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter & 3, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter & 3, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '4':
 					mesg->type = 10;
 					dbell->info = 0xFFF0;
-					size  = sizeof(struct sd_mesg_dbell) + 
-					        offsetof(struct sd_mesg, mesg);
+					mesg->size  = sizeof(struct sd_mesg_dbell) + 
+					              offsetof(struct sd_mesg, mesg);
 					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
 					break;
 
@@ -504,12 +518,12 @@ int main (int argc, char **argv)
 					mbox->letter = opt_mbox_letter;
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA,  60);
-					size = 316;
+					mesg->size = 316;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '6':
@@ -519,12 +533,12 @@ int main (int argc, char **argv)
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA, 256);
 					memset(&mbox->data[128], 0x55,  11);
-					size = 523;
+					mesg->size = 523;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '7':
@@ -532,12 +546,12 @@ int main (int argc, char **argv)
 					mbox->mbox   = opt_mbox_send;
 					mbox->letter = opt_mbox_letter;
 					memcpy(mbox->data, v49_disco_mesg, sizeof(v49_disco_mesg));
-					size = sizeof(v49_disco_mesg);
+					mesg->size = sizeof(v49_disco_mesg);
 					printf("\nSEND: DISCO to mbox %d, payload %d:\n",
-					       opt_mbox_send, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '+':
@@ -557,7 +571,7 @@ int main (int argc, char **argv)
 					       type9_burst, opt_stream_sid, opt_stream_cos, 256);
 					for ( slot = 0; slot < type9_burst; slot++ )
 					{
-						mesg   = (struct sd_mesg *)&buff[slot * 128];
+						mesg   = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
 						stream = &mesg->mesg.stream;
 
 						mesg->type     = 9;
@@ -586,11 +600,14 @@ int main (int argc, char **argv)
 						mesg->size    += offsetof(struct sd_mesg_stream, data);
 					}
 
-					size = mesg->size;
 					for ( slot = 0; slot < type9_burst; slot++ )
-						if ( (ret = write(dev, &buff[slot * 128], size)) < size )
+					{
+						mesg = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
+						if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
 							perror("write() to driver");
-					size = 0;
+					}
+					tx_slot += type9_burst;
+					mesg = NULL;
 					break;
 				}
 
@@ -681,19 +698,17 @@ int main (int argc, char **argv)
 				default:
 					menu();
 			}
-		}
 
-		// data from buffer to driver
-		if ( size )
-		{
-			mesg->size = size;
-			clock_gettime(CLOCK_MONOTONIC, &send_ts);
-			if ( (ret = write(dev, buff, size)) < size )
+			// data from buffer to driver
+			if ( mesg && mesg->size )
 			{
-				perror("write() to driver");
-				break;
+				clock_gettime(CLOCK_MONOTONIC, &send_ts);
+				if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
+				{
+					perror("write() to driver");
+					break;
+				}
 			}
-			size = 0;
 		}
 	}
 
