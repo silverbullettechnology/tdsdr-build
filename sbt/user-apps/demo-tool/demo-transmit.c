@@ -82,8 +82,8 @@ static struct format_options sd_fmt_opts =
 
 static void usage (void)
 {
-	printf("Usage: demo-transmit [-vei12] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                     [-R remote] [-p paint] [-z words] [-b bytes] adi-name in-file\n"
+	printf("Usage: demo-transmit [-vei12] [-s bytes] [-S samples] [-t timeout] [-R remote]\n"
+	       "                     [-p paint] [-z words] [-b bytes] adi-name in-file\n"
 	       "Where:\n"
 	       "-v            Verbose/debugging enable\n"
 	       "-e            Toggle endian swap (default on)\n"
@@ -92,7 +92,6 @@ static void usage (void)
 	       "-2            Load channel 2 (default is both) \n"
 	       "-d [mod:]lvl  Debug: set module or global message verbosity (0/focus - 5/trace)\n"
 	       "-R remote     SRIO destination device-ID (default %d)\n"
-	       "-c channel    DMA channel to use (default %d)\n"
 	       "-S samples    Set payload size in samples (K or M optional)\n"
 	       "-s bytes      Set payload size in bytes (K or M optional)\n"
 	       "-t timeout    Set timeout in jiffies (default %u)\n"
@@ -106,7 +105,7 @@ static void usage (void)
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
 	       "\n", 
-		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
+		   DEF_DEST, DEF_TIMEOUT);
 
 	exit(1);
 }
@@ -172,7 +171,7 @@ int main (int argc, char **argv)
 	log_dupe(stderr);
 	format_error_setup(stderr);
 
-	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:c:s:S:t:p:o:z:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:L:s:S:t:p:o:z:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -220,7 +219,6 @@ int main (int argc, char **argv)
 				break;
 
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
-			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;

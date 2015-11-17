@@ -47,8 +47,11 @@
 LOG_MODULE_STATIC("demo-sample", LOG_LEVEL_INFO);
 
 
+#define  DEF_REMOTE  5
+
+
 unsigned    opt_chan     = 4;
-unsigned    opt_remote   = 5;
+unsigned    opt_remote   = DEF_REMOTE;
 size_t      opt_data     = 8000000;
 size_t      opt_body     = 256;
 size_t      opt_buff     = 0;
@@ -100,7 +103,8 @@ static void usage (void)
 	       "out-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
-		   "\n");
+	       "\n",
+	       DEF_REMOTE);
 	exit(1);
 }
 
@@ -157,7 +161,7 @@ int main (int argc, char **argv)
 	log_dupe(stderr);
 	format_error_setup(stderr);
 
-	while ( (opt = getopt(argc, argv, "?hvei12d:R:c:s:S:t:n:o:b:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvei12d:R:s:S:t:n:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -203,7 +207,6 @@ int main (int argc, char **argv)
 				log_trace(1);
 				break;
 
-			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
 			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
