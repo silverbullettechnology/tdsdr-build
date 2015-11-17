@@ -583,6 +583,7 @@ int main (int argc, char **argv)
 
 						stream->sid   = opt_stream_sid;
 						stream->cos   = opt_stream_cos;
+						stream->len   = type9_burst * 256;
 						stream->flags = 0;
 						if ( slot == 0 )
 							stream->flags |= SD_MESG_SF_S;

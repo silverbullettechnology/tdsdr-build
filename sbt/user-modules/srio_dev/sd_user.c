@@ -729,7 +729,10 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			{
 				desc[0]->virt[1]   = mesg->mesg.stream.sid;
 				desc[0]->virt[1] <<= 16;
-				desc[0]->virt[1]  |= size;
+				if ( mesg->mesg.stream.len )
+					desc[0]->virt[1] |= mesg->mesg.stream.len;
+				else
+					desc[0]->virt[1] |= size;
 			}
 			else
 				desc[0]->virt[1] = 0;

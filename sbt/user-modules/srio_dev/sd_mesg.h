@@ -55,6 +55,7 @@ struct sd_mesg_dbell
 struct sd_mesg_stream
 {
 	uint16_t  sid;
+	uint16_t  len;
 	uint8_t   cos;
 	uint8_t   flags;
 	uint8_t   data[0];
