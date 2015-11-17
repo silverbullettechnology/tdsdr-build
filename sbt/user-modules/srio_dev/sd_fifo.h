@@ -125,6 +125,7 @@ struct sd_fifo
 	struct sd_desc              *rx_current;
 	sd_rx_callback               rx_func;
 
+	struct sd_desc              *tx_current;
 	struct list_head             tx_queue;
 	struct list_head             tx_retry;
 	unsigned                     tx_cookie;

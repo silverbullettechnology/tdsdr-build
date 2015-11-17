@@ -258,13 +258,26 @@ static void sd_fifo_tx_finish (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
-	if ( list_empty(&sf->tx_queue) )
+	if ( !sf->tx_current )
 	{
-		pr_err("%s: %s: TX queue empty?  Reset... TX\n", sf->name, __func__);
+		pr_err("%s: %s: no TX curent?  Reset TX...\n", sf->name, __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
+	desc = sf->tx_current;
+
+	/* Remove from the tx_queue, add to tx_retry queue if wanting a response */
+	list_del_init(&desc->list);
+	if ( desc->resp )
+	{
+		sf_debug(sf, "desc %p: resp %08x expected, add to rx_retry\n", desc, desc->resp);
+		list_add_tail(&desc->list, &sf->tx_retry);
+		if ( !timer_pending(&sf->rt_timer) )
+		{
+			sf_debug(sf, "start retry timer\n");
+			mod_timer(&sf->rt_timer, jiffies + RT_TIMER_DELAY);
+		}
+	}
 
 	sf->tx.stats.completes++;
 	REG_WRITE(&sf->regs->tlr, desc->used);
@@ -281,13 +294,13 @@ static void sd_fifo_tx_dma_complete (void *param)
 	struct sd_desc *desc;
 	unsigned long   flags;
 
-	if ( list_empty(&sf->tx_queue) )
+	if ( !sf->tx_current )
 	{
-		pr_err("%s: %s: TX queue empty?  Reset... TX\n", sf->name, __func__);
+		pr_err("%s: %s: no TX curent?  Reset TX...\n", sf->name, __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
+	desc = sf->tx_current;
 	sd_fifo_unmap(sf, desc, DMA_MEM_TO_DEV);
 
 	spin_lock_irqsave(&sf->tx.lock, flags);
@@ -321,13 +334,13 @@ static void sd_fifo_tx_dma (struct sd_fifo *sf)
 	struct dma_async_tx_descriptor *xfer;
 	struct sd_desc                 *desc;
 
-	if ( list_empty(&sf->tx_queue) )
+	if ( !sf->tx_current )
 	{
-		pr_err("%s: %s: TX queue empty?  Reset... TX\n", sf->name, __func__);
+		pr_err("%s: %s: no TX curent?  Reset TX...\n", sf->name, __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
+	desc = sf->tx_current;
 
 	sf_debug(sf, "set up DMA, %08x bytes from %08x to %08x...\n",
 	         desc->used, desc->phys, sf->tx.phys);
@@ -382,13 +395,13 @@ static void sd_fifo_tx_pio (struct sd_fifo *sf)
 	uint32_t        tdfv;
 
 	/* no reason to ever be here with an empty TX queue */
-	if ( list_empty(&sf->tx_queue) )
+	if ( !sf->tx_current )
 	{
-		pr_err("%s: %s: TX queue empty?  Reset... TX\n", sf->name, __func__);
+		pr_err("%s: %s: no TX curent?  Reset TX...\n", sf->name, __func__);
 		sd_fifo_reset(sf, SD_FR_TX);
 		return;
 	}
-	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
+	desc = sf->tx_current;
 
 	tdfv = REG_READ(&sf->regs->tdfv) * sizeof(uint32_t);
 	if ( !tdfv )
@@ -436,6 +449,7 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 {
 	struct sd_desc *desc;
 
+	BUG_ON(sf->tx_current != NULL);
 	if ( list_empty(&sf->tx_queue) )
 	{
 		pr_err("%s: %s: TX queue empty?  Reset... TX\n", sf->name, __func__);
@@ -443,6 +457,9 @@ static void sd_fifo_tx_start (struct sd_fifo *sf)
 		return;
 	}
 	desc = container_of(sf->tx_queue.next, struct sd_desc, list);
+	list_del_init(&desc->list);
+
+	sf->tx_current = desc;
 	sf_debug(sf, "%08x:%08x.%08x, size %zu\n", 
 	         desc->virt[0], desc->virt[2], desc->virt[1], desc->used);
 
@@ -549,7 +566,7 @@ unsigned sd_fifo_tx_burst (struct sd_fifo *sf, struct sd_desc **desc, int num)
 
 	sf_trace(sf, "lock...\n");
 	spin_lock_irqsave(&sf->tx.lock, flags);
-	empty = list_empty(&sf->tx_queue);
+	empty = sf->tx_current == NULL;
 	sf_debug(sf, "append %d descs to %s list\n", num, empty ? "empty" : "non-empty");
 	ret = sf->tx_cookie;
 	for ( idx = 0; idx < num; idx++ )
@@ -975,30 +992,16 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	if ( isr & TC )
 	{
 		spin_lock_irqsave(&sf->tx.lock, flags);
-		if ( list_empty(&sf->tx_queue) )
+		if ( !sf->tx_current )
 			sf_debug(sf, "TC: IRQ when not transmitting?\n");
 		else
 		{
-			int empty;
-			desc = container_of(sf->tx_queue.next, struct sd_desc, list);
-			list_del_init(&desc->list);
-			empty = list_empty(&sf->tx_queue);
-
+			desc = sf->tx_current;
+			sf->tx_current = NULL;
 			sf_debug(sf, "TC: IRQ at end of TX desc %p, cleanup\n", desc);
 
-			/* if response expected, add to retry list */
-			if ( desc->resp )
-			{
-				sf_debug(sf, "desc %p: resp %08x expected, add to rx_retry\n",
-				         desc, desc->resp);
-				list_add_tail(&desc->list, &sf->tx_retry);
-				if ( !timer_pending(&sf->rt_timer) )
-				{
-					sf_debug(sf, "start retry timer\n");
-					mod_timer(&sf->rt_timer, jiffies + RT_TIMER_DELAY);
-				}
-			}
-			else
+			/* if no response expected, upcall immediately */
+			if ( !desc->resp )
 			{
 				sf_debug(sf, "desc %p: no resp expected, free\n", desc);
 				/* unlock: caller may call _tx_enqueue */
@@ -1011,8 +1014,8 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 				sd_desc_free(sf->sd, desc);
 			}
 
-			/* start next TX if needed */
-			if ( !empty && !list_empty(&sf->tx_queue) )
+			/* start next TX if needed and not already done */
+			if ( !sf->tx_current && !list_empty(&sf->tx_queue) )
 			{
 				sf_debug(sf, "TC: start next queued\n");
 				sd_fifo_tx_start(sf);
@@ -1032,7 +1035,7 @@ static irqreturn_t sd_fifo_interrupt (int irq, void *arg)
 	if ( isr & TFPE )
 	{
 		spin_lock_irqsave(&sf->tx.lock, flags);
-		if ( list_empty(&sf->tx_queue) )
+		if ( !sf->tx_current )
 			sf_trace(sf, "TFPE: IRQ when not transmitting?\n");
 		else if ( sf->tx.chan )
 			sf_trace(sf, "TFPE: ignored when using DMA\n");
@@ -1429,6 +1432,7 @@ struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigne
 	setup_timer(&sf->rt_timer, sd_fifo_tx_retry,       (unsigned long)sf);
 
 	sf->rx_current = NULL;
+	sf->tx_current = NULL;
 	INIT_LIST_HEAD(&sf->tx_queue);
 	INIT_LIST_HEAD(&sf->tx_retry);
 
