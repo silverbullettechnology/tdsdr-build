@@ -39,7 +39,7 @@
 
 #define DEF_TX_CHAN       5
 #define DEF_RX_CHAN       4
-#define DEF_TIMEOUT     500
+#define DEF_TIMEOUT    1000
 
 unsigned    opt_local    = 0;
 size_t      opt_data     = 10 << 20; // 10MB default
