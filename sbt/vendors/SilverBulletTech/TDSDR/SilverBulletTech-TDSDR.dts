@@ -266,9 +266,12 @@ status = "disabled";
 			sbt,targ-dma = <0>;
 			sbt,shadow-dma = <0>;
 
+			/* Override device-ID manually */
+/*			sbt,device-id = <9>; */
+
 			/* Tuning for dynamic discovery */
 			sbt,device-id-min = <1>;
-			sbt,device-id-max = <6>;
+			sbt,device-id-max = <7>;
 			sbt,device-id-rep = <5>;
 
 			/* Debugging and filtering flags */
