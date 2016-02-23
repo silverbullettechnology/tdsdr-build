@@ -362,6 +362,7 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 	setup_timer(&sd->reset_timer, sd_of_reset, (unsigned long)sd);
 
 	/* Module parameter overrides devicetree, devicetree can override default. */
+	sd->devid = 0xFFFF;
 	if ( devid == 0xFFFF )
 	{
 		u32 val = 0xFFFF;

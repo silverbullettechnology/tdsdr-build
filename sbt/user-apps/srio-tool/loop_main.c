@@ -39,7 +39,7 @@
 
 #define DEF_TX_CHAN       5
 #define DEF_RX_CHAN       4
-#define DEF_TIMEOUT     500
+#define DEF_TIMEOUT    1000
 #define DEF_DATA      (10 << 20) // 10MB default
 #define DEF_SID           0
 #define DEF_BODY        256
