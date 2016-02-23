@@ -348,7 +348,6 @@ int main (int argc, char **argv)
 			mbox   = &mesg->mesg.mbox;
 			swrite = &mesg->mesg.swrite;
 			dbell  = &mesg->mesg.dbell;
-			stream = &mesg->mesg.stream;
 
 			memset(mesg, 0, sizeof(rx_buff[0]));
 			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
@@ -439,7 +438,6 @@ int main (int argc, char **argv)
 			mbox   = &mesg->mesg.mbox;
 			swrite = &mesg->mesg.swrite;
 			dbell  = &mesg->mesg.dbell;
-			stream = &mesg->mesg.stream;
 
 			memset(mesg, 0, sizeof(tx_buff[0]));
 			mesg->src_addr = opt_loc_addr;
@@ -566,13 +564,13 @@ int main (int argc, char **argv)
 							*word++ = paint++;
 					}
 
-					for ( slot = 0; slot < type9_burst; slot++ )
+					for ( slot = 0; slot < swrite_burst; slot++ )
 					{
 						mesg = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
 						if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
 							perror("write() to driver");
 					}
-					tx_slot += type9_burst;
+					tx_slot += swrite_burst;
 					mesg = NULL;
 					break;
 				}

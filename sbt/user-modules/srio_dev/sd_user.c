@@ -449,8 +449,6 @@ static int sd_user_open (struct inode *i, struct file *f)
 	priv->dbell_max  = 0x0000;
 	priv->swrite_min = 0x3FFFFFFFF;
 	priv->swrite_max = 0x000000000;
-	priv->sid_min    = 0xFFFF;
-	priv->sid_max    = 0x0000;
 
 	snprintf(priv->name, sizeof(priv->name), "%s", current->comm);
 
