@@ -53,6 +53,7 @@ struct list_head   list;
 
 struct sd_user_priv
 {
+	char               name[32];
 	wait_queue_head_t  wait;
 	spinlock_t         lock;
 	struct list_head   queue;
@@ -159,7 +160,7 @@ void sd_user_recv_mbox (struct sd_mesg *mesg, int mbox)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -195,7 +196,8 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %09llx..%09llx\n", priv, priv->swrite_min, priv->swrite_max);
+		pr_debug("  %p: %09llx..%09llx %s\n",
+		         priv, priv->swrite_min, priv->swrite_max, priv->name);
 		if ( addr >= priv->swrite_min && addr <= priv->swrite_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -204,7 +206,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -246,7 +248,8 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %04x..%04x\n", priv, priv->dbell_min, priv->dbell_max);
+		pr_debug("  %p: %04x..%04x %s\n",
+		         priv, priv->dbell_min, priv->dbell_max, priv->name);
 		if ( info >= priv->dbell_min && info <= priv->dbell_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -255,7 +258,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 				pr_err("DBELL dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -311,7 +314,7 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 			pr_debug("SWRITE dropped: no users listening\n");
 			break;
 
-		// SWRITE and DBELL: dispatch if users registered
+		// DBELL: dispatch if users registered
 		case 10:
 			if ( sd_user_dev->dbell_users )
 			{
@@ -447,6 +450,8 @@ static int sd_user_open (struct inode *i, struct file *f)
 	priv->swrite_min = 0x3FFFFFFFF;
 	priv->swrite_max = 0x000000000;
 
+	snprintf(priv->name, sizeof(priv->name), "%s", current->comm);
+
 	f->private_data = priv;
 	pr_debug("%s: open: f %p, priv %p\n", __func__, f, priv);
 
@@ -487,6 +492,7 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	struct sd_user_mesg *qm;
 	unsigned long        flags;
 	size_t               size;
+	int                  ret;
 
 	// no data available for read: return EAGAIN or sleep
 	while ( list_empty(&priv->queue) )
@@ -512,11 +518,20 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	size = qm->mesg.size;
 	list_del_init(&qm->list);
 	spin_unlock_irqrestore(&priv->lock, flags);
-	pr_debug("%s: type %d size %zu\n", __func__, qm->mesg.type, qm->mesg.size);
+	pr_debug("%s: type %d size %zu for %s\n", __func__,
+	         qm->mesg.type, qm->mesg.size, priv->name);
 
-	if ( size > s || copy_to_user(b, &qm->mesg, size) )
+	if ( size > s )
 	{
-		pr_err("Message dropped\n");
+		pr_err("Message dropped: size %zu exceeds buffer size %zu\n", size, s);
+		kfree(qm);
+		return -ENOSPC;
+	}
+
+	if ( (ret = copy_to_user(b, &qm->mesg, size)) )
+	{
+		pr_err("Message dropped: copy_to_user(b, qm %p, size %zu) returnd %d\n",
+		       qm, size, ret);
 		kfree(qm);
 		return -ENOSPC;
 	}
@@ -532,14 +547,17 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 {
 	struct sd_mesg *mesg;
 	struct sd_desc *desc[16];
-	uint8_t         tid;
 	int             size = s;
 	int             num = 1;
 	int             ret = s;
 
 	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
 	if ( s > SD_MESG_SIZE || s < offsetof(struct sd_mesg, mesg) )
+	{
+		pr_err("%s[%d]: size %zu > limit %u, or < header min %zu, discard\n",
+		       __func__, __LINE__, s, SD_MESG_SIZE, offsetof(struct sd_mesg, mesg));
 		return -EINVAL;
+	}
 
 	memset(desc, 0, sizeof(desc));
 	if ( !(mesg = kzalloc(SD_MESG_SIZE, GFP_KERNEL)) )
@@ -550,6 +568,15 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		ret = -EFAULT;
 		goto fail;
 	}
+
+	if ( size != mesg->size )
+	{
+		pr_err("%s[%d]: write size %zu mismatch with header size %zu, discard\n",
+		       __func__, __LINE__, size, mesg->size);
+		ret = -EINVAL;
+		goto fail;
+	}
+	size -= offsetof(struct sd_mesg, mesg);
 
 	if ( sd_user_dev->devid == 0xFFFF )
 		switch ( mesg->src_addr )
@@ -571,22 +598,29 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	switch ( mesg->type )
 	{
 		case 6: // SWRITE
-			desc[0]->virt[1]  = 0; //mesg->mesg.swrite.addr & 0xFFFFFFFF;
-			desc[0]->virt[2]  = 0; //(mesg->mesg.swrite.addr >>= 32) & 0x03;
-			desc[0]->virt[2] |= 0x00600000;
-			size -= offsetof(struct sd_mesg,        mesg) +
-			        offsetof(struct sd_mesg_swrite, data);
+			if ( size <= offsetof(struct sd_mesg_swrite, data) )
+			{
+				pr_err("%s[%d]: size %zu < header min %zu, discard\n",
+				       __func__, __LINE__, size, offsetof(struct sd_mesg_swrite, data));
+				ret = -EINVAL;
+				goto fail;
+			}
+			size -= offsetof(struct sd_mesg_swrite, data);
+
 			if ( size > (sizeof(uint32_t) * SD_DATA_SIZE) )
 			{
 				ret = -EFBIG;
 				goto fail;
 			}
+
+			desc[0]->virt[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
+			desc[0]->virt[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
+			desc[0]->virt[2] |= 0x00600000;
 			memcpy(desc[0]->virt + SD_HEAD_SIZE, mesg->mesg.swrite.data, size);
 			desc[0]->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
 			break;
 
 		case 10: // DBELL
-			tid = 
 			desc[0]->virt[1] = mesg->mesg.dbell.info << 16;
 			desc[0]->virt[2]   = sd_user_dev->tid++;
 			desc[0]->virt[2] <<= 24;
@@ -597,6 +631,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		case 11: // MESSAGE
 			if ( (num = sd_mbox_frag(sd_user_dev, desc, mesg, GFP_KERNEL|GFP_DMA)) < 1 )
 			{
+				pr_err("%s[%d]: failed to frag type 11, discard\n", __func__, __LINE__);
 				ret = -EFBIG;
 				goto fail;
 			}
@@ -613,6 +648,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		default:
+			pr_err("%s[%d]: type %d invalid, discard\n", __func__, __LINE__, mesg->type);
 			ret = -EINVAL;
 			goto fail;
 	}
