@@ -182,17 +182,6 @@ static int sd_of_probe (struct platform_device *pdev)
 	}
 	sd->dev = &pdev->dev;
 
-	/* Module parameter overrides devicetree, devicetree can override default. */
-	if ( devid != 0xFFFF )
-		sd->devid = devid;
-	else
-	{
-		u32 val = 0xFFFF;
-		of_property_read_u32(pdev->dev.of_node, "sbt,device-id", &val);
-		sd->devid = val;
-	}
-
-
 	/* Default values */
 	sd->gt_loopback     = 0;
 	sd->gt_diffctrl     = 8;
@@ -372,8 +361,25 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 
 	setup_timer(&sd->reset_timer, sd_of_reset, (unsigned long)sd);
 
+	/* Module parameter overrides devicetree, devicetree can override default. */
+	sd->devid = 0xFFFF;
+	if ( devid == 0xFFFF )
+	{
+		u32 val = 0xFFFF;
+		of_property_read_u32(pdev->dev.of_node, "sbt,device-id", &val);
+		if ( val < 0xFFFF )
+		{
+			pr_info("%s: Device-ID set by devicetree at 0x%04x.\n",
+			        dev_name(sd->dev), val);
+			devid = val;
+		}
+	}
+	else
+		pr_info("%s: Device-ID set by user at 0x%04x.\n",
+		        dev_name(sd->dev), devid);
+
 	/* Do dynamic probe if device-ID is still not set */
-	if ( sd->devid == 0xFFFF )
+	if ( devid == 0xFFFF )
 	{
 		u32  min = 1;
 		u32  max = 6;
@@ -383,12 +389,15 @@ pr_debug("RX_CM_SEL / RX_CM_TRIM: %04x.%04x.%04x.%04x\n",
 		of_property_read_u32(pdev->dev.of_node, "sbt,device-id-max", &max);
 		of_property_read_u32(pdev->dev.of_node, "sbt,device-id-rep", &rep);
 
-		pr_debug("%s: Start dynamic probe: min %u, max %u, rep %u\n",
+		pr_info("%s: Start Device-ID probe: min %u, max %u, rep %u\n",
 		         dev_name(sd->dev), min, max, rep);
 		sd_dhcp_start(sd, min, max, rep);
 	}
 	else
+	{
+		sd_regs_set_devid(sd, devid);
 		sd_user_attach(sd);
+	}
 
 	return ret;
 
