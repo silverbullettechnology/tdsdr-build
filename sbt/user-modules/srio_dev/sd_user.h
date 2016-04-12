@@ -51,6 +51,10 @@
 #define SD_USER_IOCG_SWRITE_SUB     _IOR(MAGIC_SD_USER, 6, uint64_t *)
 #define SD_USER_IOCS_SWRITE_SUB     _IOW(MAGIC_SD_USER, 7, uint64_t *)
 
+// Get/set range of stream IDs to be notified for
+#define SD_USER_IOCG_STREAM_ID_SUB  _IOR(MAGIC_SD_USER, 8, uint16_t *)
+#define SD_USER_IOCS_STREAM_ID_SUB  _IOW(MAGIC_SD_USER, 9, uint16_t *)
+
 // SYS_REG controls
 #define SD_USER_IOCS_SRIO_RESET     _IOW(MAGIC_SD_USER, 20, unsigned long)
 #define SD_USER_IOCS_RXDFELPMRESET  _IOW(MAGIC_SD_USER, 21, unsigned long)

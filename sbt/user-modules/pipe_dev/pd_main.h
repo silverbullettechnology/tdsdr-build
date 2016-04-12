@@ -44,6 +44,7 @@
 #define PD_VITA49_PACK_CTRL_RESET     0x00000002 /* reset module        */
 #define PD_VITA49_PACK_CTRL_PASSTHRU  0x00000004 /* enable pass-through */
 #define PD_VITA49_PACK_CTRL_TRAILER   0x00000008 /* enable trailer value */
+#define PD_VITA49_PACK_CTRL_TSI       0x00000010 /* enable TSI word      */
 
 /* VITA49_UNPACK bits */
 #define PD_VITA49_UNPACK_CTRL_ENABLE    0x00000001  /* enable module       */
@@ -80,6 +81,10 @@
 #define PD_ROUTING_REG_SWRITE_ADI      0x00000000  /* swrites get sent to adi chain */
 #define PD_ROUTING_REG_SWRITE_FIFO     0x00000010  /* swrites get sent to srio_fifo */
 #define PD_ROUTING_REG_SWRITE_DMA      0x00000020  /* swrites get sent to srio_dma  */
+#define PD_ROUTING_REG_TYPE9_MASK      0x000000C0  /* type9_bypass mask */
+#define PD_ROUTING_REG_TYPE9_ADI       0x00000000  /* type9 gets sent to adi chain */
+#define PD_ROUTING_REG_TYPE9_FIFO      0x00000040  /* type9 gets sent to srio_fifo */
+#define PD_ROUTING_REG_TYPE9_DMA       0x00000080  /* type9 gets sent to srio_dma  */
 
 /* SRIO_DMA_COMB bits */
 #define PD_SRIO_DMA_COMB_CMD_ENABLE   0x00000001  /* enable   */
@@ -102,6 +107,19 @@
 #define PD_ADI_DMA_SPLIT_CMD_RESET    0x00000002  /* reset    */
 #define PD_ADI_DMA_SPLIT_CMD_PASSTHRU 0x00000004  /* passthru */
 #define PD_ADI_DMA_SPLIT_STAT_DONE    0x00000001  /* done bit */
+
+/* TYPE9_PACK bits */
+#define PD_TYPE9_PACK_CMD_ENABLE        0x00000001  /* start module            */
+#define PD_TYPE9_PACK_CMD_RESET         0x00000002  /* reset module            */
+#define PD_TYPE9_PACK_ADDR_LENGTH_MASK  0x0000FFFF  /* type 9 packet length    */
+#define PD_TYPE9_PACK_ADDR_STRMID_MASK  0xFFFF0000  /* type 9 packet stream ID */
+#define PD_TYPE9_PACK_COS_MSAK          0x000000FF  /* type 9 cos field        */
+
+/* SRIO_TYPE9_UNPACK */
+#define PD_TYPE9_UNPACK_CMD_ENABLE       0x00000001  /* start module          */
+#define PD_TYPE9_UNPACK_CMD_RESET        0x00000002  /* reset module          */
+#define PD_TYPE9_UNPACK_STREAMID_0_MASK  0x0000FFFF  /* streamID for AD9361_0 */
+#define PD_TYPE9_UNPACK_STREAMID_1_MASK  0xFFFF0000  /* streamID for AD9361_1 */
 
 
 /* Integer + Fractional timestamp struct */
@@ -152,149 +170,181 @@ struct pd_vita49_unpack
 #define  PD_IOCG_ADI2AXIS_1_BYTES  _IOR(PD_IOCTL_MAGIC, 19, unsigned long *)
 
 /* VITA49 CLOCK IOCTLs */
-#define  PD_IOCS_VITA49_CLK_CTRL    _IOW(PD_IOCTL_MAGIC, 30, unsigned long)
-#define  PD_IOCG_VITA49_CLK_CTRL    _IOR(PD_IOCTL_MAGIC, 31, unsigned long *)
-#define  PD_IOCG_VITA49_CLK_STAT    _IOR(PD_IOCTL_MAGIC, 34, unsigned long *)
-#define  PD_IOCS_VITA49_CLK_TSI     _IOW(PD_IOCTL_MAGIC, 35, unsigned long)
-#define  PD_IOCG_VITA49_CLK_TSI     _IOR(PD_IOCTL_MAGIC, 36, unsigned long *)
-#define  PD_IOCG_VITA49_CLK_READ_1  _IOR(PD_IOCTL_MAGIC, 37, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_CLK_READ_0  _IOR(PD_IOCTL_MAGIC, 38, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_CLK_CTRL    _IOW(PD_IOCTL_MAGIC, 20, unsigned long)
+#define  PD_IOCG_VITA49_CLK_CTRL    _IOR(PD_IOCTL_MAGIC, 21, unsigned long *)
+#define  PD_IOCG_VITA49_CLK_STAT    _IOR(PD_IOCTL_MAGIC, 24, unsigned long *)
+#define  PD_IOCS_VITA49_CLK_TSI     _IOW(PD_IOCTL_MAGIC, 25, unsigned long)
+#define  PD_IOCG_VITA49_CLK_TSI     _IOR(PD_IOCTL_MAGIC, 26, unsigned long *)
+#define  PD_IOCG_VITA49_CLK_READ_1  _IOR(PD_IOCTL_MAGIC, 27, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_CLK_READ_0  _IOR(PD_IOCTL_MAGIC, 28, struct pd_vita49_ts *)
 
 /* VITA49_PACK IOCTLs */
-#define  PD_IOCS_VITA49_PACK_0_CTRL      _IOW(PD_IOCTL_MAGIC, 40, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_CTRL      _IOW(PD_IOCTL_MAGIC, 41, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_CTRL      _IOR(PD_IOCTL_MAGIC, 42, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_CTRL      _IOR(PD_IOCTL_MAGIC, 43, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_0_STAT      _IOR(PD_IOCTL_MAGIC, 44, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_STAT      _IOR(PD_IOCTL_MAGIC, 45, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_STRM_ID   _IOW(PD_IOCTL_MAGIC, 46, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_STRM_ID   _IOW(PD_IOCTL_MAGIC, 47, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_STRM_ID   _IOR(PD_IOCTL_MAGIC, 48, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_STRM_ID   _IOR(PD_IOCTL_MAGIC, 49, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 50, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 51, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 52, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 53, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_TRAILER   _IOW(PD_IOCTL_MAGIC, 54, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_TRAILER   _IOW(PD_IOCTL_MAGIC, 55, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_TRAILER   _IOR(PD_IOCTL_MAGIC, 56, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_TRAILER   _IOR(PD_IOCTL_MAGIC, 57, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_CTRL      _IOW(PD_IOCTL_MAGIC, 30, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_CTRL      _IOW(PD_IOCTL_MAGIC, 31, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_CTRL      _IOR(PD_IOCTL_MAGIC, 32, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_CTRL      _IOR(PD_IOCTL_MAGIC, 33, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_0_STAT      _IOR(PD_IOCTL_MAGIC, 34, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_STAT      _IOR(PD_IOCTL_MAGIC, 35, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_STRM_ID   _IOW(PD_IOCTL_MAGIC, 36, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_STRM_ID   _IOW(PD_IOCTL_MAGIC, 37, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_STRM_ID   _IOR(PD_IOCTL_MAGIC, 38, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_STRM_ID   _IOR(PD_IOCTL_MAGIC, 39, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 40, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 41, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 42, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 43, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_TRAILER   _IOW(PD_IOCTL_MAGIC, 44, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_TRAILER   _IOW(PD_IOCTL_MAGIC, 45, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_TRAILER   _IOR(PD_IOCTL_MAGIC, 46, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_TRAILER   _IOR(PD_IOCTL_MAGIC, 47, unsigned long *)
 
 /* VITA49_UNPACK IOCTLs */
-#define  PD_IOCS_VITA49_UNPACK_0_CTRL     _IOW(PD_IOCTL_MAGIC, 60, unsigned long)
-#define  PD_IOCS_VITA49_UNPACK_1_CTRL     _IOW(PD_IOCTL_MAGIC, 61, unsigned long)
-#define  PD_IOCG_VITA49_UNPACK_0_CTRL     _IOR(PD_IOCTL_MAGIC, 62, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_1_CTRL     _IOR(PD_IOCTL_MAGIC, 63, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_0_STAT     _IOR(PD_IOCTL_MAGIC, 64, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_1_STAT     _IOR(PD_IOCTL_MAGIC, 65, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_0_RCVD     _IOR(PD_IOCTL_MAGIC, 66, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_1_RCVD     _IOR(PD_IOCTL_MAGIC, 67, unsigned long *)
-#define  PD_IOCS_VITA49_UNPACK_0_STRM_ID  _IOW(PD_IOCTL_MAGIC, 68, unsigned long)
-#define  PD_IOCS_VITA49_UNPACK_1_STRM_ID  _IOW(PD_IOCTL_MAGIC, 69, unsigned long)
-#define  PD_IOCG_VITA49_UNPACK_0_STRM_ID  _IOR(PD_IOCTL_MAGIC, 70, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_1_STRM_ID  _IOR(PD_IOCTL_MAGIC, 71, unsigned long *)
-#define  PD_IOCG_VITA49_UNPACK_0_COUNTS   _IOR(PD_IOCTL_MAGIC, 72, struct pd_vita49_unpack *)
-#define  PD_IOCG_VITA49_UNPACK_1_COUNTS   _IOR(PD_IOCTL_MAGIC, 73, struct pd_vita49_unpack *)
+#define  PD_IOCS_VITA49_UNPACK_0_CTRL     _IOW(PD_IOCTL_MAGIC, 50, unsigned long)
+#define  PD_IOCS_VITA49_UNPACK_1_CTRL     _IOW(PD_IOCTL_MAGIC, 51, unsigned long)
+#define  PD_IOCG_VITA49_UNPACK_0_CTRL     _IOR(PD_IOCTL_MAGIC, 52, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_CTRL     _IOR(PD_IOCTL_MAGIC, 53, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_0_STAT     _IOR(PD_IOCTL_MAGIC, 54, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_STAT     _IOR(PD_IOCTL_MAGIC, 55, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_0_RCVD     _IOR(PD_IOCTL_MAGIC, 56, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_RCVD     _IOR(PD_IOCTL_MAGIC, 57, unsigned long *)
+#define  PD_IOCS_VITA49_UNPACK_0_STRM_ID  _IOW(PD_IOCTL_MAGIC, 58, unsigned long)
+#define  PD_IOCS_VITA49_UNPACK_1_STRM_ID  _IOW(PD_IOCTL_MAGIC, 59, unsigned long)
+#define  PD_IOCG_VITA49_UNPACK_0_STRM_ID  _IOR(PD_IOCTL_MAGIC, 60, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_1_STRM_ID  _IOR(PD_IOCTL_MAGIC, 61, unsigned long *)
+#define  PD_IOCG_VITA49_UNPACK_0_COUNTS   _IOR(PD_IOCTL_MAGIC, 62, struct pd_vita49_unpack *)
+#define  PD_IOCG_VITA49_UNPACK_1_COUNTS   _IOR(PD_IOCTL_MAGIC, 63, struct pd_vita49_unpack *)
 
 /* VITA49_ASSEM IOCTLs */
-#define  PD_IOCS_VITA49_ASSEM_0_CMD      _IOW(PD_IOCTL_MAGIC, 80, unsigned long)
-#define  PD_IOCS_VITA49_ASSEM_1_CMD      _IOW(PD_IOCTL_MAGIC, 81, unsigned long)
-#define  PD_IOCG_VITA49_ASSEM_0_CMD      _IOR(PD_IOCTL_MAGIC, 82, unsigned long *)
-#define  PD_IOCG_VITA49_ASSEM_1_CMD      _IOR(PD_IOCTL_MAGIC, 83, unsigned long *)
-#define  PD_IOCS_VITA49_ASSEM_0_HDR_ERR  _IOW(PD_IOCTL_MAGIC, 84, unsigned long)
-#define  PD_IOCS_VITA49_ASSEM_1_HDR_ERR  _IOW(PD_IOCTL_MAGIC, 85, unsigned long)
-#define  PD_IOCG_VITA49_ASSEM_0_HDR_ERR  _IOR(PD_IOCTL_MAGIC, 86, unsigned long *)
-#define  PD_IOCG_VITA49_ASSEM_1_HDR_ERR  _IOR(PD_IOCTL_MAGIC, 87, unsigned long *)
+#define  PD_IOCS_VITA49_ASSEM_0_CMD      _IOW(PD_IOCTL_MAGIC, 70, unsigned long)
+#define  PD_IOCS_VITA49_ASSEM_1_CMD      _IOW(PD_IOCTL_MAGIC, 71, unsigned long)
+#define  PD_IOCG_VITA49_ASSEM_0_CMD      _IOR(PD_IOCTL_MAGIC, 72, unsigned long *)
+#define  PD_IOCG_VITA49_ASSEM_1_CMD      _IOR(PD_IOCTL_MAGIC, 73, unsigned long *)
+#define  PD_IOCS_VITA49_ASSEM_0_HDR_ERR  _IOW(PD_IOCTL_MAGIC, 74, unsigned long)
+#define  PD_IOCS_VITA49_ASSEM_1_HDR_ERR  _IOW(PD_IOCTL_MAGIC, 75, unsigned long)
+#define  PD_IOCG_VITA49_ASSEM_0_HDR_ERR  _IOR(PD_IOCTL_MAGIC, 76, unsigned long *)
+#define  PD_IOCG_VITA49_ASSEM_1_HDR_ERR  _IOR(PD_IOCTL_MAGIC, 77, unsigned long *)
 
 /* VITA49_TRIGGER IOCTLs */
-#define  PD_IOCS_VITA49_TRIG_ADC_0_CTRL  _IOW(PD_IOCTL_MAGIC, 90, unsigned long)
-#define  PD_IOCS_VITA49_TRIG_ADC_1_CTRL  _IOW(PD_IOCTL_MAGIC, 91, unsigned long)
-#define  PD_IOCG_VITA49_TRIG_ADC_0_CTRL  _IOR(PD_IOCTL_MAGIC, 92, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_ADC_1_CTRL  _IOR(PD_IOCTL_MAGIC, 93, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_ADC_0_STAT  _IOR(PD_IOCTL_MAGIC, 94, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_ADC_1_STAT  _IOR(PD_IOCTL_MAGIC, 95, unsigned long *)
-#define  PD_IOCS_VITA49_TRIG_ADC_0_TS    _IOW(PD_IOCTL_MAGIC, 96, struct pd_vita49_ts *)
-#define  PD_IOCS_VITA49_TRIG_ADC_1_TS    _IOW(PD_IOCTL_MAGIC, 97, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_TRIG_ADC_0_TS    _IOR(PD_IOCTL_MAGIC, 98, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_TRIG_ADC_1_TS    _IOR(PD_IOCTL_MAGIC, 99, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_TRIG_ADC_0_CTRL  _IOW(PD_IOCTL_MAGIC, 80, unsigned long)
+#define  PD_IOCS_VITA49_TRIG_ADC_1_CTRL  _IOW(PD_IOCTL_MAGIC, 81, unsigned long)
+#define  PD_IOCG_VITA49_TRIG_ADC_0_CTRL  _IOR(PD_IOCTL_MAGIC, 82, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_ADC_1_CTRL  _IOR(PD_IOCTL_MAGIC, 83, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_ADC_0_STAT  _IOR(PD_IOCTL_MAGIC, 84, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_ADC_1_STAT  _IOR(PD_IOCTL_MAGIC, 85, unsigned long *)
+#define  PD_IOCS_VITA49_TRIG_ADC_0_TS    _IOW(PD_IOCTL_MAGIC, 86, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_TRIG_ADC_1_TS    _IOW(PD_IOCTL_MAGIC, 87, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_TRIG_ADC_0_TS    _IOR(PD_IOCTL_MAGIC, 88, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_TRIG_ADC_1_TS    _IOR(PD_IOCTL_MAGIC, 89, struct pd_vita49_ts *)
 
-#define  PD_IOCS_VITA49_TRIG_DAC_0_CTRL  _IOW(PD_IOCTL_MAGIC, 110, unsigned long)
-#define  PD_IOCS_VITA49_TRIG_DAC_1_CTRL  _IOW(PD_IOCTL_MAGIC, 111, unsigned long)
-#define  PD_IOCG_VITA49_TRIG_DAC_0_CTRL  _IOR(PD_IOCTL_MAGIC, 112, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_DAC_1_CTRL  _IOR(PD_IOCTL_MAGIC, 113, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_DAC_0_STAT  _IOR(PD_IOCTL_MAGIC, 114, unsigned long *)
-#define  PD_IOCG_VITA49_TRIG_DAC_1_STAT  _IOR(PD_IOCTL_MAGIC, 115, unsigned long *)
-#define  PD_IOCS_VITA49_TRIG_DAC_0_TS    _IOW(PD_IOCTL_MAGIC, 116, struct pd_vita49_ts *)
-#define  PD_IOCS_VITA49_TRIG_DAC_1_TS    _IOW(PD_IOCTL_MAGIC, 117, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_TRIG_DAC_0_TS    _IOR(PD_IOCTL_MAGIC, 118, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_TRIG_DAC_1_TS    _IOR(PD_IOCTL_MAGIC, 119, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_TRIG_DAC_0_CTRL  _IOW(PD_IOCTL_MAGIC, 90, unsigned long)
+#define  PD_IOCS_VITA49_TRIG_DAC_1_CTRL  _IOW(PD_IOCTL_MAGIC, 91, unsigned long)
+#define  PD_IOCG_VITA49_TRIG_DAC_0_CTRL  _IOR(PD_IOCTL_MAGIC, 92, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_DAC_1_CTRL  _IOR(PD_IOCTL_MAGIC, 93, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_DAC_0_STAT  _IOR(PD_IOCTL_MAGIC, 94, unsigned long *)
+#define  PD_IOCG_VITA49_TRIG_DAC_1_STAT  _IOR(PD_IOCTL_MAGIC, 95, unsigned long *)
+#define  PD_IOCS_VITA49_TRIG_DAC_0_TS    _IOW(PD_IOCTL_MAGIC, 96, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_TRIG_DAC_1_TS    _IOW(PD_IOCTL_MAGIC, 97, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_TRIG_DAC_0_TS    _IOR(PD_IOCTL_MAGIC, 98, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_TRIG_DAC_1_TS    _IOR(PD_IOCTL_MAGIC, 99, struct pd_vita49_ts *)
 
 /* SWRITE_PACK IOCTLs */
-#define  PD_IOCS_SWRITE_PACK_0_CMD      _IOW(PD_IOCTL_MAGIC, 130, unsigned long)
-#define  PD_IOCS_SWRITE_PACK_1_CMD      _IOW(PD_IOCTL_MAGIC, 131, unsigned long)
-#define  PD_IOCG_SWRITE_PACK_0_CMD      _IOR(PD_IOCTL_MAGIC, 132, unsigned long *)
-#define  PD_IOCG_SWRITE_PACK_1_CMD      _IOR(PD_IOCTL_MAGIC, 133, unsigned long *)
-#define  PD_IOCS_SWRITE_PACK_0_ADDR     _IOW(PD_IOCTL_MAGIC, 134, unsigned long)
-#define  PD_IOCS_SWRITE_PACK_1_ADDR     _IOW(PD_IOCTL_MAGIC, 135, unsigned long)
-#define  PD_IOCG_SWRITE_PACK_0_ADDR     _IOR(PD_IOCTL_MAGIC, 136, unsigned long *)
-#define  PD_IOCG_SWRITE_PACK_1_ADDR     _IOR(PD_IOCTL_MAGIC, 137, unsigned long *)
-#define  PD_IOCS_SWRITE_PACK_0_SRCDEST  _IOW(PD_IOCTL_MAGIC, 138, unsigned long)
-#define  PD_IOCS_SWRITE_PACK_1_SRCDEST  _IOW(PD_IOCTL_MAGIC, 139, unsigned long)
-#define  PD_IOCG_SWRITE_PACK_0_SRCDEST  _IOR(PD_IOCTL_MAGIC, 140, unsigned long *)
-#define  PD_IOCG_SWRITE_PACK_1_SRCDEST  _IOR(PD_IOCTL_MAGIC, 141, unsigned long *)
+#define  PD_IOCS_SWRITE_PACK_0_CMD      _IOW(PD_IOCTL_MAGIC, 100, unsigned long)
+#define  PD_IOCS_SWRITE_PACK_1_CMD      _IOW(PD_IOCTL_MAGIC, 101, unsigned long)
+#define  PD_IOCG_SWRITE_PACK_0_CMD      _IOR(PD_IOCTL_MAGIC, 102, unsigned long *)
+#define  PD_IOCG_SWRITE_PACK_1_CMD      _IOR(PD_IOCTL_MAGIC, 103, unsigned long *)
+#define  PD_IOCS_SWRITE_PACK_0_ADDR     _IOW(PD_IOCTL_MAGIC, 104, unsigned long)
+#define  PD_IOCS_SWRITE_PACK_1_ADDR     _IOW(PD_IOCTL_MAGIC, 105, unsigned long)
+#define  PD_IOCG_SWRITE_PACK_0_ADDR     _IOR(PD_IOCTL_MAGIC, 106, unsigned long *)
+#define  PD_IOCG_SWRITE_PACK_1_ADDR     _IOR(PD_IOCTL_MAGIC, 107, unsigned long *)
+#define  PD_IOCS_SWRITE_PACK_0_SRCDEST  _IOW(PD_IOCTL_MAGIC, 108, unsigned long)
+#define  PD_IOCS_SWRITE_PACK_1_SRCDEST  _IOW(PD_IOCTL_MAGIC, 109, unsigned long)
+#define  PD_IOCG_SWRITE_PACK_0_SRCDEST  _IOR(PD_IOCTL_MAGIC, 110, unsigned long *)
+#define  PD_IOCG_SWRITE_PACK_1_SRCDEST  _IOR(PD_IOCTL_MAGIC, 111, unsigned long *)
 
 /* SWRITE_UNPACK IOCTLs */
-#define  PD_IOCS_SWRITE_UNPACK_CMD     _IOW(PD_IOCTL_MAGIC, 150, unsigned long)
-#define  PD_IOCG_SWRITE_UNPACK_CMD     _IOR(PD_IOCTL_MAGIC, 151, unsigned long *)
-#define  PD_IOCS_SWRITE_UNPACK_ADDR_0  _IOW(PD_IOCTL_MAGIC, 152, unsigned long)
-#define  PD_IOCS_SWRITE_UNPACK_ADDR_1  _IOW(PD_IOCTL_MAGIC, 153, unsigned long)
-#define  PD_IOCG_SWRITE_UNPACK_ADDR_0  _IOR(PD_IOCTL_MAGIC, 154, unsigned long *)
-#define  PD_IOCG_SWRITE_UNPACK_ADDR_1  _IOR(PD_IOCTL_MAGIC, 155, unsigned long *)
+#define  PD_IOCS_SWRITE_UNPACK_CMD     _IOW(PD_IOCTL_MAGIC, 120, unsigned long)
+#define  PD_IOCG_SWRITE_UNPACK_CMD     _IOR(PD_IOCTL_MAGIC, 121, unsigned long *)
+#define  PD_IOCS_SWRITE_UNPACK_ADDR_0  _IOW(PD_IOCTL_MAGIC, 122, unsigned long)
+#define  PD_IOCS_SWRITE_UNPACK_ADDR_1  _IOW(PD_IOCTL_MAGIC, 123, unsigned long)
+#define  PD_IOCG_SWRITE_UNPACK_ADDR_0  _IOR(PD_IOCTL_MAGIC, 124, unsigned long *)
+#define  PD_IOCG_SWRITE_UNPACK_ADDR_1  _IOR(PD_IOCTL_MAGIC, 125, unsigned long *)
 
 /* ROUTING_REG IOCTLs */
-#define  PD_IOCS_ROUTING_REG_ADC_SW_DEST  _IOW(PD_IOCTL_MAGIC, 160, unsigned long)
-#define  PD_IOCG_ROUTING_REG_ADC_SW_DEST  _IOR(PD_IOCTL_MAGIC, 161, unsigned long *)
+#define  PD_IOCS_ROUTING_REG_ADC_SW_DEST  _IOW(PD_IOCTL_MAGIC, 130, unsigned long)
+#define  PD_IOCG_ROUTING_REG_ADC_SW_DEST  _IOR(PD_IOCTL_MAGIC, 131, unsigned long *)
 
 /* SRIO_DMA_COMB IOCTLs */
-#define  PD_IOCS_SRIO_DMA_COMB_CMD    _IOW(PD_IOCTL_MAGIC, 170, unsigned long)
-#define  PD_IOCG_SRIO_DMA_COMB_CMD    _IOR(PD_IOCTL_MAGIC, 171, unsigned long *)
-#define  PD_IOCG_SRIO_DMA_COMB_STAT   _IOR(PD_IOCTL_MAGIC, 172, unsigned long *)
-#define  PD_IOCS_SRIO_DMA_COMB_NPKTS  _IOW(PD_IOCTL_MAGIC, 173, unsigned long)
-#define  PD_IOCG_SRIO_DMA_COMB_NPKTS  _IOR(PD_IOCTL_MAGIC, 174, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_COMB_CMD    _IOW(PD_IOCTL_MAGIC, 140, unsigned long)
+#define  PD_IOCG_SRIO_DMA_COMB_CMD    _IOR(PD_IOCTL_MAGIC, 141, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_COMB_STAT   _IOR(PD_IOCTL_MAGIC, 142, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_COMB_NPKTS  _IOW(PD_IOCTL_MAGIC, 143, unsigned long)
+#define  PD_IOCG_SRIO_DMA_COMB_NPKTS  _IOR(PD_IOCTL_MAGIC, 144, unsigned long *)
 
 /* SRIO_DMA_SPLIT IOCTLs */
-#define  PD_IOCS_SRIO_DMA_SPLIT_CMD    _IOW(PD_IOCTL_MAGIC, 180, unsigned long)
-#define  PD_IOCG_SRIO_DMA_SPLIT_CMD    _IOR(PD_IOCTL_MAGIC, 181, unsigned long *)
-#define  PD_IOCG_SRIO_DMA_SPLIT_STAT   _IOR(PD_IOCTL_MAGIC, 182, unsigned long *)
-#define  PD_IOCS_SRIO_DMA_SPLIT_NPKTS  _IOW(PD_IOCTL_MAGIC, 183, unsigned long)
-#define  PD_IOCG_SRIO_DMA_SPLIT_NPKTS  _IOR(PD_IOCTL_MAGIC, 184, unsigned long *)
-#define  PD_IOCG_SRIO_DMA_SPLIT_TUSER  _IOR(PD_IOCTL_MAGIC, 185, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_SPLIT_CMD    _IOW(PD_IOCTL_MAGIC, 150, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_CMD    _IOR(PD_IOCTL_MAGIC, 151, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_SPLIT_STAT   _IOR(PD_IOCTL_MAGIC, 152, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_SPLIT_NPKTS  _IOW(PD_IOCTL_MAGIC, 153, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_NPKTS  _IOR(PD_IOCTL_MAGIC, 154, unsigned long *)
+#define  PD_IOCG_SRIO_DMA_SPLIT_TUSER  _IOR(PD_IOCTL_MAGIC, 155, unsigned long *)
+#define  PD_IOCS_SRIO_DMA_SPLIT_PSIZE  _IOW(PD_IOCTL_MAGIC, 156, unsigned long)
+#define  PD_IOCG_SRIO_DMA_SPLIT_PSIZE  _IOR(PD_IOCTL_MAGIC, 157, unsigned long *)
 
 /* ADI_DMA_COMB IOCTLs */
-#define  PD_IOCS_ADI_DMA_COMB_0_CMD    _IOW(PD_IOCTL_MAGIC,  190, unsigned long)
-#define  PD_IOCS_ADI_DMA_COMB_1_CMD    _IOW(PD_IOCTL_MAGIC,  191, unsigned long)
-#define  PD_IOCG_ADI_DMA_COMB_0_CMD    _IOR(PD_IOCTL_MAGIC,  192, unsigned long *)
-#define  PD_IOCG_ADI_DMA_COMB_1_CMD    _IOR(PD_IOCTL_MAGIC,  193, unsigned long *)
-#define  PD_IOCG_ADI_DMA_COMB_0_STAT   _IOR(PD_IOCTL_MAGIC,  194, unsigned long *)
-#define  PD_IOCG_ADI_DMA_COMB_1_STAT   _IOR(PD_IOCTL_MAGIC,  195, unsigned long *)
-#define  PD_IOCS_ADI_DMA_COMB_0_NPKTS  _IOW(PD_IOCTL_MAGIC,  196, unsigned long)
-#define  PD_IOCS_ADI_DMA_COMB_1_NPKTS  _IOW(PD_IOCTL_MAGIC,  197, unsigned long)
-#define  PD_IOCG_ADI_DMA_COMB_0_NPKTS  _IOR(PD_IOCTL_MAGIC,  198, unsigned long *)
-#define  PD_IOCG_ADI_DMA_COMB_1_NPKTS  _IOR(PD_IOCTL_MAGIC,  199, unsigned long *)
+#define  PD_IOCS_ADI_DMA_COMB_0_CMD    _IOW(PD_IOCTL_MAGIC,  160, unsigned long)
+#define  PD_IOCS_ADI_DMA_COMB_1_CMD    _IOW(PD_IOCTL_MAGIC,  161, unsigned long)
+#define  PD_IOCG_ADI_DMA_COMB_0_CMD    _IOR(PD_IOCTL_MAGIC,  162, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_CMD    _IOR(PD_IOCTL_MAGIC,  163, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_0_STAT   _IOR(PD_IOCTL_MAGIC,  164, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_STAT   _IOR(PD_IOCTL_MAGIC,  165, unsigned long *)
+#define  PD_IOCS_ADI_DMA_COMB_0_NPKTS  _IOW(PD_IOCTL_MAGIC,  166, unsigned long)
+#define  PD_IOCS_ADI_DMA_COMB_1_NPKTS  _IOW(PD_IOCTL_MAGIC,  167, unsigned long)
+#define  PD_IOCG_ADI_DMA_COMB_0_NPKTS  _IOR(PD_IOCTL_MAGIC,  168, unsigned long *)
+#define  PD_IOCG_ADI_DMA_COMB_1_NPKTS  _IOR(PD_IOCTL_MAGIC,  169, unsigned long *)
 
 /* ADI_DMA_SPLIT IOCTLs */
-#define  PD_IOCS_ADI_DMA_SPLIT_0_CMD    _IOW(PD_IOCTL_MAGIC, 210, unsigned long)
-#define  PD_IOCS_ADI_DMA_SPLIT_1_CMD    _IOW(PD_IOCTL_MAGIC, 211, unsigned long)
-#define  PD_IOCG_ADI_DMA_SPLIT_0_CMD    _IOR(PD_IOCTL_MAGIC, 212, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_1_CMD    _IOR(PD_IOCTL_MAGIC, 213, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_0_STAT   _IOR(PD_IOCTL_MAGIC, 214, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_1_STAT   _IOR(PD_IOCTL_MAGIC, 215, unsigned long *)
-#define  PD_IOCS_ADI_DMA_SPLIT_0_NPKTS  _IOW(PD_IOCTL_MAGIC, 216, unsigned long)
-#define  PD_IOCS_ADI_DMA_SPLIT_1_NPKTS  _IOW(PD_IOCTL_MAGIC, 217, unsigned long)
-#define  PD_IOCG_ADI_DMA_SPLIT_0_NPKTS  _IOR(PD_IOCTL_MAGIC, 218, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_1_NPKTS  _IOR(PD_IOCTL_MAGIC, 219, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_0_PSIZE  _IOR(PD_IOCTL_MAGIC, 220, unsigned long *)
-#define  PD_IOCG_ADI_DMA_SPLIT_1_PSIZE  _IOR(PD_IOCTL_MAGIC, 221, unsigned long *)
+#define  PD_IOCS_ADI_DMA_SPLIT_0_CMD    _IOW(PD_IOCTL_MAGIC, 170, unsigned long)
+#define  PD_IOCS_ADI_DMA_SPLIT_1_CMD    _IOW(PD_IOCTL_MAGIC, 171, unsigned long)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_CMD    _IOR(PD_IOCTL_MAGIC, 172, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_CMD    _IOR(PD_IOCTL_MAGIC, 173, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_STAT   _IOR(PD_IOCTL_MAGIC, 174, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_STAT   _IOR(PD_IOCTL_MAGIC, 175, unsigned long *)
+#define  PD_IOCS_ADI_DMA_SPLIT_0_NPKTS  _IOW(PD_IOCTL_MAGIC, 176, unsigned long)
+#define  PD_IOCS_ADI_DMA_SPLIT_1_NPKTS  _IOW(PD_IOCTL_MAGIC, 177, unsigned long)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_NPKTS  _IOR(PD_IOCTL_MAGIC, 178, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_NPKTS  _IOR(PD_IOCTL_MAGIC, 179, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_0_PSIZE  _IOR(PD_IOCTL_MAGIC, 180, unsigned long *)
+#define  PD_IOCG_ADI_DMA_SPLIT_1_PSIZE  _IOR(PD_IOCTL_MAGIC, 181, unsigned long *)
+
+/* TYPE9_PACK IOCTLs */
+#define  PD_IOCS_TYPE9_PACK_0_CMD       _IOW(PD_IOCTL_MAGIC, 190, unsigned long)
+#define  PD_IOCS_TYPE9_PACK_1_CMD       _IOW(PD_IOCTL_MAGIC, 191, unsigned long)
+#define  PD_IOCG_TYPE9_PACK_0_CMD       _IOR(PD_IOCTL_MAGIC, 192, unsigned long *)
+#define  PD_IOCG_TYPE9_PACK_1_CMD       _IOR(PD_IOCTL_MAGIC, 193, unsigned long *)
+#define  PD_IOCS_TYPE9_PACK_0_LENGTH    _IOW(PD_IOCTL_MAGIC, 194, unsigned long)
+#define  PD_IOCS_TYPE9_PACK_1_LENGTH    _IOW(PD_IOCTL_MAGIC, 195, unsigned long)
+#define  PD_IOCG_TYPE9_PACK_0_LENGTH    _IOR(PD_IOCTL_MAGIC, 196, unsigned long *)
+#define  PD_IOCG_TYPE9_PACK_1_LENGTH    _IOR(PD_IOCTL_MAGIC, 197, unsigned long *)
+#define  PD_IOCS_TYPE9_PACK_0_STRMID    _IOW(PD_IOCTL_MAGIC, 198, unsigned long)
+#define  PD_IOCS_TYPE9_PACK_1_STRMID    _IOW(PD_IOCTL_MAGIC, 199, unsigned long)
+#define  PD_IOCG_TYPE9_PACK_0_STRMID    _IOR(PD_IOCTL_MAGIC, 200, unsigned long *)
+#define  PD_IOCG_TYPE9_PACK_1_STRMID    _IOR(PD_IOCTL_MAGIC, 201, unsigned long *)
+#define  PD_IOCS_TYPE9_PACK_0_SRCDEST   _IOW(PD_IOCTL_MAGIC, 202, unsigned long)
+#define  PD_IOCS_TYPE9_PACK_1_SRCDEST   _IOW(PD_IOCTL_MAGIC, 203, unsigned long)
+#define  PD_IOCG_TYPE9_PACK_0_SRCDEST   _IOR(PD_IOCTL_MAGIC, 204, unsigned long *)
+#define  PD_IOCG_TYPE9_PACK_1_SRCDEST   _IOR(PD_IOCTL_MAGIC, 205, unsigned long *)
+#define  PD_IOCS_TYPE9_PACK_0_COS       _IOW(PD_IOCTL_MAGIC, 206, unsigned long)
+#define  PD_IOCS_TYPE9_PACK_1_COS       _IOW(PD_IOCTL_MAGIC, 207, unsigned long)
+#define  PD_IOCG_TYPE9_PACK_0_COS       _IOR(PD_IOCTL_MAGIC, 208, unsigned long *)
+#define  PD_IOCG_TYPE9_PACK_1_COS       _IOR(PD_IOCTL_MAGIC, 209, unsigned long *)
+
+/* TYPE9_UNPACK IOCTLs */
+#define  PD_IOCS_TYPE9_UNPACK_CMD       _IOW(PD_IOCTL_MAGIC, 220, unsigned long)
+#define  PD_IOCG_TYPE9_UNPACK_CMD       _IOR(PD_IOCTL_MAGIC, 221, unsigned long *)
+#define  PD_IOCS_TYPE9_UNPACK_STRMID_0  _IOW(PD_IOCTL_MAGIC, 222, unsigned long)
+#define  PD_IOCS_TYPE9_UNPACK_STRMID_1  _IOW(PD_IOCTL_MAGIC, 223, unsigned long)
+#define  PD_IOCG_TYPE9_UNPACK_STRMID_0  _IOR(PD_IOCTL_MAGIC, 224, unsigned long *)
+#define  PD_IOCG_TYPE9_UNPACK_STRMID_1  _IOR(PD_IOCTL_MAGIC, 225, unsigned long *)
 
 
 #endif /* _INCLUDE_PD_MAIN_H */

@@ -44,6 +44,7 @@ struct sd_mesg        *mesg;
 struct sd_mesg_mbox   *mbox;
 struct sd_mesg_swrite *swrite;
 struct sd_mesg_dbell  *dbell;
+struct sd_mesg_stream *stream;
 
 #define BUFF_SIZE 1280
 #define RING_BITS 5
@@ -61,11 +62,14 @@ uint16_t  opt_rem_addr = 2;
 long      opt_mbox_sub        = 0xF; // sub all 4 mboxes
 uint16_t  opt_dbell_range[2]  = { 0, 0xFFFF }; // sub all dbells 
 uint64_t  opt_swrite_range[2] = { 0, 0x3FFFFFFFF }; // sub all swrites
+uint16_t  opt_stream_range[2] = { 0, 0xFFFF }; // sub all streams
 
 long      opt_mbox_send    = 0;
 long      opt_mbox_letter  = 0;
 uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
+uint16_t  opt_stream_sid   = 0x1234;
+uint8_t   opt_stream_cos   = 0x07;
 
 uint32_t  prev_status;
 time_t    periodic = -1;
@@ -118,9 +122,11 @@ void menu (void)
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
 	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
 	       "7 - Send a Vita49 DISCO message (40 bytes)\n"
-	       "8 - Send a burst of 2 SWRITEs, 256 bytes each\n"
-	       "9 - Send a burst of 4 SWRITEs, 256 bytes each\n"
-	       "0 - Send a burst of 8 SWRITEs, 256 bytes each\n"
+	       "8 - Send a single type 9 packet, 64 bytes\n"
+	       "9 - Send two type 9 packets, 64 bytes each\n"
+	       "0 - Send three type 9 packets, 64 bytes each\n"
+	       "- - Send four type 9 packets, 64 bytes each\n"
+	       "+ - Send five type 9 packets, 64 bytes each\n"
 	       "\n");
 }
 
@@ -270,6 +276,9 @@ int main (int argc, char **argv)
 	if ( ioctl(dev, SD_USER_IOCS_SWRITE_SUB, opt_swrite_range) )
 		perror("SD_USER_IOCG_SWRITE_SUB");
 
+	if ( ioctl(dev, SD_USER_IOCS_STREAM_ID_SUB, opt_stream_range) )
+		perror("SD_USER_IOCG_STREAM_ID_SUB");
+
 
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
@@ -280,7 +289,6 @@ int main (int argc, char **argv)
 
 	/* RX CM_CTRL buffer */
 	struct sd_user_cm_ctrl cm_ctrl;
-	int                    swrite_burst;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
@@ -288,6 +296,7 @@ int main (int argc, char **argv)
 	unsigned         diff_count = 0;
 	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
+	int              type9_burst;
 
 	menu();
 	while ( main_loop )
@@ -348,6 +357,7 @@ int main (int argc, char **argv)
 			mbox   = &mesg->mesg.mbox;
 			swrite = &mesg->mesg.swrite;
 			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
 
 			memset(mesg, 0, sizeof(rx_buff[0]));
 			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
@@ -371,6 +381,14 @@ int main (int argc, char **argv)
 						size -= offsetof(struct sd_mesg_swrite, data);
 						printf("SWRITE to %09llx, payload %d:\n", swrite->addr, size);
 						hexdump_buff(swrite->data, size);
+						break;
+
+					case 9:
+						size -= offsetof(struct sd_mesg,        mesg);
+						size -= offsetof(struct sd_mesg_stream, data);
+						printf("STREAM ID %04x, COS %02x, payload %d:\n",
+						       stream->sid, stream->cos, size);
+						hexdump_buff(stream->data, size);
 						break;
 
 					case 10:
@@ -438,12 +456,13 @@ int main (int argc, char **argv)
 			mbox   = &mesg->mesg.mbox;
 			swrite = &mesg->mesg.swrite;
 			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
 
 			memset(mesg, 0, sizeof(tx_buff[0]));
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
-			swrite_burst = 2;
+			type9_burst = 1;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -535,42 +554,60 @@ int main (int argc, char **argv)
 					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
-				// note: depends on swrite_burst being reset to 2 before switch
+				case '+':
+				case '=':
+					type9_burst++; // fall-through
+				case '-':
+					type9_burst++; // fall-through
 				case '0':
-					swrite_burst <<= 1; // fall-through
+					type9_burst++; // fall-through
 				case '9':
-					swrite_burst <<= 1; // fall-through
+					type9_burst++; // fall-through
 				case '8':
 				{
 					int        slot, byte;
-					uint16_t   paint;
 					uint16_t  *word;
-					for ( slot = 0; slot < swrite_burst; slot++ )
+					printf("\nSEND: %d STREAM packets to STRM-ID x%04x, cos x%02x payload %d:\n",
+					       type9_burst, opt_stream_sid, opt_stream_cos, 256);
+					for ( slot = 0; slot < type9_burst; slot++ )
 					{
 						mesg   = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
-						swrite = &mesg->mesg.swrite;
+						stream = &mesg->mesg.stream;
 
-						mesg->type     = 6;
+						mesg->type     = 9;
+						mesg->crf      = 0;
+						mesg->pri      = 0;
 						mesg->size     = 256;
-						mesg->size    += offsetof(struct sd_mesg,        mesg);
-						mesg->size    += offsetof(struct sd_mesg_swrite, data);
 						mesg->src_addr = opt_loc_addr;
 						mesg->dst_addr = opt_rem_addr;
-						swrite->addr   = 0;
 
-						word  = (uint16_t *)swrite->data;
-						paint = slot << 8;
-						for ( byte = 0; byte < 128; byte++ )
-							*word++ = paint++;
+						stream->sid   = opt_stream_sid;
+						stream->cos   = opt_stream_cos;
+						stream->len   = type9_burst * 256;
+						stream->flags = 0;
+						if ( slot == 0 )
+							stream->flags |= SD_MESG_SF_S;
+						if ( slot == type9_burst - 1 )
+							stream->flags |= SD_MESG_SF_E;
+
+						word  = (uint16_t *)stream->data;
+						for ( byte = 0; byte < mesg->size; byte += 4 )
+						{
+							*word++ = 0x3412;
+							*word++ = ((slot + 8) << 4) | (byte << 6);
+						}
+
+						mesg->size    += offsetof(struct sd_mesg,        mesg);
+						mesg->size    += offsetof(struct sd_mesg_stream, data);
 					}
 
-					for ( slot = 0; slot < swrite_burst; slot++ )
+					for ( slot = 0; slot < type9_burst; slot++ )
 					{
 						mesg = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
 						if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
 							perror("write() to driver");
 					}
-					tx_slot += swrite_burst;
+					tx_slot += type9_burst;
 					mesg = NULL;
 					break;
 				}

@@ -33,11 +33,13 @@
 #include <sd_user.h>
 #include <fifo_dev.h>
 #include <pipe_dev.h>
+#include <format.h>
 
 #include "common.h"
 
 uint16_t    opt_remote   = 2;
 size_t      opt_data     = 8000000;
+size_t      opt_body     = 256;
 size_t      opt_npkts    = 0;
 long        opt_timeout  = 1500;
 uint32_t    opt_adi      = 0;
@@ -46,21 +48,33 @@ FILE       *opt_debug    = NULL;
 long        opt_dma_mode = 4;
 
 
+static struct format_options sd_fmt_opts =
+{
+	.channels = 3,
+	.single   = sizeof(uint16_t) * 2,
+	.sample   = sizeof(uint16_t) * 4,
+	.bits     = 16,
+	.head     = VITA_HEAD,
+};
+
+
 static void usage (void)
 {
-	printf("Usage: pipe-transmit [-v] [-s bytes] [-t timeout] [-m mode] adi stream-id\n"
+	printf("Usage: pipe-transmit [-v] [-s bytes] [-S samples] [-b bytes] [-t timeout]\n"
+	       "                     [-m mode] adi stream-id\n"
 	       "Where:\n"
 	       "-R dest     SRIO destination address (default 2)\n"
 	       "-v          Verbose/debugging enable\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-S samples  Set payload size in samples (K or M optional)\n"
+	       "-b bytes    Set packet size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
 	       "-m mode     DMA mode select for new ADI FIFOs (0-15, default 4)\n"
 	       "\n"
 	       "adi is required value, and be 0 or 1 for the ADI chain to use (T2R2 mode only,\n"
 	       "this will be aligned with DSA syntax in future.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
-	       "receiver side, if that receiver implements stream-ID filtering.\n"
+	       "stream-id is a required value, and must match the stream-id on the transmitter\n"
+	       "side.\n"
 		   "\n");
 }
 
@@ -80,7 +94,7 @@ int main (int argc, char **argv)
 	int                      opt;
 	int                      ch;
 
-	while ( (opt = getopt(argc, argv, "?hvR:s:S:t:m:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvR:s:S:t:m:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -107,10 +121,18 @@ int main (int argc, char **argv)
 				printf("DMA mode set to %d\n", opt_dma_mode);
 				break;
 
+			case 'b':
+				opt_body = size_bin(optarg);
+				break;
+
 			default:
 				usage();
 				return 1;
 		}
+
+	sd_fmt_opts.data   = opt_body - sd_fmt_opts.head;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
 
 	printf("optind %d, argc %d\n", optind, argc);
 	if ( (argc - optind) < 2 )
@@ -187,9 +209,6 @@ int main (int argc, char **argv)
 
 	// using legacy fixed-length mode
 	printf("Expecting %zu bytes / %zu samples\n", opt_data, opt_data / 8);
-	opt_npkts = opt_data / 232;
-	if ( opt_data % 232 )
-		opt_npkts++;
 	printf("Expecting %zu packets\n", opt_npkts);
 
 
@@ -198,7 +217,7 @@ int main (int argc, char **argv)
 	pipe_vita49_assem_set_cmd(opt_adi,     PD_VITA49_ASSEM_CMD_RESET);
 	pipe_vita49_unpack_set_ctrl(opt_adi,   PD_VITA49_UNPACK_CTRL_RESET);
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
@@ -207,21 +226,20 @@ int main (int argc, char **argv)
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, 0);
 
 
-	// Set swrite routing to ADI
+	// Set TYPE9 routing to ADI
 	pipe_routing_reg_get_adc_sw_dest(&reg);
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_ADI;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_ADI;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 
-	// SWRITE unpacker setup 
-	pipe_swrite_unpack_set_addr(opt_adi, opt_sid);
+	// TYPE9 unpacker setup
+	pipe_type9_unpack_set_strmid(opt_adi, opt_sid);
 
 
 	// V49 unpacker setup
 	pipe_vita49_unpack_set_strm_id(opt_adi, opt_sid);
-	pipe_vita49_unpack_set_ctrl(opt_adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
-	                                        PD_VITA49_UNPACK_CTRL_TRAILER);
+	pipe_vita49_unpack_set_ctrl(opt_adi,    PD_VITA49_UNPACK_CTRL_ENABLE);
 	pipe_vita49_unpack_get_ctrl(opt_adi, &reg);
 	printf("vita49_unpack.ctrl: 0x%08lx\n",  reg);
 
@@ -250,7 +268,7 @@ int main (int argc, char **argv)
 	// manual trigger
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_PASSTHRU);
 	pipe_vita49_assem_set_cmd(opt_adi,     PD_VITA49_ASSEM_CMD_ENABLE);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_START);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_ENABLE);
 
 
 	// wait for complete or timeout
@@ -306,7 +324,7 @@ int main (int argc, char **argv)
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, 0);
 	pipe_vita49_unpack_set_ctrl(opt_adi,   PD_VITA49_UNPACK_CTRL_RESET);
 	pipe_vita49_trig_dac_set_ctrl(opt_adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(opt_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);

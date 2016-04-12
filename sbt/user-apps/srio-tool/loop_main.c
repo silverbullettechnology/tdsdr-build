@@ -40,19 +40,20 @@
 #define DEF_TX_CHAN       5
 #define DEF_RX_CHAN       4
 #define DEF_TIMEOUT    1000
+#define DEF_DATA      (10 << 20) // 10MB default
+#define DEF_SID           0
+#define DEF_BODY        256
+#define DEF_COS        0x55
 
 unsigned    opt_local    = 0;
-size_t      opt_data     = 10 << 20; // 10MB default
+size_t      opt_data     = DEF_DATA;
 size_t      opt_buff     = 0;
-size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = DEF_BODY;
 FILE       *opt_debug    = NULL;
-uint32_t    opt_sid      = 0;
-
-#ifdef SUPPORT_TYPE9
-int         opt_type9    = 0;
-#endif
+uint32_t    opt_sid      = DEF_SID;
+uint32_t    opt_cos      = DEF_COS;
 
 unsigned    opt_tx_chan  = DEF_TX_CHAN;
 size_t      opt_tx_rand  = 0;
@@ -67,14 +68,6 @@ char       *opt_rx_raw   = NULL;
 char  tx_load_buff[4096];
 
 
-struct packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  data[64];
-};
-
 struct format_class *sd_fmt_bin = NULL;
 static struct format_options sd_fmt_opts =
 {
@@ -82,43 +75,33 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
-	.packet   = 272,
-	.head     = 16,
-	.data     = 256,
-	.foot     = 0,
+	.head     = SRIO_HEAD,
+	.flags    = FO_ENDIAN,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-loop [-v%spr] [-i file] [-o file] [-s bytes] [-S samples]\n"
-	       "                 [-t timeout] [-n npkts] [-C COS] [-b dir:file] [-L local]\n"
-	       "                 [stream-id]\n"
+	printf("Usage: srio-loop [-vpr] [-i file] [-o [buf:]file] [-s bytes] [-S samples]\n"
+	       "                 [-t timeout] [-C COS] [-L local] [-b bytes] [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
-#ifdef SUPPORT_TYPE9
-	       "-9          Use type 9 when implemented (default type 6)\n"
-#endif
 	       "-p          Paint transmit payload with counter (default)\n"
 	       "-r          Load transmit payload with data from /dev/urandom\n"
 	       "-i file     Load transmit payload from file\n"
-	       "-o file     Save receive payload to file\n"
+	       "-o file     Save receive payload (without headers) to file\n"
+	       "-o buf:file Save buffer (tx: or rx:) to file\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-S samples  Set payload size in samples (K or M optional)\n"
+	       "-b bytes    Set PDU body size in bytes (K optional, default %d)\n"
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
-	       "-n npkts    Set number of packets for combiner (default from size)\n"
-	       "-C COS      Set type 9 COS value (default 0x7F)\n"
+	       "-C COS      Set type 9 COS value (default 0x%02x)\n"
 	       "-b dir:file Save raw buffer for dir (tx/rx) to file\n"
 	       "-L local    SRIO local device-ID (if not auto-probed)\n"
 	       "\n"
-	       "stream-id is optional and only used for type 9\n"
+	       "stream-id is optional and only used for type 9 (default 0x%04x)\n"
 	       "\n", 
-#ifdef SUPPORT_TYPE9
-	       "9",
-#else
-	       "",
-#endif
-	       DEF_TIMEOUT);
+	       DEF_DATA, DEF_TIMEOUT, DEF_COS, DEF_SID);
 
 	exit(1);
 }
@@ -217,13 +200,17 @@ static void show_stats (const char *dir, const struct dsm_xfer_stats *st)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct packet         *tx_pkt;
-	struct packet         *rx_pkt;
+	struct srio_header    *srio_hdr;
+	uint32_t              *tx_data;
+	uint32_t              *rx_data;
+	size_t                 ofs;
+	size_t                 left;
+	size_t                 size;
 	unsigned long          routing;
 	unsigned long          reg;
 	unsigned long          tuser;
 	unsigned long          bad;
-	char                  *ptr;
+	void                  *ptr;
 	void                  *tx_buff;
 	void                  *rx_buff;
 	int                    srio_dev;
@@ -233,21 +220,13 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hv9rpi:o:s:S:t:n:b:c:L:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvrpi:o:s:S:t:C:L:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
 				opt_debug = stderr;
 				format_debug_setup(stderr);
 				break;
-
-			case '9':
-#ifdef SUPPORT_TYPE9
-				opt_type9 = 1;
-				break;
-#else
-				usage();
-#endif
 
 			case 'r':
 				opt_tx_load = NULL;
@@ -264,9 +243,6 @@ int main (int argc, char **argv)
 				opt_tx_rand = 0;
 				break;
 
-			case 'o':
-				opt_rx_save = optarg;
-				break;
 
 			case 's':
 				opt_data = (size_bin(optarg) + 7) & ~7;
@@ -277,10 +253,7 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
-			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
-
-			case 'b':
+			case 'o':
 				if ( (ptr = strchr(optarg, ':')) )
 					switch ( tolower(*optarg) )
 					{
@@ -289,14 +262,20 @@ int main (int argc, char **argv)
 						default: usage();
 					}
 				else
-					usage();
+					opt_rx_save = optarg;
 				break;
 
-			case 'L': opt_local = strtoul(optarg, NULL, 0); break;
+			case 't': opt_timeout = strtoul(optarg, NULL, 0);        break;
+			case 'L': opt_local   = strtoul(optarg, NULL, 0);        break;
+			case 'C': opt_cos     = strtoul(optarg, NULL, 0) & 0xFF; break;
+			case 'b': opt_body    = (size_bin(optarg) + 7) & ~7;     break;
 
 			default:
 				usage();
 		}
+
+	sd_fmt_opts.data   = opt_body;
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data;
 
 	if ( !(sd_fmt_bin = format_class_find("bin")) )
 	{
@@ -307,9 +286,33 @@ int main (int argc, char **argv)
 	if ( (argc - optind) >= 1 )
 		opt_sid = strtoul(argv[optind + 1], NULL, 0);
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff  = format_size_buff_from_data(&sd_fmt_opts,   opt_data);
+
+	if ( opt_debug )
+	{
+		size_t  chk_npkts;
+
+		size_t  chk_buff;
+		printf("data size %zu\nformat -> %u pkts, %zu buff size.\n",
+		       opt_data, opt_npkts, opt_buff);
+
+		chk_npkts = opt_data / sd_fmt_opts.data;
+		chk_buff  = sd_fmt_opts.packet * chk_npkts;
+		if ( opt_data % sd_fmt_opts.data )
+		{
+			chk_buff += sd_fmt_opts.head;
+			chk_buff += opt_data % sd_fmt_opts.data;
+			chk_npkts++;
+		}
+		printf("check  -> %zu pkts, %zu buff size.\n", chk_npkts, chk_buff);
+
+		if ( opt_npkts != chk_npkts || opt_buff != chk_buff )
+		{
+			printf("Buffer math is wrong at these settings, stop\n");
+			return 1;
+		}
+	}
 
 
 	// open DSM dev
@@ -412,9 +415,8 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_buff, opt_npkts, opt_buff / DSM_BUS_WIDTH);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -430,37 +432,41 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffers
-	if ( !(tx_buff = dsm_user_alloc(opt_words)) )
+	if ( !(tx_buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n", opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("TX buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("TX buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 
-	if ( !(rx_buff = dsm_user_alloc(opt_words)) )
+	if ( !(rx_buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n", opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_free_tx;
 	}
-	printf("RX buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("RX buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 
 
-	// Paint RX buffer
-	rx_pkt = rx_buff;
+	// Paint RX buffer payload area
+	memset(rx_buff, 0xDD, opt_buff);
+
+	// Paint RX buffer header areas
+	ptr = rx_buff;
 	for ( i = 0; i < opt_npkts; i++ )
 	{
+		srio_hdr = ptr;
+
 		// SRIO header
-		rx_pkt->tuser    = 0xE3E2E1E0;
-		rx_pkt->padding  = 0xE7E6E5E4;
-		rx_pkt->hello[0] = 0xEBEAE9E8;
-		rx_pkt->hello[1] = 0xEFEEEDEC;
+		srio_hdr->tuser    = 0xE3E2E1E0;
+		srio_hdr->padding  = 0xE7E6E5E4;
+		srio_hdr->hello[0] = 0xEBEAE9E8;
+		srio_hdr->hello[1] = 0xEFEEEDEC;
 
-		// Payload area
-		memset(rx_pkt->data, 0xDD, sizeof(rx_pkt->data));
-
-		rx_pkt++;
+		ptr += sd_fmt_opts.packet;
 	}
 
 	if ( opt_tx_rand )
@@ -469,9 +475,9 @@ int main (int argc, char **argv)
 		if ( (opt_tx_file = tmpfile()) )
 		{
 			unsigned  word;
-			size_t    left = opt_tx_rand;
 
 			printf("Setup random pattern:");
+			left = opt_tx_rand;
 			while ( left >= sizeof(unsigned) )
 			{
 				word   = rand() & 0xFFFF;
@@ -502,26 +508,50 @@ int main (int argc, char **argv)
 	}
 	else
 	{
-		// Paint TX buffer payload area
-		tx_pkt = tx_buff;
+		// Paint TX buffer payload area - offset by header length once, then advance by
+		// entire amount
+		ofs = 0;
+		left = opt_data;
 		for ( i = 0; i < opt_npkts; i++ )
 		{
-			for ( j = 0; j < sizeof(tx_pkt->data) / sizeof(tx_pkt->data[0]); j++ )
-				tx_pkt->data[j] = (j << 26) | (0x3FFFFFF - i);
-			tx_pkt++;
+			tx_data = (tx_buff + sd_fmt_opts.head + ofs);
+			for ( j = 0; j < sd_fmt_opts.data / sizeof(*tx_data) && left; j++ )
+			{
+				tx_data[j] = (j << 26) | (0x3FFFFFF - i);
+				left -= sizeof(*tx_data);
+			}
+
+			// packet based on payload + headers
+			ofs += sd_fmt_opts.packet;
 		}
 	}
 
+	// build packet headers - precalc header fields as much as possible
+	// length in HELLO header is total packet minus TUSER+HELLO, may need -1
+	uint32_t  hello0 = (opt_sid << 16) | (sd_fmt_opts.packet - SRIO_HEAD);
+	uint32_t  hello1 = (opt_cos <<  4) | 0x00900000;
+
 	// Setup headers
-	tx_pkt = tx_buff;
+	left = opt_data;
+	ptr  = tx_buff;
 	for ( i = 0; i < opt_npkts; i++ )
 	{
-		// SRIO header
-		tx_pkt->tuser    = tuser;
-		tx_pkt->padding  = 0x00000000;
-		tx_pkt->hello[1] = 0x00600000;
-		tx_pkt->hello[0] = opt_sid;
-		tx_pkt++;
+		srio_hdr = ptr;
+
+		// SRIO header - TUSER, alignment, and HELLO header
+		srio_hdr->tuser    = tuser;
+		srio_hdr->hello[1] = hello1;
+		srio_hdr->hello[0] = hello0;
+		if ( left < sd_fmt_opts.data )
+		{
+			srio_hdr->hello[0] &= 0xFFFF0000;
+			srio_hdr->hello[0] |= left & 0xFFFF;
+		}
+		else
+			left -= sd_fmt_opts.data;
+
+		// packet based on payload + headers
+		ptr += sd_fmt_opts.packet;
 	}
 
 
@@ -530,13 +560,13 @@ int main (int argc, char **argv)
 
 
 	// hand buffers to kernelspace driver and build scatterlists
-	if ( dsm_map_user(opt_tx_chan, 1, tx_buff, opt_words) )
+	if ( dsm_map_user(opt_tx_chan, 1, tx_buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
 		goto exit_free_rx;
 	}
-	if ( dsm_map_user(opt_rx_chan, 0, rx_buff, opt_words) )
+	if ( dsm_map_user(opt_rx_chan, 0, rx_buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
@@ -553,13 +583,17 @@ int main (int argc, char **argv)
 		goto exit_unmap;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_RESET);
 	pipe_srio_dma_split_set_cmd(0);
 	pipe_srio_dma_split_set_npkts(opt_npkts);
+
+	// New splitter for type 9 needs length including HELLO headers but excluding TUSER +
+	// padding, in 64-bit words.
+	pipe_srio_dma_split_set_psize((sd_fmt_opts.packet / DSM_BUS_WIDTH) - 1);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_RESET);
@@ -612,26 +646,33 @@ int main (int argc, char **argv)
 
 	// Compare buffers
 	bad = 0;
-	tx_pkt = tx_buff;
-	rx_pkt = rx_buff;
+	ofs = 0;
+	left = opt_data;
 	for ( i = 0; i < opt_npkts; i++ )
 	{
-		if ( memcmp(rx_pkt->data, tx_pkt->data, sizeof(rx_pkt->data)) )
+		tx_data = (tx_buff + sd_fmt_opts.head + ofs);
+		rx_data = (rx_buff + sd_fmt_opts.head + ofs);
+		size    = (left < sd_fmt_opts.data) ? left : sd_fmt_opts.data;
+
+		if ( memcmp(rx_data, tx_data, size) )
 		{
 			if ( bad < 10 )
 				printf("pkt %5d: mismatches:\n", i);
-			for ( j = 0; j < sizeof(tx_pkt->data) / sizeof(tx_pkt->data[0]); j++ )
-				if ( rx_pkt->data[j] != tx_pkt->data[j] )
+			for ( j = 0; j < sd_fmt_opts.data / sizeof(*tx_data) && size; j++ )
+			{
+				if ( rx_data[j] != tx_data[j] )
 				{
 					bad++;
 					if ( bad < 10 )
 						printf("           %2d: %08x / %08x\n", j,
-						       rx_pkt->data[j], tx_pkt->data[j]);
+						       rx_data[j], tx_data[j]);
 				}
+				size -= sizeof(*tx_data);
+			}
 		}
 	
-		tx_pkt++;
-		rx_pkt++;
+		left -= sd_fmt_opts.data;
+		ofs += sd_fmt_opts.packet;
 	}
 	if ( bad )
 		printf("Total %lu words mismatched\n", bad);
@@ -660,10 +701,10 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free_rx:
-	dsm_user_free(rx_buff, opt_words);
+	dsm_user_free(rx_buff, opt_buff / DSM_BUS_WIDTH);
 
 exit_free_tx:
-	dsm_user_free(tx_buff, opt_words);
+	dsm_user_free(tx_buff, opt_buff / DSM_BUS_WIDTH);
 	printf("Buffers unlocked and freed\n");
 
 exit_pipe:

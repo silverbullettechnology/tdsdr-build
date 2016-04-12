@@ -37,29 +37,16 @@
 unsigned    opt_chan     = 4;
 size_t      opt_data     = 8000000;
 size_t      opt_buff     = 0;
-size_t      opt_words    = 0;
 unsigned    opt_timeout  = 1500;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = 256;
+size_t      opt_head     = VITA_HEAD;
+size_t      opt_foot     = 0;
 FILE       *opt_debug    = NULL;
 char       *opt_rawfile  = NULL;
 
 char                *opt_out_file = NULL;
 struct format_class *opt_out_fmt  = NULL;
-
-
-struct recv_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
 
 
 static struct format_options sd_fmt_opts =
@@ -68,26 +55,27 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 4,
+	.head     = 16,
 	.flags    = FO_ENDIAN,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-recv [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [out-file]\n"
+	printf("Usage: srio-recv [-vr] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-b bytes] [-h bytes] out-file\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
+	       "-r          Raw mode: skip VITA49 headers (implies -ei)\n"
+	       "-e          Disable endian swap (default enabled)\n"
+	       "-i          Disable I/Q swap (default enabled)\n"
 	       "-c channel  DMA channel to use\n"
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies\n"
-	       "-n npkts    Set number of packets for combiner\n"
 	       "-o rawfile  Write raw buffer to rawfile (with packet headers)\n"
+	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-h bytes    Set PDU header size in bytes (K or M optional, default 16)\n"
 	       "\n"
 	       "out-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
@@ -134,16 +122,15 @@ static void progress (size_t done, size_t size)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct recv_packet    *pkt;
 	unsigned long          routing;
 	unsigned long          reg;
 	void                  *buff;
 	int                    ret = 0;
 	int                    opt;
-	int                    idx;
+//	int                    idx;
 
 	format_error_setup(stderr);
-	while ( (opt = getopt(argc, argv, "?hvc:s:S:t:n:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreic:s:S:t:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -151,9 +138,17 @@ int main (int argc, char **argv)
 				format_debug_setup(stderr);
 				break;
 
+			case 'r':
+				opt_head = 0;
+				opt_foot = 0;
+				sd_fmt_opts.flags &= ~(FO_ENDIAN|FO_IQ_SWAP);
+				break;
+
+			case 'e': sd_fmt_opts.flags &= ~FO_ENDIAN;  break;
+			case 'i': sd_fmt_opts.flags &= ~FO_IQ_SWAP; break;
+
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
 
 			case 's':
@@ -165,11 +160,32 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
+
 			default:
 				usage();
 				return 1;
 		}
 	
+	sd_fmt_opts.head  += opt_head;
+	sd_fmt_opts.foot  += opt_foot;
+	sd_fmt_opts.data   = opt_body - (opt_head + opt_foot);
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
+
+	if ( opt_debug )
+	{
+		fprintf(opt_debug, "format:\n");
+		fprintf(opt_debug, "  channels: %lu\n",  sd_fmt_opts.channels);
+		fprintf(opt_debug, "  single  : %zu\n",  sd_fmt_opts.single);
+		fprintf(opt_debug, "  sample  : %zu\n",  sd_fmt_opts.sample);
+		fprintf(opt_debug, "  bits    : %zu\n",  sd_fmt_opts.bits);
+		fprintf(opt_debug, "  packet  : %zu\n",  sd_fmt_opts.packet);
+		fprintf(opt_debug, "  head    : %zu\n",  sd_fmt_opts.head);
+		fprintf(opt_debug, "  data    : %zu\n",  sd_fmt_opts.data);
+		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
+	}
+
+
 	if ( optind < argc )
 	{
 		char *format = argv[optind];
@@ -192,6 +208,11 @@ int main (int argc, char **argv)
 			usage();
 			return 1;
 		}
+	}
+	else
+	{
+		usage();
+		return 1;
 	}
 
 	// open devs
@@ -224,12 +245,8 @@ int main (int argc, char **argv)
 		goto exit_pipe;
 	}
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-
-	// size buffer in total number of packets, since swrite block rounds up... TBD whether
-	// this is a good idea or not
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff  = format_size_buff_from_data(&sd_fmt_opts,   opt_data);
 
 	// validate buffer size against width and channel / total limits
 	if ( opt_buff % DSM_BUS_WIDTH || 
@@ -244,9 +261,8 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_buff, opt_npkts, opt_buff / DSM_BUS_WIDTH);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -262,17 +278,19 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
-	if ( !(buff = dsm_user_alloc(opt_words)) )
+	if ( !(buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n",
+		       opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("Buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 	memset(buff, 0, opt_buff);
 
 	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_user(opt_chan, 0, buff, opt_words) )
+	if ( dsm_map_user(opt_chan, 0, buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
@@ -289,8 +307,8 @@ int main (int argc, char **argv)
 		goto exit_free;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
 	pipe_srio_dma_comb_set_cmd(PD_SRIO_DMA_COMB_CMD_RESET);
@@ -366,16 +384,6 @@ int main (int argc, char **argv)
 
 		fclose(fp);
 	}
-	else
-	{
-		pkt = buff;
-		for ( idx = 0; idx < opt_npkts; idx++ )
-		{
-			printf("\n%d: SWRITE %02x->%02x, HELLO %08x.%08x, bytes:\n", idx,
-			       pkt->tuser >> 16, pkt->tuser & 0xFFFF, pkt->hello[1], pkt->hello[0]);
-			hexdump_buff(pkt->data, sizeof(pkt->data));
-		}
-	}
 
 	if ( opt_rawfile )
 	{
@@ -411,7 +419,7 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
-	dsm_user_free(buff, opt_words);
+	dsm_user_free(buff, opt_buff / DSM_BUS_WIDTH);
 	printf("Buffer unlocked and freed\n");
 
 exit_pipe:

@@ -42,6 +42,11 @@ struct sd_mesg *sd_mesg_alloc (int type, size_t size, gfp_t flags)
 			        offsetof(struct sd_mesg_swrite, data);
 			break;
 
+		case 9: // Stream
+			size += offsetof(struct sd_mesg,        mesg) +
+			        offsetof(struct sd_mesg_stream, data);
+			break;
+
 		case 10: // DBELL just needs the fixed size, ignore payload
 			size = offsetof(struct sd_mesg, mesg) + sizeof(struct sd_mesg_dbell);
 			break;

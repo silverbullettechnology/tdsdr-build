@@ -70,9 +70,10 @@ struct srio_dev
 	int                mbox_users[RIO_MAX_MBOX];
 	struct sd_desc    *mbox_cache[RIO_MAX_MBOX];
 
-	/* RX DBELL (type 10) and SWRITE (type 6): number of listeners */
+	/* RX DBELL (type 10), SWRITE (type 6), and Stream (type 9): number of listeners */
 	int                dbell_users;
 	int                swrite_users;
+	int                sid_users;
 
 	u32                gt_loopback;
 	u32                gt_diffctrl;

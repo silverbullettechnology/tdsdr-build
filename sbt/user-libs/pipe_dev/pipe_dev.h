@@ -155,6 +155,8 @@ int pipe_srio_dma_split_get_stat  (unsigned long *reg);
 int pipe_srio_dma_split_set_npkts (unsigned long  reg);
 int pipe_srio_dma_split_get_npkts (unsigned long *reg);
 int pipe_srio_dma_split_get_tuser (unsigned long *reg);
+int pipe_srio_dma_split_set_psize (unsigned long  reg);
+int pipe_srio_dma_split_get_psize (unsigned long *reg);
 
 
 /******* ADI_DMA_COMB IOCTLs *******/
@@ -176,6 +178,29 @@ int pipe_adi_dma_split_get_stat  (int dev, unsigned long *reg);
 int pipe_adi_dma_split_set_npkts (int dev, unsigned long  reg);
 int pipe_adi_dma_split_get_npkts (int dev, unsigned long *reg);
 int pipe_adi_dma_split_get_psize (int dev, unsigned long *reg);
+
+
+/******* TYPE9_PACK IOCTLs *******/
+
+int pipe_type9_pack_set_cmd     (int dev, unsigned long  reg);
+int pipe_type9_pack_get_cmd     (int dev, unsigned long *reg);
+int pipe_type9_pack_set_length  (int dev, unsigned long  reg);
+int pipe_type9_pack_get_length  (int dev, unsigned long *reg);
+int pipe_type9_pack_set_strmid  (int dev, unsigned long  reg);
+int pipe_type9_pack_get_strmid  (int dev, unsigned long *reg);
+int pipe_type9_pack_set_srcdest (int dev, unsigned long  reg);
+int pipe_type9_pack_get_srcdest (int dev, unsigned long *reg);
+int pipe_type9_pack_set_cos     (int dev, unsigned long  reg);
+int pipe_type9_pack_get_cos     (int dev, unsigned long *reg);
+
+
+/******* SWRITE_UNPACK IOCTLs *******/
+
+
+int pipe_type9_unpack_set_cmd    (unsigned long  reg);
+int pipe_type9_unpack_get_cmd    (unsigned long *reg);
+int pipe_type9_unpack_set_strmid (int dev, unsigned long  reg);
+int pipe_type9_unpack_get_strmid (int dev, unsigned long *reg);
 
 
 #endif /* _INCLUDE_PIPE_DEV_H_ */
