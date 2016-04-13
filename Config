@@ -13,7 +13,7 @@
 
 # Linux kernel source
 SBT_KERNEL_GIT_REPO   := https://github.com/silverbullettechnology/linux-adi.git
-SBT_KERNEL_GIT_BRANCH := sdr-m1-devel
+SBT_KERNEL_GIT_BRANCH := tdsdr-devel
 #SBT_KERNEL_GIT_USER   := 
 #SBT_KERNEL_GIT_EMAIL  := 
 export SBT_KERNEL_GIT_REPO SBT_KERNEL_GIT_BRANCH SBT_KERNEL_GIT_USER SBT_KERNEL_GIT_EMAIL
@@ -31,8 +31,8 @@ export SBT_PETALINUX_VER := 2013.04
 # use with FreeRTOS, as described in Xilinx UG978 "Zynq AMP Linux FreeRTOS Guide"
 #export SBT_BSP := SDRDC
 #export SBT_BSP := SDRDC-AMP
-#export SBT_BSP := TDSDR
-export SBT_BSP := SDR-M1
+export SBT_BSP := TDSDR
+#export SBT_BSP := SDR-M1
 
 # prebuilt boot.bins:
 ifeq ($(SBT_BSP),TDSDR)
