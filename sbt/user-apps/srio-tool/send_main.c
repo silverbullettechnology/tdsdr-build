@@ -45,31 +45,19 @@ unsigned    opt_local    = 0;
 unsigned    opt_chan     = DEF_CHAN;
 size_t      opt_data     = 0;
 size_t      opt_buff     = 0;
-size_t      opt_words    = 0;
 unsigned    opt_timeout  = DEF_TIMEOUT;
 unsigned    opt_npkts    = 0;
+size_t      opt_body     = 256;
+size_t      opt_head     = VITA_HEAD;
+size_t      opt_foot     = 0;
 FILE       *opt_debug    = NULL;
 uint32_t    opt_sid      = 0;
-uint8_t     opt_paint    = 0xFF;
+uint32_t    opt_cos      = 0x11;
+uint8_t     opt_paint    = 0;
 char       *opt_rawfile  = NULL;
 
 char                *opt_in_file = NULL;
 struct format_class *opt_in_fmt  = NULL;
-
-
-struct send_packet
-{
-	uint32_t  tuser;
-	uint32_t  padding;
-	uint32_t  hello[2];
-	uint32_t  v49_hdr;
-	uint32_t  v49_sid;
-	uint32_t  v49_tsi;
-	uint32_t  v49_tsf1;
-	uint32_t  v49_tsf2;
-	uint32_t  data[58];
-	uint32_t  v49_trailer;
-};
 
 
 static struct format_options sd_fmt_opts =
@@ -78,36 +66,38 @@ static struct format_options sd_fmt_opts =
 	.single   = DSM_BUS_WIDTH / 2,
 	.sample   = DSM_BUS_WIDTH,
 	.bits     = 16,
-	.packet   = 272,
-	.head     = 36,
-	.data     = 232,
-	.foot     = 0,
-	.flags    = FO_ENDIAN,
+	.head     = SRIO_HEAD,
+	.flags    = FO_ENDIAN|FO_IQ_SWAP,
 };
 
 
 static void usage (void)
 {
-	printf("Usage: srio-send [-v] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
-	       "                 [-n npkts] [-L local] [-R remote] in-file stream-id\n"
+	printf("Usage: srio-send [-vrei] [-c channel] [-s bytes] [-S samples] [-t timeout]\n"
+	       "                 [-L local] [-R remote] [-b bytes] [-h bytes]\n"
+	       "                 in-file [stream-id]\n"
 	       "Where:\n"
 	       "-v          Verbose/debugging enable\n"
-	       "-d remote   SRIO destination device-ID (default %d)\n"
+	       "-r          Raw mode: skip VITA49 headers (implies -ei)\n"
+	       "-e          Disable endian swap (default enabled)\n"
+	       "-i          Disable I/Q swap (default enabled)\n"
+	       "-R remote   SRIO destination device-ID (default %d)\n"
 	       "-L local    SRIO local device-ID (if not auto-probed)\n"
 	       "-c channel  DMA channel to use (default %d)\n"
 	       "-S sammples Set payload size in samples (K or M optional)\n"
 	       "-s bytes    Set payload size in bytes (K or M optional)\n"
 	       "-t timeout  Set timeout in jiffies (default %u)\n"
-	       "-n npkts    Set number of packets for combiner (default from size)\n"
 	       "-p paint    Paint transmit buffer with byte value before loading\n"
+	       "-b bytes    Set PDU body size in bytes (K or M optional, default 256)\n"
+	       "-h bytes    Set PDU header size in bytes (K or M optional, default %zu)\n"
 	       "\n"
 	       "in-file is specified in the typical format of [fmt:]filename[.ext] - if given,\n"
 	       "fmt must exactly match a format name, otherwise .ext is used to guess the file\n"
 	       "format.\n"
-	       "stream-id is a required value, and must match the expected stream-id on the\n"
+	       "stream-id is optional, and must match the expected stream-id on the\n"
 	       "receiver side, if that receiver implements stream-ID filtering.\n"
 	       "\n", 
-		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT);
+		   DEF_DEST, DEF_CHAN, DEF_TIMEOUT, VITA_HEAD);
 }
 
 static void dump_channels (void)
@@ -149,7 +139,8 @@ static void progress (size_t done, size_t size)
 int main (int argc, char **argv)
 {
 	struct dsm_chan_stats *sb;
-	struct send_packet    *pkt;
+	struct srio_header    *srio_hdr;
+	struct vita_header    *vita_hdr;
 	unsigned long          routing;
 	unsigned long          reg;
 	unsigned long          tuser;
@@ -158,6 +149,8 @@ int main (int argc, char **argv)
 	char                  *format;
 	FILE                  *in_fp = NULL;
 	void                  *buff;
+	void                  *pkt;
+	void                  *ptr;
 	int                    srio_dev;
 	int                    ret = 0;
 	int                    opt;
@@ -165,7 +158,7 @@ int main (int argc, char **argv)
 
 	setbuf(stdout, NULL);
 
-	while ( (opt = getopt(argc, argv, "?hvR:L:c:s:S:t:n:p:o:")) > -1 )
+	while ( (opt = getopt(argc, argv, "?hvreiR:L:c:s:S:t:p:o:b:")) > -1 )
 		switch ( opt )
 		{
 			case 'v':
@@ -173,11 +166,19 @@ int main (int argc, char **argv)
 				format_debug_setup(stderr);
 				break;
 
+			case 'r':
+				opt_head = 0;
+				opt_foot = 0;
+				sd_fmt_opts.flags &= ~(FO_ENDIAN|FO_IQ_SWAP);
+				break;
+
+			case 'e': sd_fmt_opts.flags &= ~FO_ENDIAN;  break;
+			case 'i': sd_fmt_opts.flags &= ~FO_IQ_SWAP; break;
+
 			case 'R': opt_remote  = strtoul(optarg, NULL, 0); break;
 			case 'L': opt_local   = strtoul(optarg, NULL, 0); break;
 			case 'c': opt_chan    = strtoul(optarg, NULL, 0); break;
 			case 't': opt_timeout = strtoul(optarg, NULL, 0); break;
-			case 'n': opt_npkts   = strtoul(optarg, NULL, 0); break;
 			case 'p': opt_paint   = strtoul(optarg, NULL, 0); break;
 			case 'o': opt_rawfile = optarg;                   break;
 
@@ -190,11 +191,17 @@ int main (int argc, char **argv)
 				opt_data *= DSM_BUS_WIDTH;
 				break;
 
+			case 'b': opt_body = (size_bin(optarg) + 7) & ~7; break;
 
 			default:
 				usage();
 				return 1;
 		}
+
+	sd_fmt_opts.head  += opt_head;
+	sd_fmt_opts.foot  += opt_foot;
+	sd_fmt_opts.data   = opt_body - (opt_head + opt_foot);
+	sd_fmt_opts.packet = sd_fmt_opts.head + sd_fmt_opts.data + sd_fmt_opts.foot;
 
 	if ( opt_debug )
 	{
@@ -209,7 +216,8 @@ int main (int argc, char **argv)
 		fprintf(opt_debug, "  foot    : %zu\n",  sd_fmt_opts.foot);
 	}
 
-	if ( (argc - optind) < 2 )
+
+	if ( (argc - optind) < 1 )
 	{
 		usage();
 		return 1;
@@ -242,6 +250,17 @@ int main (int argc, char **argv)
 		else
 			opt_data = format_size_data_from_buff(&sd_fmt_opts, opt_buff);
 
+		// loaded data file is not an even multiple of the sample size: increase buffer
+		// size and restrict format to loading only those bytes.
+		if ( opt_data & 7 )
+		{
+			sd_fmt_opts.limit = opt_data;
+			opt_data += 7;
+			opt_data &= ~7;
+			printf("Note: file size %zu not a multiple of 8, padding with paint to %zu\n",
+			       sd_fmt_opts.limit, opt_data);
+		}
+
 		if ( !in_fp || !opt_buff )
 		{
 			fclose(in_fp);
@@ -251,14 +270,12 @@ int main (int argc, char **argv)
 	else if ( !(in_fp = fopen(opt_in_file, "r")) )
 		perror(opt_in_file);
 
-	if ( !opt_npkts )
-		opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
-	opt_buff = opt_npkts * sd_fmt_opts.packet;
-
+	opt_npkts = format_num_packets_from_data(&sd_fmt_opts, opt_data);
+	opt_buff  = format_size_buff_from_data(&sd_fmt_opts,   opt_data);
 	printf("Sizes: buffer %zu, data %zu, npkts %zu\n", opt_buff, opt_data, opt_npkts);
 
-	opt_sid = strtoul(argv[optind + 1], NULL, 0);
-
+	if ( (argc - optind) >= 2 )
+		opt_sid = strtoul(argv[optind + 1], NULL, 0) & 0xFFFF;
 
 	opt_remote &= 0xFFFF;
 	if ( !opt_remote || opt_remote >= 0xFFFF )
@@ -335,8 +352,8 @@ int main (int argc, char **argv)
 	// validate buffer size against width and channel / total limits
 	if ( opt_buff % DSM_BUS_WIDTH || 
 	     opt_buff < DSM_BUS_WIDTH || 
-	     opt_buff > dsm_channels->list[opt_chan].words ||
-	     opt_buff > dsm_limits.total_words )
+	     opt_buff > (dsm_channels->list[opt_chan].words * DSM_BUS_WIDTH) ||
+	     opt_buff > (dsm_limits.total_words * DSM_BUS_WIDTH) )
 	{
 		printf("Data size %zu gives invalid buffer size %zu - minimum %u, maximum %lu,\n"
 		       "and must be a multiple of %u\n",
@@ -345,9 +362,8 @@ int main (int argc, char **argv)
 		ret = 1;
 		goto exit_pipe;
 	}
-	opt_words = opt_buff / DSM_BUS_WIDTH;
 	printf("Data size %zu gives buffer size %zu, npkts %zu, words %zu\n",
-	       opt_data, opt_buff, opt_npkts, opt_words);
+	       opt_data, opt_buff, opt_npkts, opt_buff / DSM_BUS_WIDTH);
 
 	// clamp timeout and set
 	if ( opt_timeout < 100 )
@@ -363,13 +379,15 @@ int main (int argc, char **argv)
 	printf("Timeout set to %u jiffies\n", opt_timeout);
 
 	// allocate page-aligned buffer
-	if ( !(buff = dsm_user_alloc(opt_words)) )
+	if ( !(buff = dsm_user_alloc(opt_buff / DSM_BUS_WIDTH)) )
 	{
-		printf("dsm_user_alloc(%zu) failed: %s\n", opt_words, strerror(errno));
+		printf("dsm_user_alloc(%zu) failed: %s\n",
+		       opt_buff / DSM_BUS_WIDTH, strerror(errno));
 		ret = 1;
 		goto exit_pipe;
 	}
-	printf("Buffer allocated: %lu words / %lu MB\n", opt_words, opt_words >> 17);
+	printf("Buffer allocated: %lu words / %lu MB\n",
+	       opt_buff / DSM_BUS_WIDTH, opt_buff >> 20);
 
 	// load data-file
 	sd_fmt_opts.prog_func = progress;
@@ -387,27 +405,55 @@ int main (int argc, char **argv)
 	tuser  |= opt_remote;
 	printf("tuser word: 0x%08x\n", tuser);
 
-	// build packet headers - just tuser initially
+	// build packet headers - precalc header fields as much as possible
+	// length in HELLO header is total packet minus TUSER+HELLO, may need -1
+	size_t    packet = sd_fmt_opts.packet - SRIO_HEAD;
+	uint32_t  hello0 = (opt_sid << 16) | packet;
+	uint32_t  hello1 = (opt_cos <<  4) | 0x00900000;
+	size_t    left   = opt_data;
+
 	pkt = buff;
+	smp = 0;
 	for ( idx = 0; idx < opt_npkts; idx++ )
 	{
-		// SRIO header
-		pkt->tuser    = tuser;
-		pkt->padding  = 0xFFFFFFFF;
-		pkt->hello[1] = 0x00600000;
-		pkt->hello[0] = opt_sid;
+		srio_hdr = ptr = pkt;
 
-		// VITA49 header / trailer
-		hdr = ((idx & 0xf) << 16) | 0x10F0003F;
-		pkt->v49_hdr  = ntohl(hdr);
-		pkt->v49_sid  = ntohl(opt_sid);
-		pkt->v49_tsi  = 0;
-		pkt->v49_tsf1 = 0;
-		pkt->v49_tsf2 = ntohl(smp);
-		pkt->v49_trailer = 0xaaaaaaaa;
+		// SRIO header - TUSER, alignment, and HELLO header
+		srio_hdr->tuser    = tuser;
+		srio_hdr->padding  = 0;
+		srio_hdr->hello[1] = hello1;
+		srio_hdr->hello[0] = hello0;
+		if ( left < packet )
+		{
+			left += VITA_HEAD;
+			srio_hdr->hello[0] &= 0xFFFF0000;
+			srio_hdr->hello[0] |= left & 0xFFFF;
+		}
 
-		pkt++;
-		smp += 29;
+		// VITA49 header if enabled
+		if ( opt_head )
+		{
+			ptr += sizeof(*srio_hdr);
+			vita_hdr = ptr;
+
+			if ( left < packet )
+				hdr = left;
+			else
+				hdr = packet;
+			hdr >>= 2;
+			hdr  |= (idx & 0xf) << 16;
+			hdr  |= 0x10300000;	// With SID + V49_HDR_TSF 
+
+			vita_hdr->hdr  = ntohl(hdr);
+			vita_hdr->sid  = ntohl(opt_sid);
+			vita_hdr->tsf1 = 0;
+			vita_hdr->tsf2 = ntohl(smp);
+			smp += sd_fmt_opts.data / 8;
+		}
+
+		// sample advance based on data payload, packet based on payload + headers
+		pkt += sd_fmt_opts.packet;
+		left -= sd_fmt_opts.data;
 	}
 
 	if ( opt_rawfile )
@@ -416,9 +462,9 @@ int main (int argc, char **argv)
 		if ( fd > -1 )
 		{
 			void   *walk = buff;
-			size_t  left = opt_buff;
 			int     ret;
 
+			left = opt_buff;
 			while ( left >= 4096 )
 			{
 				if ( (ret = write(fd, walk, 4096)) < 0 )
@@ -442,7 +488,7 @@ int main (int argc, char **argv)
 
 
 	// hand buffer to kernelspace driver and build scatterlist
-	if ( dsm_map_user(opt_chan, 1, buff, opt_words) )
+	if ( dsm_map_user(opt_chan, 1, buff, opt_buff / DSM_BUS_WIDTH) )
 	{
 		printf("dsm_map_user() failed: %s\n", strerror(errno));
 		ret = 1;
@@ -458,12 +504,16 @@ int main (int argc, char **argv)
 		goto exit_free;
 	}
 	reg  = routing;
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_DMA;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_DMA;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_RESET);
 	pipe_srio_dma_split_set_cmd(0);
 	pipe_srio_dma_split_set_npkts(opt_npkts);
+
+	// New splitter for type 9 needs length including HELLO headers but excluding TUSER +
+	// padding, in 64-bit words.
+	pipe_srio_dma_split_set_psize((sd_fmt_opts.packet / DSM_BUS_WIDTH) - 1);
 	pipe_srio_dma_split_set_cmd(PD_SRIO_DMA_SPLIT_CMD_ENABLE);
 
 	// start DMA transaction on all mapped channels, then start data-source module
@@ -525,7 +575,7 @@ exit_unmap:
 		printf("Buffer unmapped with kernel module\n");
 
 exit_free:
-	dsm_user_free(buff, opt_words);
+	dsm_user_free(buff, opt_buff / DSM_BUS_WIDTH);
 	printf("Buffer unlocked and freed\n");
 
 exit_pipe:

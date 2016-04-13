@@ -1,0 +1,4 @@
+#PS	HD	HV	Net
+83	out	hi	SRIO_PCIE_SEL-2
+84	out	lo	SRIO_PCIE_SEL
+

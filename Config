@@ -32,10 +32,29 @@ export SBT_PETALINUX_VER := 2013.04
 #export SBT_BSP := SDRDC
 #export SBT_BSP := SDRDC-AMP
 export SBT_BSP := TDSDR
+#export SBT_BSP := SDR-M1
 
-# Boot.bin selection
-export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/TDSDR/fsbl_8596688e8a5a_u-boot_5d918b1c_pl_bdb0df03.bin
+# prebuilt boot.bins:
+ifeq ($(SBT_BSP),TDSDR)
+	SBT_BOOT_FILE := fsbl_8596688e8a5a_u-boot_5d918b1c_pl_bdb0df03.bin
+endif
+ifeq ($(SBT_BSP),SDR-M1)
+	# - Use 02_25_2016_1334 with Schroff 23005-466 52 chassis
+	# - Use 02_25_2016_1500 with Schroff 23005-484 52 chassis
+	SBT_BOOT_FILE := fsbl_939dfde_uboot_5f237df_pl_02_25_2016_1334.bin
+	#SBT_BOOT_FILE := fsbl_939dfde_uboot_5f237df_pl_02_25_2016_1500.bin
+endif
+ifeq ($(SBT_BSP),SDRDC)
+	SBT_BOOT_FILE := boot.bin
+endif
+ifeq ($(SBT_BSP),SDRDC-AMP)
+	SBT_BOOT_FILE := boot.bin
+endif
 
+# prebuilt binaries are in a board-specific tree, if not set then we'll skip the copy
+ifneq ($(SBT_BOOT_FILE),)
+	export SBT_BOOT_BIN := $(SBT_TOP)/sbt/prebuilt/$(SBT_BSP)/$(SBT_BOOT_FILE)
+endif
 
 # You shouldn't need to modify anything beyond here
 SBT_TOOLS     := $(SBT_TOP)/sbt/tools

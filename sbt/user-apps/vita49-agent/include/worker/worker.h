@@ -23,6 +23,18 @@
 #include <sbt_common/uuid.h>
 
 
+struct vita_header
+{
+	uint32_t  hdr;
+	uint32_t  sid;
+	uint32_t  tsf1;
+	uint32_t  tsf2;
+};
+#define VITA_HEAD  sizeof(struct vita_header)
+
+extern size_t   worker_opt_body;
+extern uint8_t  worker_opt_cos;
+
 extern struct resource_info  worker_res;
 extern uuid_t                worker_rid;
 extern unsigned              worker_sid;

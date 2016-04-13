@@ -53,6 +53,7 @@ struct list_head   list;
 
 struct sd_user_priv
 {
+	char               name[32];
 	wait_queue_head_t  wait;
 	spinlock_t         lock;
 	struct list_head   queue;
@@ -62,6 +63,8 @@ struct sd_user_priv
 	uint16_t           dbell_max;
 	uint64_t           swrite_min;
 	uint64_t           swrite_max;
+	uint16_t           sid_min;
+	uint16_t           sid_max;
 };
 
 struct sd_user_mesg
@@ -159,7 +162,7 @@ void sd_user_recv_mbox (struct sd_mesg *mesg, int mbox)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -195,7 +198,8 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %09llx..%09llx\n", priv, priv->swrite_min, priv->swrite_max);
+		pr_debug("  %p: %09llx..%09llx %s\n",
+		         priv, priv->swrite_min, priv->swrite_max, priv->name);
 		if ( addr >= priv->swrite_min && addr <= priv->swrite_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -204,7 +208,7 @@ void sd_user_recv_swrite (struct sd_desc *desc, uint64_t addr)
 				pr_err("swrite dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -246,7 +250,8 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	list_for_each(walk, &list)
 	{
 		priv = container_of(walk, struct sd_user_priv, list);
-		pr_debug("  %p: %04x..%04x\n", priv, priv->dbell_min, priv->dbell_max);
+		pr_debug("  %p: %04x..%04x %s\n",
+		         priv, priv->dbell_min, priv->dbell_max, priv->name);
 		if ( info >= priv->dbell_min && info <= priv->dbell_max )
 		{
 			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
@@ -255,7 +260,7 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 				pr_err("DBELL dropped: kmalloc() failed\n");
 				continue;
 			}
-			pr_debug("    dispatch\n");
+			pr_debug("    dispatch to %s\n", priv->name);
 
 			INIT_LIST_HEAD(&qm->list);
 
@@ -277,6 +282,61 @@ void sd_user_recv_dbell (struct sd_desc *desc, uint16_t info)
 	spin_unlock_irqrestore(&lock, flags);
 	sd_desc_free(sd_user_dev, desc);
 }
+
+void sd_user_recv_stream (struct sd_desc *desc, uint16_t sid)
+{
+	struct sd_user_priv *priv;
+	struct list_head    *walk;
+	unsigned long        flags;
+	uint32_t            *hdr  = desc->virt;
+	size_t               size = offsetof(struct sd_user_mesg,   mesg) + 
+	                            offsetof(struct sd_mesg,        mesg) + 
+	                            offsetof(struct sd_mesg_stream, data) + 
+	                            desc->used - 12;
+
+	pr_debug("STREAM: dispatch %zu bytes to %d listeners (%zu payload)\n",
+	         size, sd_user_dev->sid_users, desc->used - 12);
+
+	/* Dispatch to users */
+	spin_lock_irqsave(&lock, flags);
+	list_for_each(walk, &list)
+	{
+		priv = container_of(walk, struct sd_user_priv, list);
+		pr_debug("  %p: %04x..%04x %s\n", priv, priv->sid_min, priv->sid_max, priv->name);
+		if ( sid >= priv->sid_min && sid <= priv->sid_max )
+		{
+			struct sd_user_mesg *qm = kmalloc(size, GFP_ATOMIC);
+			if ( !qm )
+			{
+				pr_err("stream dropped: kmalloc() failed\n");
+				continue;
+			}
+			pr_debug("    dispatch %p to %s\n", qm, priv->name);
+
+			memset(qm, 0, size);
+			INIT_LIST_HEAD(&qm->list);
+
+			qm->mesg.type     = 9;
+			qm->mesg.size     = size - offsetof(struct sd_user_mesg, mesg);
+			qm->mesg.dst_addr = hdr[0] >> 16;
+			qm->mesg.src_addr = hdr[0] & 0xFFFF;
+			qm->mesg.hello[0] = hdr[1];
+			qm->mesg.hello[1] = hdr[2];
+
+			qm->mesg.mesg.stream.sid = sid;
+			qm->mesg.mesg.stream.cos = (hdr[1] >> 4) & 0xFF;
+			memcpy(qm->mesg.mesg.stream.data, desc->virt + SD_HEAD_SIZE, desc->used - 12);
+
+			list_add_tail(&qm->list, &priv->queue);
+
+//			hexdump_buff(qm, size);
+			wake_up_interruptible(&priv->wait);
+		}
+	}
+	spin_unlock_irqrestore(&lock, flags);
+	sd_desc_free(sd_user_dev, desc);
+}
+
 
 
 //static const char *fifo_name[2] = { "targ", "init" };
@@ -311,7 +371,18 @@ void sd_user_recv_desc (struct sd_fifo *fifo, struct sd_desc *desc, int init)
 			pr_debug("SWRITE dropped: no users listening\n");
 			break;
 
-		// SWRITE and DBELL: dispatch if users registered
+		// STREAM: dispatch if users registered
+		case 9:
+			if ( sd_user_dev->sid_users )
+			{
+				uint16_t  sid = desc->virt[1] & 0xFFFF;
+				sd_user_recv_stream(desc, sid);
+				return;
+			}
+			pr_debug("STREAM dropped: no users listening\n");
+			break;
+
+		// DBELL: dispatch if users registered
 		case 10:
 			if ( sd_user_dev->dbell_users )
 			{
@@ -428,6 +499,24 @@ static void sd_user_swrite_count (void)
 	spin_unlock_irqrestore(&lock, flags);
 }
 
+static void sd_user_sid_count (void)
+{
+	struct sd_user_priv *priv;
+	struct list_head    *walk;
+	unsigned long        flags;
+	int                  count = 0;
+
+	spin_lock_irqsave(&lock, flags);
+	list_for_each(walk, &list)
+	{
+		priv = container_of(walk, struct sd_user_priv, list);
+		if ( priv->sid_min <= priv->sid_max )
+			count++;
+	}
+	sd_user_dev->sid_users = count;
+	spin_unlock_irqrestore(&lock, flags);
+}
+
 
 static int sd_user_open (struct inode *i, struct file *f)
 {
@@ -446,6 +535,10 @@ static int sd_user_open (struct inode *i, struct file *f)
 	priv->dbell_max  = 0x0000;
 	priv->swrite_min = 0x3FFFFFFFF;
 	priv->swrite_max = 0x000000000;
+	priv->sid_min    = 0xFFFF;
+	priv->sid_max    = 0x0000;
+
+	snprintf(priv->name, sizeof(priv->name), "%s", current->comm);
 
 	f->private_data = priv;
 	pr_debug("%s: open: f %p, priv %p\n", __func__, f, priv);
@@ -487,6 +580,7 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	struct sd_user_mesg *qm;
 	unsigned long        flags;
 	size_t               size;
+	int                  ret;
 
 	// no data available for read: return EAGAIN or sleep
 	while ( list_empty(&priv->queue) )
@@ -512,11 +606,20 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 	size = qm->mesg.size;
 	list_del_init(&qm->list);
 	spin_unlock_irqrestore(&priv->lock, flags);
-	pr_debug("%s: type %d size %zu\n", __func__, qm->mesg.type, qm->mesg.size);
+	pr_debug("%s: type %d size %zu for %s\n", __func__,
+	         qm->mesg.type, qm->mesg.size, priv->name);
 
-	if ( size > s || copy_to_user(b, &qm->mesg, size) )
+	if ( size > s )
 	{
-		pr_err("Message dropped\n");
+		pr_err("Message dropped: size %zu exceeds buffer size %zu\n", size, s);
+		kfree(qm);
+		return -ENOSPC;
+	}
+
+	if ( (ret = copy_to_user(b, &qm->mesg, size)) )
+	{
+		pr_err("Message dropped: copy_to_user(b, qm %p, size %zu) returnd %d\n",
+		       qm, size, ret);
 		kfree(qm);
 		return -ENOSPC;
 	}
@@ -531,15 +634,18 @@ static ssize_t sd_user_read (struct file *f, char __user *b, size_t s, loff_t *o
 static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, loff_t *o)
 {
 	struct sd_mesg *mesg;
-	struct sd_desc *desc[16];
-	uint8_t         tid;
+	struct sd_desc *desc[16]; // TODO: more frags for 64K type 9
 	int             size = s;
 	int             num = 1;
 	int             ret = s;
 
 	pr_debug("%s(f, b %p, s %zu, o %lld)\n", __func__, b, s, *o);
 	if ( s > SD_MESG_SIZE || s < offsetof(struct sd_mesg, mesg) )
+	{
+		pr_err("%s[%d]: size %zu > limit %u, or < header min %zu, discard\n",
+		       __func__, __LINE__, s, SD_MESG_SIZE, offsetof(struct sd_mesg, mesg));
 		return -EINVAL;
+	}
 
 	memset(desc, 0, sizeof(desc));
 	if ( !(mesg = kzalloc(SD_MESG_SIZE, GFP_KERNEL)) )
@@ -550,6 +656,15 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		ret = -EFAULT;
 		goto fail;
 	}
+
+	if ( size != mesg->size )
+	{
+		pr_err("%s[%d]: write size %zu mismatch with header size %zu, discard\n",
+		       __func__, __LINE__, size, mesg->size);
+		ret = -EINVAL;
+		goto fail;
+	}
+	size -= offsetof(struct sd_mesg, mesg);
 
 	if ( sd_user_dev->devid == 0xFFFF )
 		switch ( mesg->src_addr )
@@ -562,6 +677,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 
 	if ( !(desc[0] = sd_desc_alloc(sd_user_dev, GFP_KERNEL|GFP_DMA)) )
 	{
+		pr_err("%s[%d]: sd_desc_alloc() failed, discard\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -571,22 +687,81 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 	switch ( mesg->type )
 	{
 		case 6: // SWRITE
-			desc[0]->virt[1]  = 0; //mesg->mesg.swrite.addr & 0xFFFFFFFF;
-			desc[0]->virt[2]  = 0; //(mesg->mesg.swrite.addr >>= 32) & 0x03;
-			desc[0]->virt[2] |= 0x00600000;
-			size -= offsetof(struct sd_mesg,        mesg) +
-			        offsetof(struct sd_mesg_swrite, data);
+			if ( size <= offsetof(struct sd_mesg_swrite, data) )
+			{
+				pr_err("%s[%d]: size %zu < header min %zu, discard\n",
+				       __func__, __LINE__, size, offsetof(struct sd_mesg_swrite, data));
+				ret = -EINVAL;
+				goto fail;
+			}
+			size -= offsetof(struct sd_mesg_swrite, data);
+
 			if ( size > (sizeof(uint32_t) * SD_DATA_SIZE) )
 			{
 				ret = -EFBIG;
 				goto fail;
 			}
+
+			desc[0]->virt[1]  = mesg->mesg.swrite.addr & 0xFFFFFFFF;
+			desc[0]->virt[2]  = (mesg->mesg.swrite.addr >> 32) & 0x03;
+			desc[0]->virt[2] |= 0x00600000;
 			memcpy(desc[0]->virt + SD_HEAD_SIZE, mesg->mesg.swrite.data, size);
 			desc[0]->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
 			break;
 
+		case 9: // STREAM
+			if ( size <= offsetof(struct sd_mesg_stream, data) )
+			{
+				pr_err("%s[%d]: size %zu < header min %zu, discard\n",
+				       __func__, __LINE__, size, offsetof(struct sd_mesg_stream, data));
+				ret = -EINVAL;
+				goto fail;
+			}
+			size -= offsetof(struct sd_mesg_stream, data);
+
+			if ( size > 256 )
+			{
+				ret = -EFBIG;
+				goto fail;
+			}
+
+			if ( mesg->mesg.stream.flags & (SD_MESG_SF_S|SD_MESG_SF_E) )
+			{
+				desc[0]->virt[1]   = mesg->mesg.stream.sid;
+				desc[0]->virt[1] <<= 16;
+				if ( mesg->mesg.stream.len )
+					desc[0]->virt[1] |= mesg->mesg.stream.len;
+				else
+					desc[0]->virt[1] |= size;
+			}
+			else
+				desc[0]->virt[1] = 0;
+
+			desc[0]->virt[2]  = mesg->mesg.stream.cos;
+			desc[0]->virt[2] <<= 4;
+			desc[0]->virt[2] |= 0x00900000;
+			if ( mesg->mesg.stream.flags & SD_MESG_SF_S )
+				desc[0]->virt[2] |= 0x80000000;
+			if ( mesg->mesg.stream.flags & SD_MESG_SF_E )
+				desc[0]->virt[2] |= 0x40000000;
+
+			if ( size & 0x01 )
+			{
+				mesg->mesg.stream.data[size++] = '\0';
+				desc[0]->virt[2] |= 0x01000000; // P set for padding byte
+			}
+			if ( size & 0x02 )
+			{
+				desc[0]->virt[2] |= 0x02000000; // O set for odd number of half-words
+				mesg->mesg.stream.data[size++] = '\0';
+				mesg->mesg.stream.data[size++] = '\0';
+			}
+
+			memcpy(desc[0]->virt + SD_HEAD_SIZE, mesg->mesg.stream.data, size);
+			desc[0]->used = size + (sizeof(uint32_t) * SD_HEAD_SIZE);
+			break;
+
 		case 10: // DBELL
-			tid = 
 			desc[0]->virt[1] = mesg->mesg.dbell.info << 16;
 			desc[0]->virt[2]   = sd_user_dev->tid++;
 			desc[0]->virt[2] <<= 24;
@@ -597,6 +772,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 		case 11: // MESSAGE
 			if ( (num = sd_mbox_frag(sd_user_dev, desc, mesg, GFP_KERNEL|GFP_DMA)) < 1 )
 			{
+				pr_err("%s[%d]: failed to frag type 11, discard\n", __func__, __LINE__);
 				ret = -EFBIG;
 				goto fail;
 			}
@@ -613,6 +789,7 @@ static ssize_t sd_user_write (struct file *f, const char __user *b, size_t s, lo
 			break;
 
 		default:
+			pr_err("%s[%d]: type %d invalid, discard\n", __func__, __LINE__, mesg->type);
 			ret = -EINVAL;
 			goto fail;
 	}
@@ -739,6 +916,34 @@ static long sd_user_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			sd_user_swrite_count();
 			pr_debug("%p: set swrite_min %llx, max %llx\n",
 			         priv, priv->swrite_min, priv->swrite_max);
+			return 0;
+
+
+		// Get range of stream IDs to be notified for
+		case SD_USER_IOCG_STREAM_ID_SUB:
+			u16x2[0] = priv->sid_min;
+			u16x2[1] = priv->sid_max;
+			return copy_to_user((void *)arg, u16x2, sizeof(u16x2));
+
+		// Set range of stream IDs to be notified for
+		case SD_USER_IOCS_STREAM_ID_SUB:
+			if ( copy_from_user(u16x2, (void *)arg, sizeof(u16x2)) )
+				return -EFAULT;
+
+			if ( u16x2[0] > u16x2[1] )
+			{
+				uint16_t tmp = u16x2[0];
+				u16x2[0]     = u16x2[1];
+				u16x2[1]     = tmp;
+			}
+
+			spin_lock_irqsave(&priv->lock, flags);
+			priv->sid_min = u16x2[0];
+			priv->sid_max = u16x2[1];
+			spin_unlock_irqrestore(&priv->lock, flags);
+			sd_user_sid_count();
+			pr_debug("%p: set sid_min %x, max %x\n",
+			         priv, priv->sid_min, priv->sid_max);
 			return 0;
 
 

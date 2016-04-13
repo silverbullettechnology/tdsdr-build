@@ -44,8 +44,16 @@ struct sd_mesg        *mesg;
 struct sd_mesg_mbox   *mbox;
 struct sd_mesg_swrite *swrite;
 struct sd_mesg_dbell  *dbell;
+struct sd_mesg_stream *stream;
 
-uint32_t  buff[8192];
+#define BUFF_SIZE 1280
+#define RING_BITS 5
+#define RING_SIZE (1 << RING_BITS)
+#define RING_MASK (RING_SIZE - 1)
+uint32_t  rx_buff[RING_SIZE][BUFF_SIZE];
+uint32_t  tx_buff[RING_SIZE][BUFF_SIZE];
+unsigned  rx_slot;
+unsigned  tx_slot;
 int       size;
 
 uint16_t  opt_loc_addr = 0xFFFF;
@@ -54,11 +62,14 @@ uint16_t  opt_rem_addr = 2;
 long      opt_mbox_sub        = 0xF; // sub all 4 mboxes
 uint16_t  opt_dbell_range[2]  = { 0, 0xFFFF }; // sub all dbells 
 uint64_t  opt_swrite_range[2] = { 0, 0x3FFFFFFFF }; // sub all swrites
+uint16_t  opt_stream_range[2] = { 0, 0xFFFF }; // sub all streams
 
 long      opt_mbox_send    = 0;
 long      opt_mbox_letter  = 0;
 uint16_t  opt_dbell_send   = 0x5555;
 uint64_t  opt_swrite_send  = 0x12340000;
+uint16_t  opt_stream_sid   = 0x1234;
+uint8_t   opt_stream_cos   = 0x07;
 
 uint32_t  prev_status;
 time_t    periodic = -1;
@@ -82,10 +93,13 @@ static void signal_fatal (int signum)
 
 void usage (void)
 {
-	printf("Usage: %s [-L devid] [-R devid]\n"
+	printf("Usage: %s [-L devid] [-R devid] [-d dbell] [-m mbox] [-l ltr]\n"
 	       "Where:\n"
 	       "-L devid  Set local device-ID\n"
-	       "-R devid  Set remote device-ID\n",
+	       "-R devid  Set remote device-ID\n"
+	       "-d dbell  Set DBELL info value (base, each sent will post-increment)\n"
+	       "-m mbox   Set MESSAGE mbox value (default 0)\n"
+	       "-l ltr    Set MESSAGE letter value (default cycles in driver)\n",
 	       argv0);
 
 	exit(1);
@@ -108,9 +122,11 @@ void menu (void)
 	       "5 - Send a 2-frag MESSAGE (384 bytes)\n"
 	       "6 - Send a 3-frag MESSAGE (640 bytes)\n"
 	       "7 - Send a Vita49 DISCO message (40 bytes)\n"
-	       "8 - Send a burst of 2 SWRITEs, 256 bytes each\n"
-	       "9 - Send a burst of 4 SWRITEs, 256 bytes each\n"
-	       "0 - Send a burst of 8 SWRITEs, 256 bytes each\n"
+	       "8 - Send a single type 9 packet, 64 bytes\n"
+	       "9 - Send two type 9 packets, 64 bytes each\n"
+	       "0 - Send three type 9 packets, 64 bytes each\n"
+	       "- - Send four type 9 packets, 64 bytes each\n"
+	       "+ - Send five type 9 packets, 64 bytes each\n"
 	       "\n");
 }
 
@@ -193,7 +209,7 @@ int main (int argc, char **argv)
 	argv0 = argv[0];
 
 	int opt;
-	while ( (opt = getopt(argc, argv, "L:R:")) > -1 )
+	while ( (opt = getopt(argc, argv, "L:R:d:m:l:")) > -1 )
 		switch ( opt )
 		{
 			case 'L':
@@ -204,12 +220,22 @@ int main (int argc, char **argv)
 				opt_rem_addr = strtoul(optarg, NULL, 0);
 				break;
 
+			case 'd':
+				opt_dbell_send = strtoul(optarg, NULL, 0);
+				break;
+
+			case 'm':
+				opt_mbox_send = strtoul(optarg, NULL, 0) & 0x3F;
+				break;
+
+			case 'l':
+				opt_mbox_letter = (strtoul(optarg, NULL, 0) & 0x03) | 0x40;
+				break;
+
 			default:
 				usage();
 				break;
 		}
-
-//	setbuf(stdout, NULL);
 
 	int dev = open(DEV_NODE, O_RDWR|O_NONBLOCK);
 	if ( dev < 0 )
@@ -220,6 +246,17 @@ int main (int argc, char **argv)
 
 	signal(SIGTERM, signal_fatal);
 	signal(SIGINT,  signal_fatal);
+
+	// freopen the controlling terminal for stdout/stderr before st_term_setuip(), so
+	// setting stdin non-blocking doesn't also affect stdout
+	char tty[256];
+	memset(tty, 0, sizeof(tty));
+	if ( readlink("/proc/self/fd/1", tty, sizeof(tty)) > 0 )
+	{
+		freopen(tty, "w", stdout);
+		freopen(tty, "w", stderr);
+		setbuf(stderr, NULL);
+	}
 
 	st_term_setup();
 
@@ -239,6 +276,9 @@ int main (int argc, char **argv)
 	if ( ioctl(dev, SD_USER_IOCS_SWRITE_SUB, opt_swrite_range) )
 		perror("SD_USER_IOCG_SWRITE_SUB");
 
+	if ( ioctl(dev, SD_USER_IOCS_STREAM_ID_SUB, opt_stream_range) )
+		perror("SD_USER_IOCG_STREAM_ID_SUB");
+
 
 	/* Standard set of vars to support select */
 	struct timeval  tv_cur;
@@ -249,7 +289,6 @@ int main (int argc, char **argv)
 
 	/* RX CM_CTRL buffer */
 	struct sd_user_cm_ctrl cm_ctrl;
-	int                    swrite_burst;
 
 	struct timespec  send_ts, recv_ts;
 	uint64_t         send_ns, recv_ns, diff_ns;
@@ -257,11 +296,7 @@ int main (int argc, char **argv)
 	unsigned         diff_count = 0;
 	time_t           diff_reset = time(NULL) + 15;
 	char             repeat = 0;
-
-	mesg   = (struct sd_mesg *)buff;
-	mbox   = &mesg->mesg.mbox;
-	swrite = &mesg->mesg.swrite;
-	dbell  = &mesg->mesg.dbell;
+	int              type9_burst;
 
 	menu();
 	while ( main_loop )
@@ -317,9 +352,16 @@ int main (int argc, char **argv)
 		// data from driver to terminal
 		if ( FD_ISSET(dev, &rfds) )
 		{
-			memset(buff, 0xEE, sizeof(buff));
+			rx_slot++;
+			mesg   = (struct sd_mesg *)&(rx_buff[rx_slot & RING_MASK]);
+			mbox   = &mesg->mesg.mbox;
+			swrite = &mesg->mesg.swrite;
+			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
+
+			memset(mesg, 0, sizeof(rx_buff[0]));
 			clock_gettime(CLOCK_MONOTONIC, &recv_ts);
-			if ( (size = read(dev, buff, sizeof(buff))) < 0 )
+			if ( (size = read(dev, mesg, sizeof(rx_buff[0]))) < 0 )
 			{
 				perror("read() from driver");
 				break;
@@ -339,6 +381,14 @@ int main (int argc, char **argv)
 						size -= offsetof(struct sd_mesg_swrite, data);
 						printf("SWRITE to %09llx, payload %d:\n", swrite->addr, size);
 						hexdump_buff(swrite->data, size);
+						break;
+
+					case 9:
+						size -= offsetof(struct sd_mesg,        mesg);
+						size -= offsetof(struct sd_mesg_stream, data);
+						printf("STREAM ID %04x, COS %02x, payload %d:\n",
+						       stream->sid, stream->cos, size);
+						hexdump_buff(stream->data, size);
 						break;
 
 					case 10:
@@ -381,10 +431,8 @@ int main (int argc, char **argv)
 			else
 			{
 				printf("too short, buffer:\n");
-				hexdump_buff(buff, sizeof(buff));
+				hexdump_buff(mesg, sizeof(rx_buff[0]));
 			}
-
-			size = 0;
 		}
 
 		// data from terminal to buffer
@@ -403,12 +451,18 @@ int main (int argc, char **argv)
 
 		if ( key > '\0' )
 		{
-			size = 0;
-			memset(buff, 0, sizeof(buff));
+			tx_slot++;
+			mesg   = (struct sd_mesg *)&(tx_buff[tx_slot & RING_MASK]);
+			mbox   = &mesg->mesg.mbox;
+			swrite = &mesg->mesg.swrite;
+			dbell  = &mesg->mesg.dbell;
+			stream = &mesg->mesg.stream;
+
+			memset(mesg, 0, sizeof(tx_buff[0]));
 			mesg->src_addr = opt_loc_addr;
 			mesg->dst_addr = opt_rem_addr;
 			cm_ctrl.ch = 0;
-			swrite_burst = 2;
+			type9_burst = 1;
 			switch ( tolower(key) )
 			{
 				case '1':
@@ -416,19 +470,20 @@ int main (int argc, char **argv)
 					swrite->addr    = opt_swrite_send;
 					swrite->data[0] = 0x12345678;
 					swrite->data[1] = 0x87654321;
-					size = sizeof(uint32_t) * 2;
-					printf("\nSEND: SWRITE to %09llx, payload %d:\n", opt_swrite_send, size);
-					hexdump_buff(swrite->data, size);
-					size += offsetof(struct sd_mesg_swrite, data);
-					size += offsetof(struct sd_mesg,        mesg);
+					mesg->size = sizeof(uint32_t) * 2;
+					printf("\nSEND: SWRITE to %09llx, payload %d:\n", opt_swrite_send,
+					mesg->size);
+					hexdump_buff(swrite->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_swrite, data);
+					mesg->size += offsetof(struct sd_mesg,        mesg);
 					break;
 
 				case '2':
 					mesg->type = 10;
 					dbell->info = opt_dbell_send++;
-					size  = sizeof(struct sd_mesg_dbell);
+					mesg->size  = sizeof(struct sd_mesg_dbell);
 					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
-					size += offsetof(struct sd_mesg, mesg);
+					mesg->size += offsetof(struct sd_mesg, mesg);
 					break;
 
 				case '3':
@@ -441,19 +496,19 @@ int main (int argc, char **argv)
 					mbox->data[3] = 0x44444444;
 					mbox->data[4] = 0x55555555;
 					mbox->data[5] = 0x66666666;
-					size = sizeof(uint32_t) * 6;
+					mesg->size = sizeof(uint32_t) * 6;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter & 3, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '4':
 					mesg->type = 10;
 					dbell->info = 0xFFF0;
-					size  = sizeof(struct sd_mesg_dbell) + 
-					        offsetof(struct sd_mesg, mesg);
+					mesg->size  = sizeof(struct sd_mesg_dbell) + 
+					              offsetof(struct sd_mesg, mesg);
 					printf("\nSEND: DBELL w/ info %04x\n", dbell->info);
 					break;
 
@@ -463,12 +518,12 @@ int main (int argc, char **argv)
 					mbox->letter = opt_mbox_letter;
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA,  60);
-					size = 316;
+					mesg->size = 316;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '6':
@@ -478,12 +533,12 @@ int main (int argc, char **argv)
 					memset(&mbox->data[  0], 0x55, 256);
 					memset(&mbox->data[ 64], 0xAA, 256);
 					memset(&mbox->data[128], 0x55,  11);
-					size = 523;
+					mesg->size = 523;
 					printf("\nSEND: MESSAGE to mbox %d, letter %d, payload %d:\n",
-					       opt_mbox_send, opt_mbox_letter, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, opt_mbox_letter, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
 				case '7':
@@ -491,48 +546,69 @@ int main (int argc, char **argv)
 					mbox->mbox   = opt_mbox_send;
 					mbox->letter = opt_mbox_letter;
 					memcpy(mbox->data, v49_disco_mesg, sizeof(v49_disco_mesg));
-					size = sizeof(v49_disco_mesg);
+					mesg->size = sizeof(v49_disco_mesg);
 					printf("\nSEND: DISCO to mbox %d, payload %d:\n",
-					       opt_mbox_send, size);
-					hexdump_buff(mbox->data, size);
-					size += offsetof(struct sd_mesg_mbox, data);
-					size += offsetof(struct sd_mesg,      mesg);
+					       opt_mbox_send, mesg->size);
+					hexdump_buff(mbox->data, mesg->size);
+					mesg->size += offsetof(struct sd_mesg_mbox, data);
+					mesg->size += offsetof(struct sd_mesg,      mesg);
 					break;
 
-				// note: depends on swrite_burst being reset to 2 before switch
+				case '+':
+				case '=':
+					type9_burst++; // fall-through
+				case '-':
+					type9_burst++; // fall-through
 				case '0':
-					swrite_burst <<= 1; // fall-through
+					type9_burst++; // fall-through
 				case '9':
-					swrite_burst <<= 1; // fall-through
+					type9_burst++; // fall-through
 				case '8':
 				{
 					int        slot, byte;
-					uint16_t   paint;
 					uint16_t  *word;
-					for ( slot = 0; slot < swrite_burst; slot++ )
+					printf("\nSEND: %d STREAM packets to STRM-ID x%04x, cos x%02x payload %d:\n",
+					       type9_burst, opt_stream_sid, opt_stream_cos, 256);
+					for ( slot = 0; slot < type9_burst; slot++ )
 					{
-						mesg   = (struct sd_mesg *)&buff[slot * 128];
-						swrite = &mesg->mesg.swrite;
+						mesg   = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
+						stream = &mesg->mesg.stream;
 
-						mesg->type     = 6;
+						mesg->type     = 9;
+						mesg->crf      = 0;
+						mesg->pri      = 0;
 						mesg->size     = 256;
-						mesg->size    += offsetof(struct sd_mesg,        mesg);
-						mesg->size    += offsetof(struct sd_mesg_swrite, data);
 						mesg->src_addr = opt_loc_addr;
 						mesg->dst_addr = opt_rem_addr;
-						swrite->addr   = 0;
 
-						word  = (uint16_t *)swrite->data;
-						paint = slot << 8;
-						for ( byte = 0; byte < 128; byte++ )
-							*word++ = paint++;
+						stream->sid   = opt_stream_sid;
+						stream->cos   = opt_stream_cos;
+						stream->len   = type9_burst * 256;
+						stream->flags = 0;
+						if ( slot == 0 )
+							stream->flags |= SD_MESG_SF_S;
+						if ( slot == type9_burst - 1 )
+							stream->flags |= SD_MESG_SF_E;
+
+						word  = (uint16_t *)stream->data;
+						for ( byte = 0; byte < mesg->size; byte += 4 )
+						{
+							*word++ = 0x3412;
+							*word++ = ((slot + 8) << 4) | (byte << 6);
+						}
+
+						mesg->size    += offsetof(struct sd_mesg,        mesg);
+						mesg->size    += offsetof(struct sd_mesg_stream, data);
 					}
 
-					size = mesg->size;
-					for ( slot = 0; slot < swrite_burst; slot++ )
-						if ( (ret = write(dev, &buff[slot * 128], size)) < size )
+					for ( slot = 0; slot < type9_burst; slot++ )
+					{
+						mesg = (struct sd_mesg *)&tx_buff[(tx_slot + slot) & RING_MASK];
+						if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
 							perror("write() to driver");
-					size = 0;
+					}
+					tx_slot += type9_burst;
+					mesg = NULL;
 					break;
 				}
 
@@ -623,19 +699,17 @@ int main (int argc, char **argv)
 				default:
 					menu();
 			}
-		}
 
-		// data from buffer to driver
-		if ( size )
-		{
-			mesg->size = size;
-			clock_gettime(CLOCK_MONOTONIC, &send_ts);
-			if ( (ret = write(dev, buff, size)) < size )
+			// data from buffer to driver
+			if ( mesg && mesg->size )
 			{
-				perror("write() to driver");
-				break;
+				clock_gettime(CLOCK_MONOTONIC, &send_ts);
+				if ( (ret = write(dev, mesg, mesg->size)) < mesg->size )
+				{
+					perror("write() to driver");
+					break;
+				}
 			}
-			size = 0;
 		}
 	}
 

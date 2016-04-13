@@ -19,6 +19,27 @@
 #define _INCLUDE_DSA_COMMON_H_
 #include <stdarg.h>
 #include <stdint.h>
+#include <v49_message/common.h>
+
+
+struct srio_header
+{
+	uint32_t  tuser;
+	uint32_t  padding;
+	uint32_t  hello[2];
+};
+
+struct vita_header
+{
+	uint32_t  hdr;
+	uint32_t  sid;
+	uint32_t  tsf1;
+	uint32_t  tsf2;
+};
+
+#define SRIO_HEAD  sizeof(struct srio_header)
+#define VITA_HEAD  sizeof(struct vita_header)
+#define VITA_TAIL  sizeof(uint32_t)
 
 
 void stop (const char *fmt, ...);

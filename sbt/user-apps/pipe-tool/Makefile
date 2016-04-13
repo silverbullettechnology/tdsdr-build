@@ -5,7 +5,7 @@ APP      := pipe-sample pipe-transmit
 PIPE_TRANSMIT_OBJS := pipe-transmit.o common.o
 PIPE_SAMPLE_OBJS   := pipe-sample.o common.o
 
-PIPE_TRANSMIT_LIBS := -lfifo_dev -lpipe_dev
+PIPE_TRANSMIT_LIBS := -lfifo_dev -lpipe_dev -lformat
 PIPE_SAMPLE_LIBS   := -lfifo_dev -lpipe_dev
 
 CFLAGS += -I$(PETALINUX)/software/user-modules/fifo_dev

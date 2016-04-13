@@ -82,6 +82,12 @@ struct format_options
 
 	/* Bitmap of FO_* flags above */
 	unsigned long  flags;
+
+	/* Normally the number of data bytes read/written is calculated from the buffer size
+	 * passed, adjusted for packet header/footer space.  If "limit" is nonzero and less
+	 * than the buffer size, read/write operations will stop after this many data bytes
+	 * have been processed, allowing for padding/truncation to fit fabric restrictions */
+	size_t  limit;
 };
 
 

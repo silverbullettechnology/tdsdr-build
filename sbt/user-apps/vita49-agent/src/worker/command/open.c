@@ -45,25 +45,26 @@ static void worker_command_open_rx (int ident)
 	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_RESET);
 	pipe_vita49_trig_adc_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
 	pipe_adi2axis_set_ctrl(worker_adi,        PD_ADI2AXIS_CTRL_RESET);
-	pipe_swrite_pack_set_cmd(worker_adi,      PD_SWRITE_PACK_CMD_RESET);
+	pipe_type9_pack_set_cmd(worker_adi,       PD_TYPE9_PACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(worker_adi,            ADI_NEW_RX, ADI_NEW_RX_REG_RSTN, ADI_NEW_RX_RSTN);
 	pipe_vita49_pack_set_ctrl(worker_adi,     0);
 	pipe_vita49_trig_adc_set_ctrl(worker_adi, 0);
 	pipe_adi2axis_set_ctrl(worker_adi,        0);
+	pipe_type9_pack_set_cmd(worker_adi,       0);
 
 	// V49 packer setup
 	pipe_vita49_pack_set_streamid(worker_adi, worker_sid);
-	pipe_vita49_pack_set_pkt_size(worker_adi, 64); // 64 32-bit words -> 256 bytes
-	pipe_vita49_pack_set_trailer(worker_adi,  0xaaaaaaaa); // trailer for alignment
-	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE |
-	                                          PD_VITA49_PACK_CTRL_TRAILER);
+	pipe_vita49_pack_set_pkt_size(worker_adi, worker_opt_body / 4);
+	pipe_vita49_pack_set_ctrl(worker_adi,     PD_VITA49_PACK_CTRL_ENABLE);
 
-	// SWRITE packer setup 
-	pipe_swrite_pack_set_srcdest(worker_adi, worker_tuser);
-	pipe_swrite_pack_set_addr(worker_adi,    worker_sid); // sets SWRITE addr, matched on RX side
-	pipe_swrite_pack_set_cmd(worker_adi,     PD_SWRITE_PACK_CMD_START);
+	// Type9 packer setup
+	pipe_type9_pack_set_srcdest(worker_adi, worker_tuser);
+	pipe_type9_pack_set_strmid(worker_adi,  worker_sid); // sets type9 stream-ID, matched on RX
+	pipe_type9_pack_set_length(worker_adi,  worker_opt_body);
+	pipe_type9_pack_set_cos(worker_adi,     worker_opt_cos);
+	pipe_type9_pack_set_cmd(worker_adi,     PD_TYPE9_PACK_CMD_ENABLE);
 
 	// Set adc_sw_dest switch to 1,0 for ADI -> SRIO
 	pipe_routing_reg_get_adc_sw_dest(&reg);
@@ -106,29 +107,28 @@ static void worker_command_open_tx (int ident)
 	pipe_vita49_assem_set_cmd(worker_adi,     PD_VITA49_ASSEM_CMD_RESET);
 	pipe_vita49_unpack_set_ctrl(worker_adi,   PD_VITA49_UNPACK_CTRL_RESET);
 	pipe_vita49_trig_dac_set_ctrl(worker_adi, PD_VITA49_TRIG_CTRL_RESET);
-	pipe_swrite_unpack_set_cmd(PD_SWRITE_UNPACK_CMD_RESET);
+	pipe_type9_unpack_set_cmd(PD_TYPE9_UNPACK_CMD_RESET);
 	usleep(1000);
 
 	fifo_adi_new_write(worker_adi,            ADI_NEW_TX, ADI_NEW_TX_REG_RSTN, ADI_NEW_TX_RSTN);
 	pipe_vita49_assem_set_cmd(worker_adi,     0);
 	pipe_vita49_unpack_set_ctrl(worker_adi,   0);
 	pipe_vita49_trig_dac_set_ctrl(worker_adi, 0);
+	pipe_type9_unpack_set_cmd(0);
 
-
-	// Set swrite routing to ADI
+	// Set type9 routing to ADI
 	pipe_routing_reg_get_adc_sw_dest(&reg);
-	reg &= ~PD_ROUTING_REG_SWRITE_MASK;
-	reg |=  PD_ROUTING_REG_SWRITE_ADI;
+	reg &= ~PD_ROUTING_REG_TYPE9_MASK;
+	reg |=  PD_ROUTING_REG_TYPE9_ADI;
 	pipe_routing_reg_set_adc_sw_dest(reg);
 
-	// SWRITE unpacker setup 
-	pipe_swrite_unpack_set_addr(worker_adi, worker_sid);
+	// type9 unpacker setup
+	pipe_type9_unpack_set_strmid(worker_adi, worker_sid);
 
 	// V49 unpacker setup
 	LOG_DEBUG("  worker_sid %08x\n", worker_sid);
 	pipe_vita49_unpack_set_strm_id(worker_adi, worker_sid);
-	pipe_vita49_unpack_set_ctrl(worker_adi,    PD_VITA49_UNPACK_CTRL_ENABLE |
-	                                           PD_VITA49_UNPACK_CTRL_TRAILER);
+	pipe_vita49_unpack_set_ctrl(worker_adi,    PD_VITA49_UNPACK_CTRL_ENABLE);
 
 	// FIFO setup - Select DMA source, enable format, disable T1R1 mode
 	reg  = ADI_NEW_TX_DATA_SEL(ADI_NEW_TX_DATA_SEL_DMA);

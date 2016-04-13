@@ -18,14 +18,47 @@
  *  vim:ts=4:noexpandtab
  */
 #include <config/config.h>
+#include <format.h>
 
 #include <sbt_common/log.h>
 #include <sbt_common/growlist.h>
 
 #include <worker/config.h>
+#include <worker/worker.h>
 
 
 LOG_MODULE_STATIC("worker_config", LOG_LEVEL_WARN);
+
+
+/** SRIO-specific setup section item handler
+ */
+static int config_srio (const char *section, const char *tag, const char *val,
+                        const char *file, int line, void *data)
+{
+	ENTER("section %s, tag %s, val %s, file %s, line %d, data %p",
+	      section, tag, val, file, line, data);
+
+	if ( !tag || !val )	RETURN_ERRNO_VALUE(0, "%d", 0);
+
+	if ( !strcmp(tag, "type9-size") )
+	{
+		worker_opt_body = strtoul(val, NULL, 0);
+		if ( worker_opt_body < 8 || worker_opt_body > 0xFFF8 || (worker_opt_body & 7) )
+		{
+			LOG_ERROR("%s[%d]: '%s' is not a valid packet size\n", file, line, val);
+			RETURN_ERRNO_VALUE(EINVAL, "%d", -1);
+		}
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	if ( !strcmp(tag, "type9-cos") )
+	{
+		worker_opt_cos = strtoul(val, NULL, 0) & 0xFF;
+		RETURN_ERRNO_VALUE(0, "%d", 0);
+	}
+
+	RETURN_ERRNO_VALUE(ENOENT, "%d", -1);
+}
 
 
 /** Global first-pass config
@@ -43,6 +76,7 @@ int worker_config (const char *path, const char *section)
 	{
 		// first configure sections related to overall application 
 		{ "log",     log_config,             NULL },
+		{ "srio",    config_srio,            NULL },
 		{ NULL }
 	};
 	struct config_context cc =

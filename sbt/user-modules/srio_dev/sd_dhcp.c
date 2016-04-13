@@ -30,6 +30,14 @@ static void sd_dhcp_tick (unsigned long param)
 	struct srio_dev *sd = (struct srio_dev *)param;
 	struct sd_desc  *desc;
 
+	if ( sd->devid != 0xFFFF )
+	{
+		pr_info("%s: established address 0x%04x, normal service starts\n",
+		        dev_name(sd->dev), sd->devid);
+		sd_user_attach(sd);
+		return;
+	}
+
 	// if descriptor alloc fails re-arm for long delay
 	if ( !(desc = sd_desc_alloc(sd, GFP_ATOMIC|GFP_DMA)) )
 	{
@@ -83,12 +91,6 @@ void sd_dhcp_recv (struct sd_fifo *fifo, struct sd_desc *desc)
 	if ( desc->used > 12 )
 		hexdump_buff(&desc->virt[SD_HEAD_SIZE], desc->used - 12);
 
-	if ( sd->devid != 0xFFFF )
-	{
-		pr_debug("shouldn't be here, devid is set\n");
-		goto user;
-	}
-
 	if ( (desc->virt[0] & 0xFFFF) != (desc->virt[0] >> 16) )
 	{
 		pr_debug("ignored: not loopback\n");
@@ -114,13 +116,8 @@ void sd_dhcp_recv (struct sd_fifo *fifo, struct sd_desc *desc)
 	}
 
 	// finished, sd_regs_set_devid() also sets sd->devid
-	del_timer(&sd->dhcp.timer);
 	sd_regs_set_devid(sd, desc->virt[0] & 0xFFFF);
-	pr_info("%s: established address 0x%04x, normal service starts\n",
-	        dev_name(sd->dev), sd->devid);
-
-user:
-	sd_user_attach(sd);
+	pr_debug("%s: matching cookie received\n", dev_name(sd->dev));
 
 free:
 	sd_desc_free(sd, desc);

@@ -65,6 +65,8 @@ static struct pd_srio_dma_comb      __iomem *srio_dma_comb;
 static struct pd_srio_dma_split     __iomem *srio_dma_split;
 static struct pd_adi_dma_comb       __iomem *adi_dma_comb[2];
 static struct pd_adi_dma_split      __iomem *adi_dma_split[2];
+static struct pd_type9_pack_regs    __iomem *type9_pack[2];
+static struct pd_type9_unpack_regs  __iomem *type9_unpack;
 
 
 /******** Userspace interface ********/
@@ -901,6 +903,24 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			return put_user(reg, (unsigned long *)arg);
 
 
+		case PD_IOCS_SRIO_DMA_SPLIT_PSIZE:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			printk("PD_IOCS_SRIO_DMA_SPLIT_PSIZE %08lx\n", arg);
+			REG_WRITE(&srio_dma_split->psize, arg);
+			return 0;
+
+
+		case PD_IOCG_SRIO_DMA_SPLIT_PSIZE:
+			if ( !srio_dma_split )
+				return -ENODEV;
+
+			reg = REG_READ(&srio_dma_split->psize);
+			printk("PD_IOCG_SRIO_DMA_SPLIT_PSIZE %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
 
 		/* ADI_DMA_COMB IOCTLs */
 		case PD_IOCS_ADI_DMA_COMB_0_CMD:
@@ -1013,6 +1033,180 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			reg = REG_READ(&adi_dma_split[dev]->psize);
 			pr_debug("PD_IOCG_ADI_DMA_SPLIT_%d_PSIZE %08lx\n", dev, reg);
 			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* TYPE9_PACK IOCTLs */
+		case PD_IOCS_TYPE9_PACK_0_CMD:
+		case PD_IOCS_TYPE9_PACK_1_CMD:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_TYPE9_PACK_%d_CMD %08lx\n", dev, arg);
+			REG_WRITE(&type9_pack[dev]->cmd, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_PACK_0_CMD:
+		case PD_IOCG_TYPE9_PACK_1_CMD:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_pack[dev]->cmd);
+			pr_debug("PD_IOCG_TYPE9_PACK_%d_CMD %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_TYPE9_PACK_0_LENGTH:
+		case PD_IOCS_TYPE9_PACK_1_LENGTH:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			arg &= 0x0000FFFF;
+			pr_debug("PD_IOCS_TYPE9_PACK_%d_LENGTH %04lx\n", dev, arg);
+			reg  = REG_READ(&type9_pack[dev]->addr) & 0xFFFF0000;
+			reg |= arg;
+			REG_WRITE(&type9_pack[dev]->addr, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_PACK_0_LENGTH:
+		case PD_IOCG_TYPE9_PACK_1_LENGTH:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_pack[dev]->addr) & 0x0000FFFF;
+			pr_debug("PD_IOCG_TYPE9_PACK_%d_LENGTH %04lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_TYPE9_PACK_0_STRMID:
+		case PD_IOCS_TYPE9_PACK_1_STRMID:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			arg &= 0x0000FFFF;
+			pr_debug("PD_IOCS_TYPE9_PACK_%d_STRMID %04lx\n", dev, arg);
+			reg   = REG_READ(&type9_pack[dev]->addr) & 0x0000FFFF;
+			arg <<= 16;
+			reg  |= arg;
+			REG_WRITE(&type9_pack[dev]->addr, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_PACK_0_STRMID:
+		case PD_IOCG_TYPE9_PACK_1_STRMID:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			reg   = REG_READ(&type9_pack[dev]->addr) & 0xFFFF0000;
+			reg >>= 16;
+			pr_debug("PD_IOCG_TYPE9_PACK_%d_STRMID %04lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_TYPE9_PACK_0_SRCDEST:
+		case PD_IOCS_TYPE9_PACK_1_SRCDEST:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_TYPE9_PACK_%d_SRCDEST %08lx\n", dev, arg);
+			REG_WRITE(&type9_pack[dev]->srcdest, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_PACK_0_SRCDEST:
+		case PD_IOCG_TYPE9_PACK_1_SRCDEST:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_pack[dev]->srcdest);
+			pr_debug("PD_IOCG_TYPE9_PACK_%d_SRCDEST %08lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_TYPE9_PACK_0_COS:
+		case PD_IOCS_TYPE9_PACK_1_COS:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			arg &= 0x000000FF;
+			pr_debug("PD_IOCS_TYPE9_PACK_%d_COS %02lx\n", dev, arg);
+			REG_WRITE(&type9_pack[dev]->cos, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_PACK_0_COS:
+		case PD_IOCG_TYPE9_PACK_1_COS:
+			if ( !type9_pack[dev] )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_pack[dev]->cos) & 0x000000FF;
+			pr_debug("PD_IOCG_TYPE9_PACK_%d_COS %02lx\n", dev, reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+
+		/* TYPE9_UNPACK IOCTLs */
+		case PD_IOCS_TYPE9_UNPACK_CMD:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			pr_debug("PD_IOCS_TYPE9_UNPACK_CMD %08lx\n", arg);
+			REG_WRITE(&type9_unpack->cmd, arg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_UNPACK_CMD:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_unpack->cmd);
+			pr_debug("PD_IOCG_TYPE9_UNPACK_CMD %08lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCS_TYPE9_UNPACK_STRMID_0:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			arg &= 0x0000FFFF;
+			pr_debug("PD_IOCS_TYPE9_UNPACK_STRMID_0 %04lx\n", arg);
+			reg  = REG_READ(&type9_unpack->streamid) & 0xFFFF0000;
+			reg |= arg;
+			REG_WRITE(&type9_unpack->streamid, reg);
+			return 0;
+
+
+		case PD_IOCS_TYPE9_UNPACK_STRMID_1:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			arg &= 0x0000FFFF;
+			pr_debug("PD_IOCS_TYPE9_UNPACK_STRMID_1 %04lx\n", arg);
+			reg  = REG_READ(&type9_unpack->streamid) & 0x0000FFFF;
+			reg |= arg << 16;
+			REG_WRITE(&type9_unpack->streamid, reg);
+			return 0;
+
+
+		case PD_IOCG_TYPE9_UNPACK_STRMID_0:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			reg = REG_READ(&type9_unpack->streamid) & 0x0000FFFF;
+			pr_debug("PD_IOCG_TYPE9_UNPACK_STRMID_0 %04lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
+
+
+		case PD_IOCG_TYPE9_UNPACK_STRMID_1:
+			if ( !type9_unpack )
+				return -ENODEV;
+
+			reg   = REG_READ(&type9_unpack->streamid) & 0xFFFF0000;
+			reg >>= 16;
+			pr_debug("PD_IOCG_TYPE9_UNPACK_STRMID_1 %04lx\n", reg);
+			return put_user(reg, (unsigned long *)arg);
 	}
 
 	pr_err("%s(): unknown cmd %08x\n", __func__, cmd);
@@ -1068,7 +1262,7 @@ static void __iomem *pd_iomap (struct platform_device *pdev, char *name)
 
 	if ( !(res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name)) )
 	{
-		dev_err(&pdev->dev, "%s: resource %s not defined, stop\n", __func__, name);
+		dev_err(&pdev->dev, "%s: resource %s not defined\n", __func__, name);
 		return NULL;
 	}
 
@@ -1129,14 +1323,10 @@ static int pd_probe (struct platform_device *pdev)
 	if ( !(vita49_trig_dac[1] = pd_iomap(pdev, "vita49-trig-dac-1")) )
 		goto fail;
 
-	if ( !(swrite_pack[0] = pd_iomap(pdev, "swrite-pack-0")) )
-		goto fail;
-
-	if ( !(swrite_pack[1] = pd_iomap(pdev, "swrite-pack-1")) )
-		goto fail;
-
-	if ( !(swrite_unpack = pd_iomap(pdev, "swrite-unpack")) )
-		goto fail;
+	// Optional swrite support now that type9 is preferred
+	swrite_pack[0] = pd_iomap(pdev, "swrite-pack-0");
+	swrite_pack[1] = pd_iomap(pdev, "swrite-pack-1");
+	swrite_unpack = pd_iomap(pdev, "swrite-unpack");
 
 	if ( !(routing_reg = pd_iomap(pdev, "routing-reg")) )
 		goto fail;
@@ -1157,6 +1347,15 @@ static int pd_probe (struct platform_device *pdev)
 		goto fail;
 
 	if ( !(adi_dma_split[1] = pd_iomap(pdev, "adi-dma-split-1")) )
+		goto fail;
+
+	if ( !(type9_pack[0] = pd_iomap(pdev, "type9-pack-0")) )
+		goto fail;
+
+	if ( !(type9_pack[1] = pd_iomap(pdev, "type9-pack-1")) )
+		goto fail;
+
+	if ( !(type9_unpack = pd_iomap(pdev, "type9-unpack")) )
 		goto fail;
 
 
@@ -1191,9 +1390,9 @@ static int pd_probe (struct platform_device *pdev)
 		msleep(1);
 	}
 
-	// route SWRITEs to FIFO for now
-	REG_WRITE(&routing_reg->adc_sw_dest, PD_ROUTING_REG_SWRITE_FIFO);
-
+	// route SWRITEs / Type 9 to FIFO for now
+	REG_WRITE(&routing_reg->adc_sw_dest, PD_ROUTING_REG_SWRITE_FIFO |
+	                                     PD_ROUTING_REG_TYPE9_FIFO);
 
 	spin_lock_init(&pd_lock);
 	INIT_LIST_HEAD(&pd_users);
@@ -1225,6 +1424,9 @@ fail:
 	if ( adi_dma_comb[1]    )  devm_iounmap(&pdev->dev, adi_dma_comb[1]);
 	if ( adi_dma_split[0]   )  devm_iounmap(&pdev->dev, adi_dma_split[0]);
 	if ( adi_dma_split[1]   )  devm_iounmap(&pdev->dev, adi_dma_split[1]);
+	if ( type9_pack[0]      )  devm_iounmap(&pdev->dev, type9_pack[0]);
+	if ( type9_pack[1]      )  devm_iounmap(&pdev->dev, type9_pack[1]);
+	if ( type9_unpack       )  devm_iounmap(&pdev->dev, type9_unpack);
 
 	return ret;
 }
