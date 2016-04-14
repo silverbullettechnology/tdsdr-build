@@ -36,7 +36,7 @@ export SBT_BSP := TDSDR
 
 # prebuilt boot.bins:
 ifeq ($(SBT_BSP),TDSDR)
-	SBT_BOOT_FILE := fsbl_8596688e8a5a_u-boot_5d918b1c_pl_bdb0df03.bin
+	SBT_BOOT_FILE := tdsdr_2ch_srio9_viv20153_10_31_2015_1828.bin
 endif
 ifeq ($(SBT_BSP),SDR-M1)
 	# - Use 02_25_2016_1334 with Schroff 23005-466 52 chassis
