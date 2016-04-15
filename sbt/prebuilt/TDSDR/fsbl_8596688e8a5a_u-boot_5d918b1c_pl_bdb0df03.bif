@@ -1,6 +1,0 @@
-the_ROM_image:
-{
-	[bootloader]zynq_fsbl_8596688e8a5a.elf
-	[checksum=md5]system_top_0xbdb0df03.bit
-	[checksum=md5]u-boot_5d918b1c.elf
-}

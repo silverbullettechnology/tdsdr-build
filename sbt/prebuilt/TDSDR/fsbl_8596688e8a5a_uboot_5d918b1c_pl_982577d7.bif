@@ -1,0 +1,6 @@
+the_ROM_image:
+{
+	[bootloader]../../elf/zynq_fsbl_8596688e8a5a.elf
+	[checksum=md5]system_top_0x982577d7.bit
+	[checksum=md5]../../elf/u-boot_5d918b1c.elf
+}
