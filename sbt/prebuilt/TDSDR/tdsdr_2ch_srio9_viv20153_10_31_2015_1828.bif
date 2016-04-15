@@ -1,6 +1,0 @@
-the_ROM_image:
-{
-	[bootloader]zynq_fsbl_8596688e8a5a.elf
-	[checksum=md5]tdsdr_2ch_srio9_viv20153_10_31_2015_1828.bit
-	[checksum=md5]u-boot_5d918b1c.elf
-}
