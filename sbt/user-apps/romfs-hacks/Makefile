@@ -41,16 +41,15 @@ ifneq ($(CONFIG_USER_APPS_ROMFS_HACKS_FREERTOS),)
 			$(ROMFSDIR)/lib/firmware/freertos; \
 	fi
 endif
-	install -m755 gpio-setup.sh  $(ROMFSDIR)/etc/init.d/gpio-setup
-	rm -f  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
-	ln -sv ../init.d/gpio-setup  $(ROMFSDIR)/etc/rcS.d/S30gpio-setup
-	install -m644 gpio-setup     $(ROMFSDIR)/etc
+	$(SHELL) install-gpio-setup.sh $(SBT_BSP)
 	install -m755 first-led      $(ROMFSDIR)/etc/init.d/first-led
 	install -m755 last-led       $(ROMFSDIR)/etc/init.d/last-led
 	rm -f  $(ROMFSDIR)/etc/rcS.d/S03first-led
 	rm -f  $(ROMFSDIR)/etc/rcS.d/S99last-led
 	ln -sv ../init.d/first-led   $(ROMFSDIR)/etc/rcS.d/S03first-led
 	ln -sv ../init.d/last-led    $(ROMFSDIR)/etc/rcS.d/S99last-led
+	mkdir -p $(ROMFSDIR)/etc/udhcpc.d
+	install -m755 udhcp-rdate    $(ROMFSDIR)/etc/udhcpc.d/90rdate
 
 image: 
 	echo image

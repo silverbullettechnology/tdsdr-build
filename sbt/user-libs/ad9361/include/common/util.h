@@ -169,4 +169,4 @@ char *ltrim (char *s);
 char *rtrim (char *s);
 
 
-#endif // _INCLUDE_COMMON_UTIL_H_
+#endif /* _INCLUDE_COMMON_UTIL_H_ */

@@ -24,7 +24,7 @@
 #include "sd_desc.h"
 
 
-struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags)
+struct sd_desc *_sd_desc_alloc (struct srio_dev *sd, gfp_t flags, const char *func, int line)
 {
 	struct sd_desc *desc = kmem_cache_alloc(sd->desc_pool, GFP_KERNEL);
 	if ( !desc )
@@ -39,14 +39,16 @@ struct sd_desc *sd_desc_alloc (struct srio_dev *sd, gfp_t flags)
 //	memset(&desc->virt, 0xEE, SD_FIFO_SIZE * sizeof(uint32_t));
 	memset(&desc->virt[SD_FIFO_SIZE], 0xFF, SD_PAINT_SIZE * sizeof(uint32_t));
 
+	pr_debug("%s: alloc %p for %s:%d\n", dev_name(sd->dev), desc, func, line);
 	return desc;
 }
 
 
-void sd_desc_free (struct srio_dev *sd, struct sd_desc *desc)
+void _sd_desc_free (struct srio_dev *sd, struct sd_desc *desc, const char *func, int line)
 {
 	int i;
 
+	pr_debug("%s: free %p for %s:%d\n", dev_name(sd->dev), desc, func, line);
 	if ( !desc )
 		return;
 

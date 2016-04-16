@@ -1,6 +1,6 @@
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
-APP      := devmem
+APP      := devmem devdump
 APP_OBJS := devmem.o
 
 CFLAGS += -Wall -Werror
@@ -10,6 +10,9 @@ all: $(APP)
 
 devmem: $(APP_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS)
+
+devdump: devdump.o
+	$(CC) $(LDFLAGS) -o $@ devdump.o $(LDLIBS)
 
 clean:
 	-rm -f $(APP) *.elf *.gdb *.o

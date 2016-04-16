@@ -26,8 +26,12 @@
 #endif
 
 
-// Max size of an sd_mesg, plus some headroom
+// Max size of an sd_mesg, plus some headroom - type 11 messages support fragmentation and
+// reassembly in this driver; type 9 streaming packets do not and are limited to 256 bytes
 #define  SD_MESG_SIZE  (1024 + 4096)
+
+#define  SD_MESG_SF_S  0x80
+#define  SD_MESG_SF_E  0x40
 
 
 struct sd_mesg_mbox
@@ -48,12 +52,21 @@ struct sd_mesg_dbell
 	uint16_t  info;
 };
 
-//TODO: response type
+struct sd_mesg_stream
+{
+	uint16_t  sid;
+	uint16_t  len;
+	uint8_t   cos;
+	uint8_t   flags;
+	uint8_t   data[0];
+};
 
 struct sd_mesg
 {
 	int       type;
 	size_t    size;
+	uint8_t   pri;
+	uint8_t   crf;
 	uint16_t  dst_addr;
 	uint16_t  src_addr;
 	uint32_t  hello[2];
@@ -63,6 +76,7 @@ struct sd_mesg
 		struct sd_mesg_mbox    mbox;
 		struct sd_mesg_dbell   dbell;
 		struct sd_mesg_swrite  swrite;
+		struct sd_mesg_stream  stream;
 		char                   data[0];
 	}
 	mesg;

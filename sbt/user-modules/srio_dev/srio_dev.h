@@ -26,6 +26,7 @@
 #include "sd_mbox.h"
 #include "sd_fifo.h"
 #include "sd_desc.h"
+#include "sd_dhcp.h"
 
 
 /* Need room for 3 words of header, once that's moved to the desc header this can be
@@ -57,18 +58,22 @@ struct srio_dev
 	struct kmem_cache *desc_pool;
 
 	uint16_t           devid;
+	struct sd_dhcp     dhcp;
+
 	uint8_t            tid;
 	uint32_t           pef;
 
 	struct sd_mbox_reasm  mbox_reasm[RIO_MAX_MBOX][4];
+	uint8_t               mbox_letter[RIO_MAX_MBOX];
 
 	/* RX MESSAGE (type 11): number of listeners and reassembly cache */
 	int                mbox_users[RIO_MAX_MBOX];
 	struct sd_desc    *mbox_cache[RIO_MAX_MBOX];
 
-	/* RX DBELL (type 10) and SWRITE (type 6): number of listeners */
+	/* RX DBELL (type 10), SWRITE (type 6), and Stream (type 9): number of listeners */
 	int                dbell_users;
 	int                swrite_users;
+	int                sid_users;
 
 	u32                gt_loopback;
 	u32                gt_diffctrl;
@@ -76,17 +81,28 @@ struct srio_dev
 	u32                gt_txpostcursor;
 	u32                gt_rxlpmen;
 
+	/* "ping" function implemented with dbells: if both values are set low enough to be
+	 * valid dbell "info" values (ie <= 0xFFFF) then respond to dbell messages with info
+	 * equal to ping[0], and respond with a dbell containing info value ping[1]. */
+	u32                ping[2];
+
 	/* Status monitoring */
 	struct timer_list  status_timer;
 	unsigned           status_every;
 	unsigned           status_prev;
-	unsigned long      status_counts[7];
+	unsigned long      status_counts[10];
+
+	/* Try to recover from errors */
+	struct timer_list  reset_timer;
 
 	/* Mapped pointer for the maintenance registers */
 	void __iomem  *maint;
 
 	/* Mapped pointer for the SYS_REG registers */
 	struct sd_sys_reg __iomem  *sys_regs;
+
+	/* Mapped pointer for the DRP registers */
+	void __iomem  *drp_regs;
 
 	/* Shadow FIFO may be included in design to allow sniffing parts of the message path
 	 * (ie init_fifo -> SRIO core).  If it's not specified in the devtree then no driver

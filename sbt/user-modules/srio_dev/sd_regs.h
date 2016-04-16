@@ -84,6 +84,8 @@ struct sd_lpsl_ef_regs
 
 #define SD_SR_CTRL_SRIO_RESET_M             0x00000001
 #define SD_SR_CTRL_SRIO_RESET_S                      0
+#define SD_SR_CTRL_SWRITE_BYPASS_M          0x00000002
+#define SD_SR_CTRL_SWRITE_BYPASS_S                   1
 #define SD_SR_CTRL_SRIO_LOOPBACK_M          0x0000001C
 #define SD_SR_CTRL_SRIO_LOOPBACK_S                   2
 #define SD_SR_CTRL_GT_DIFFCTRL_M            0x000001E0
@@ -94,6 +96,14 @@ struct sd_lpsl_ef_regs
 #define SD_SR_CTRL_GT_TXPOSTCURSOR_S                14
 #define SD_SR_CTRL_GT_RXLPMEN_M             0x00080000
 #define SD_SR_CTRL_GT_RXLPMEN_S                     19
+#define SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_M  0x00100000
+#define SD_SR_CTRL_GT_SRIO_RXDFELPMRESET_S          20
+#define SD_SR_CTRL_GT_PHY_LINK_RESET_M      0x00200000
+#define SD_SR_CTRL_GT_PHY_LINK_RESET_S              21
+#define SD_SR_CTRL_GT_FORCE_REINIT_M        0x00400000
+#define SD_SR_CTRL_GT_FORCE_REINIT_S                22
+#define SD_SR_CTRL_GT_PHY_MCE_M             0x00800000
+#define SD_SR_CTRL_GT_PHY_MCE_S                     23
 
 #define SD_SR_STAT_SRIO_LINK_INITIALIZED_M  0x00000001
 #define SD_SR_STAT_SRIO_LINK_INITIALIZED_S           0
@@ -109,9 +119,12 @@ struct sd_lpsl_ef_regs
 #define SD_SR_STAT_GTRX_NOTINTABLE_OR_S              5
 #define SD_SR_STAT_GTRX_DISPERR_OR_M        0x00000040
 #define SD_SR_STAT_GTRX_DISPERR_OR_S                 6
-#define SD_SR_STAT_DEVICE_ID_M              0xFF000000
-#define SD_SR_STAT_DEVICE_ID_S                      24
-
+#define SD_SR_STAT_PHY_RCVD_MCE_M           0x00000100
+#define SD_SR_STAT_PHY_RCVD_MCE_S                    8
+#define SD_SR_STAT_PHY_RCVD_LINK_RESET_M    0x00000200
+#define SD_SR_STAT_PHY_RCVD_LINK_RESET_S             9
+#define SD_SR_STAT_DEVICE_ID_M              0xFFFF0000
+#define SD_SR_STAT_DEVICE_ID_S                      16
 
 
 /* SYS_REG registers (SBT Implementation) */
@@ -122,15 +135,22 @@ struct sd_sys_reg
 };
 
 
-void sd_regs_srio_reset (struct srio_dev *sd);
+void sd_regs_srio_reset            (struct srio_dev *sd);
+void sd_regs_gt_srio_rxdfelpmreset (struct srio_dev *sd);
+void sd_regs_gt_phy_link_reset     (struct srio_dev *sd);
+void sd_regs_gt_force_reinit       (struct srio_dev *sd);
+void sd_regs_gt_phy_mce            (struct srio_dev *sd);
+
 unsigned sd_regs_srio_status (struct srio_dev *sd);
 
+void sd_regs_set_swrite_bypass   (struct srio_dev *sd, unsigned val);
 void sd_regs_set_gt_loopback     (struct srio_dev *sd, unsigned mode);
 void sd_regs_set_gt_diffctrl     (struct srio_dev *sd, unsigned val);
 void sd_regs_set_gt_txprecursor  (struct srio_dev *sd, unsigned val);
 void sd_regs_set_gt_txpostcursor (struct srio_dev *sd, unsigned val);
 void sd_regs_set_gt_rxlpmen      (struct srio_dev *sd, unsigned val);
 
+unsigned sd_regs_get_swrite_bypass   (struct srio_dev *sd);
 unsigned sd_regs_get_gt_loopback     (struct srio_dev *sd);
 unsigned sd_regs_get_gt_diffctrl     (struct srio_dev *sd);
 unsigned sd_regs_get_gt_txprecursor  (struct srio_dev *sd);
@@ -141,5 +161,15 @@ size_t sd_regs_print_srio (struct srio_dev *sd, char *dst, size_t max);
 
 uint16_t sd_regs_get_devid (struct srio_dev *sd);
 void     sd_regs_set_devid (struct srio_dev *sd, uint16_t id);
+
+/* DRP registers (SBT Implementation) */
+
+void sd_regs_set_cm_sel  (struct srio_dev *sd, unsigned ch, unsigned val);
+void sd_regs_set_cm_trim (struct srio_dev *sd, unsigned ch, unsigned val);
+
+unsigned sd_regs_get_cm_sel   (struct srio_dev *sd, unsigned ch);
+unsigned sd_regs_get_cm_trim  (struct srio_dev *sd, unsigned ch);
+
+
 
 #endif /* _INCLUDE_SD_REGS_H_ */

@@ -1,27 +1,47 @@
 ifdef PETALINUX
 include $(PETALINUX)/software/petalinux-dist/tools/user-commons.mk
 include $(LOGGING_MK)
-APP      := dma_streamer_app dsa_format
-APP_OBJS := dsa_main.o dsa_format.o dsa_channel.o dsa_command.o dsa_common.o log.o
-APP_OBJS += dsa_ioctl.o dsa_ioctl_adi_old.o dsa_ioctl_adi_new.o
+APP      := dma_streamer_app minimal
+APP_OBJS := \
+	common/common.o \
+	common/log.o \
+	dsa/main.o \
+	dsa/channel.o \
+	dsa/command.o
+
+CFLAGS   += -I$(CURDIR)
 CFLAGS   += -I$(PETALINUX)/software/user-modules/dma_streamer_mod
-else
-APP      := dsa_format
+CFLAGS   += -I$(PETALINUX)/software/user-modules/fifo_dev
+CFLAGS   += -I$(PETALINUX)/software/user-modules/pipe_dev
+
+# pmon disabled for now
+#CFLAGS   += -I$(CURDIR)/pmon -DDSA_USE_PMON
+#APP_OBJS += \
+	pmon/xaxipmon.o \
+	pmon/xaxipmon_g.o \
+	pmon/xaxipmon_selftest.o \
+	pmon/xaxipmon_sinit.o \
+	pmon/pmon.o
 endif
 
-CFLAGS += -Wall -Werror
-LDLIBS += -lm
+CFLAGS  += -Wall -Werror
+LDFLAGS += -L$(STAGEDIR)/usr/lib
+LDLIBS  := -lad9361 -lfifo_dev -lpipe_dev -ldsm -lformat -ldsa_util
 
 all: $(APP)
 
 dma_streamer_app: $(APP_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(APP_OBJS) $(LDLIBS) -lad9361
+	$(CC) $(LDFLAGS) $(LDFLAGS) -o $@ $(APP_OBJS) -lm $(LDLIBS)
 
-dsa_format: dsa_format.c dsa_common.c log.c
-	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ $^ $(LDLIBS)
+minimal: minimal.c common/common.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+pmon/pmon.a:
+	$(MAKE) -C pmon/
 
 clean:
-	-rm -f $(APP) *.elf *.gdb *.o
+	-rm -f $(APP) $(APP_OBJS)
+	-$(MAKE) -C pmon/ clean
 
 .PHONY: romfs image
 

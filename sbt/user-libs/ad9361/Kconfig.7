@@ -31,4 +31,9 @@ if USER_LIBS_AD9361
 	  Select this to copy include files to the target.  This is only required to
 	  compile code on the target itself, and only if using -static; if unsure say N.
 
+	config USER_LIBS_AD9361_INIT_AUTOLOAD
+	bool "Auto run init script at boot"
+	help
+	  Say Y to autorun the init script at boot.
+
 endif

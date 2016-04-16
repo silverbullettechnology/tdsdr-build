@@ -19,9 +19,12 @@
  */
 #include <sys/select.h>
 
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
+
+#include <v49_message/resource.h>
+
 #include <daemon/worker.h>
 
 

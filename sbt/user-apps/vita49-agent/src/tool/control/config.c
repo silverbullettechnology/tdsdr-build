@@ -35,14 +35,14 @@
 #include <stdarg.h>
 #include <getopt.h>
 
-#include <config/include/config.h>
+#include <config/config.h>
 
-#include <lib/log.h>
+#include <sbt_common/log.h>
 
-#include "control.h"
+#include <tool/control/control.h>
 
 
-LOG_MODULE_STATIC("control_config", LOG_LEVEL_DEBUG);
+LOG_MODULE_STATIC("control_config", LOG_LEVEL_INFO);
 
 
 static int config (const char *section, const char *tag, const char *val,
@@ -51,14 +51,8 @@ static int config (const char *section, const char *tag, const char *val,
 	if ( !tag || !val )
 		return 0;
 	
-	// TODO: more filtering here
-	if ( !strcmp(tag, "socket") )
-	{
-		free(opt_sock_path);
-		opt_sock_path = strdup(val);
-		opt_sock_type = AF_UNIX;
-	}
-	
+	// TODO: needs overhaul
+
 	return 0;
 }
 struct config_context config_context =

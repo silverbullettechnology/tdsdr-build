@@ -20,12 +20,16 @@
 #include <sys/select.h>
 #include <errno.h>
 
-#include <lib/log.h>
-#include <lib/growlist.h>
+#include <sbt_common/log.h>
+#include <sbt_common/growlist.h>
 #include <daemon/worker.h>
 
 
 LOG_MODULE_STATIC("worker", LOG_LEVEL_WARN);
+
+
+char *worker_config_path;
+char *worker_exec_path;
 
 
 /** List of all workers allocated with worker_alloc */
@@ -77,7 +81,15 @@ struct worker *worker_alloc (const char *name)
 		RETURN_VALUE("%p", NULL);
 
 	di->class = dc;
-	growlist_append(&worker_list, di);
+	if ( growlist_append(&worker_list, di) < 0 )
+	{
+		int err = errno;
+		if ( dc->ops->free_fn )
+			dc->ops->free_fn(di);
+		else
+			free(di);
+		RETURN_ERRNO_VALUE(err, "%p", NULL);
+	}
 
 	mqueue_init(&di->send, 0);
 	mqueue_init(&di->recv, 0);
@@ -260,13 +272,15 @@ const char *worker_state_desc (worker_state_t state)
  */
 int worker_limit (struct worker *worker, int period, int count)
 {
-	ENTER("worker %p", worker);
+	ENTER("worker %p -> %s", worker, worker_name(worker));
 
 	// never been set: not limited yet
 	if ( ! worker->clocks )
 	{
 		worker->clocks = get_clocks();
 		worker->starts = 1;
+		LOG_DEBUG("%s: limit init, clocks %llu, starts 1\n", 
+		          worker_name(worker), worker->clocks);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -279,10 +293,15 @@ int worker_limit (struct worker *worker, int period, int count)
 	if ( worker->state == WS_LIMIT )
 	{
 		if ( clocks_to_s(dly) < period )
+		{
+			LOG_DEBUG("%s: limited, dly %llu, wait %u sec\n",
+			          worker_name(worker), dly, clocks_to_s(dly));
 			RETURN_ERRNO_VALUE(0, "%d", 1);
+		}
 
 		worker->clocks = now;
 		worker->starts = 1;
+		LOG_DEBUG("%s: limit expired, clear\n", worker_name(worker));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -290,6 +309,8 @@ int worker_limit (struct worker *worker, int period, int count)
 	if ( worker->starts < count )
 	{
 		worker->starts++;
+		LOG_DEBUG("%s: starts < count, starts++ now %d\n",
+		          worker_name(worker), worker->starts);
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
@@ -298,10 +319,12 @@ int worker_limit (struct worker *worker, int period, int count)
 	{
 		worker->clocks = now;
 		worker->starts = 1;
+		LOG_DEBUG("%s: delay expired, reset and clear\n", worker_name(worker));
 		RETURN_ERRNO_VALUE(0, "%d", 0);
 	}
 
 	// over count and period not yet elapsed: deny start
+	LOG_DEBUG("%s: still limited\n", worker_name(worker));
 	RETURN_ERRNO_VALUE(0, "%d", 1);
 }
 

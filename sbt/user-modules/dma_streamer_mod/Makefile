@@ -20,13 +20,6 @@ UCLINUX_BUILD_USER = 1
 -include $(ROOTDIR)/$(CONFIG_LINUXDIR)/.config
 -include $(ROOTDIR)/config.arch
 
-# Allow user to specify location of xparameters.h et al
-ifneq ($(CONFIG_USER_MODULES_DMA_STREAMER_MOD_BSP),)
-	BOARD_DIR := $(CONFIG_USER_MODULES_DMA_STREAMER_MOD_BSP)
-else
-	BOARD_DIR := $(ROOTDIR)/vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)
-endif
-
 # We need NOPEDANTIC, else KBUILD complains
 KBUILD_NOPEDANTIC=1
 
@@ -57,11 +50,14 @@ endif
 LOCALPWD=$(shell pwd)
 obj-m += dsm.o
 
-dsm-y := dma_streamer_mod.o dsm_xparameters.o
+dsm-y := dsm_main.o dsm_chan.o dsm_thread.o dsm_xfer.o
 
-#CFLAGS_dma_streamer_mod.o += -DDEBUG
-#CFLAGS_dsm_xparameters.o  += -DDEBUG
-CFLAGS_dsm_xparameters.o += -I $(BOARD_DIR)
+#CFLAGS_dsm_main.o   += -DDEBUG
+#CFLAGS_dsm_chan.o   += -DDEBUG
+#CFLAGS_dsm_thread.o += -DDEBUG
+#CFLAGS_dsm_xfer.o   += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
+EXTRA_CFLAGS += -Werror
 
 all:  modules
 

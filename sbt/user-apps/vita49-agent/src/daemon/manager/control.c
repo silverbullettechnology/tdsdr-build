@@ -17,9 +17,9 @@
  *
  *  vim:ts=4:noexpandtab
  */
-#include <lib/log.h>
-#include <lib/mbuf.h>
-#include <lib/mqueue.h>
+#include <sbt_common/log.h>
+#include <sbt_common/mbuf.h>
+#include <sbt_common/mqueue.h>
 #include <daemon/worker.h>
 #include <daemon/control.h>
 #include <daemon/manager.h>

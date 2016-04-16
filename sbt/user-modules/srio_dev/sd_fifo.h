@@ -24,6 +24,17 @@
 #include <linux/platform_device.h>
 
 
+/** Bits for flags in sd_fifo */
+#define SD_FL_TRACE     0x00000001
+#define SD_FL_DEBUG     0x00000002
+#define SD_FL_INFO      0x00000004
+#define SD_FL_WARN      0x00000008
+#define SD_FL_ERROR     0x00000010
+#define SD_FL_NO_RX     0x00000100
+#define SD_FL_NO_TX     0x00000200
+#define SD_FL_NO_RSP    0x00000400
+
+
 /** Bits for sd_fifo_reset mask parameter */
 #define SD_FR_TX  1
 #define SD_FR_RX  2
@@ -38,11 +49,11 @@ struct sd_fifo_regs
 	uint32_t  ier;      /* 0x04: RW: Interrupt Enable Register                      */
 	uint32_t  tdfr;     /* 0x08: WO: Transmit Data FIFO Reset                       */
 	uint32_t  tdfv;     /* 0x0C: RO: Transmit Data FIFO Vacancy                     */
-	uint32_t  tdfd;     /* 0x10: WO: Transmit Data FIFO 32-bit Wide Data Write Port */
+	uint32_t  tdfd;     /* 0x10: WO: Use sf->tdfd for offset                        */
 	uint32_t  tlr;      /* 0x14: WO: Transmit Length Register                       */
 	uint32_t  rdfr;     /* 0x18: WO: Receive Data FIFO reset                        */
 	uint32_t  rdfo;     /* 0x1C: RO: Receive Data FIFO Occupancy                    */
-	uint32_t  rdfd;     /* 0x20: RO: Receive Data FIFO 32-bit Wide Data Read Port   */
+	uint32_t  rdfd;     /* 0x20: RO: Use sf->rdfd for offset                        */
 	uint32_t  rlr;      /* 0x24: RO: Receive Length Register                        */
 	uint32_t  srr;      /* 0x28: WO: AXI4-Stream Reset                              */
 	uint32_t  tdr;      /* 0x2C: WO: Transmit Destination Register                  */
@@ -95,12 +106,18 @@ struct sd_fifo
 	struct srio_dev             *sd;
 	int                          irq;
 	char                         name[32];
+	unsigned                     flags;
 
-	/* Note: sd_fifo_regs always maps to an AXI-Lite interface for register access, but 
-	 * sd_fifo_data may point to an AXI-Full interface for burst data. */
+	/* Note: regs always points to an AXI-Lite interface for register access.  data may be
+	 * the same if the AXI-Lite interface is used for data, or may instead point to an 
+	 * AXI-Full interface.  From v4.1 of the FIFO core the TDFD/RDFD regs may be at a
+	 * different offset for AXI-Full, so calculate the offsets at init time and add to
+	 * data when accessing */
 	struct sd_fifo_regs __iomem *regs;
-	struct sd_fifo_regs __iomem *data;
+	void                __iomem *data;
 	dma_addr_t                   phys;
+	unsigned                     tdfd;
+	unsigned                     rdfd;
 
 	struct sd_fifo_dir           rx;
 	struct sd_fifo_dir           tx;
@@ -108,6 +125,7 @@ struct sd_fifo
 	struct sd_desc              *rx_current;
 	sd_rx_callback               rx_func;
 
+	struct sd_desc              *tx_current;
 	struct list_head             tx_queue;
 	struct list_head             tx_retry;
 	unsigned                     tx_cookie;
@@ -123,7 +141,7 @@ struct sd_fifo
  *
  *  \return  sd_fifo struct on success, NULL on error
  */
-struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref);
+struct sd_fifo *sd_fifo_probe (struct platform_device *pdev, char *pref, unsigned flags);
 
 
 /** Free FIFO
@@ -188,6 +206,12 @@ static inline unsigned sd_fifo_tx_enqueue (struct sd_fifo *sf, struct sd_desc *d
 {
 	return sd_fifo_tx_burst(sf, &desc, 1);
 }
+
+/** Flush all TX descriptors
+ *
+ *  \param  sf  Pointer to sd_fifo struct
+ */
+void sd_fifo_tx_discard (struct sd_fifo *sf);
 
 
 #endif /* _INCLUDE_SD_FIFO_H_ */

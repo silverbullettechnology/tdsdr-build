@@ -28,8 +28,8 @@ get_out_voltage_sampling_frequency
 set_in_voltage_sampling_frequency  4000000
 get_in_voltage_sampling_frequency
 
-# Set AD1 to sleep mode to conserve power
-set_ensm_mode 0
+# Set AD1 to FDD
+set_ensm_mode 5
 
 # Set AD2 to alert mode to allow chip configuration
 device ad2
@@ -47,6 +47,6 @@ get_out_voltage_sampling_frequency
 set_in_voltage_sampling_frequency  4000000
 get_in_voltage_sampling_frequency
 
-# Set AD2 to sleep mode to conserve power
-set_ensm_mode 0
+# Set AD2 to FDD
+set_ensm_mode 5
 
