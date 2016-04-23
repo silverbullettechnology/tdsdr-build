@@ -1066,7 +1066,7 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			pr_debug("PD_IOCS_TYPE9_PACK_%d_LENGTH %04lx\n", dev, arg);
 			reg  = REG_READ(&type9_pack[dev]->addr) & 0xFFFF0000;
 			reg |= arg;
-			REG_WRITE(&type9_pack[dev]->addr, arg);
+			REG_WRITE(&type9_pack[dev]->addr, reg);
 			return 0;
 
 
@@ -1090,7 +1090,7 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			reg   = REG_READ(&type9_pack[dev]->addr) & 0x0000FFFF;
 			arg <<= 16;
 			reg  |= arg;
-			REG_WRITE(&type9_pack[dev]->addr, arg);
+			REG_WRITE(&type9_pack[dev]->addr, reg);
 			return 0;
 
 

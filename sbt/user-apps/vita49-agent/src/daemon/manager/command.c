@@ -40,8 +40,8 @@ LOG_MODULE_IMPORT(daemon_manager_module_level);
 
 
 #define  SID_ASSIGN_MIN   0x00000010
-#define  SID_ASSIGN_STEP  0x00000010
-#define  SID_ASSIGN_MAX   0x0FFFFFF0
+#define  SID_ASSIGN_STEP  0x00000001
+#define  SID_ASSIGN_MAX   0x0000FFF0
 static unsigned sid_assign = SID_ASSIGN_MIN;
 
 
@@ -190,8 +190,8 @@ void daemon_manager_command_recv (struct v49_common *req_v49, struct message *re
 
 			worker->control = req_user->control;
 			worker->socket  = req_user->socket;
-			worker->name    = str_dup_sprintf("SID:%u", worker->sid);
 			worker->sid     = sid_assign;
+			worker->name    = str_dup_sprintf("SID:%u", worker->sid);
 			worker->res     = res;
 			memcpy(&worker->rid, rid, sizeof(worker->rid));
 			if ( req_v49->command.indicator & (1 << V49_CMD_IND_BIT_CID) )
