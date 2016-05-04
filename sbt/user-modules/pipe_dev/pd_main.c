@@ -325,6 +325,39 @@ static long pd_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
 			         dev, ts.tsi, ts.tsf_hi, ts.tsf_lo);
 			return copy_to_user((void *)arg, &ts, sizeof(ts));
 
+        case PD_IOCS_VITA49_CLK_SYNC_1:
+        case PD_IOCS_VITA49_CLK_SYNC_0:
+            if ( !vita49_clk )
+                return -ENODEV;
+
+            pr_debug("PD_IOCS_VITA49_CLK_SYNC_%d %08lx\n", dev, arg);
+            if( dev )
+            {
+                REG_WRITE(&vita49_clk->sync_1, arg);
+            }
+            else
+            {
+                REG_WRITE(&vita49_clk->sync_0, arg);
+            }
+            return 0;
+
+
+        case PD_IOCG_VITA49_CLK_SYNC_1:
+        case PD_IOCG_VITA49_CLK_SYNC_0:
+            if ( !vita49_clk )
+                return -ENODEV;
+
+            if( dev )
+            {
+                reg = REG_READ(&vita49_clk->sync_1);
+            }
+            else
+            {
+                reg = REG_READ(&vita49_clk->sync_0);
+            }
+
+            pr_debug("PD_IOCG_VITA49_CLK_SYNC_%d %08lx\n", dev, reg);
+            return put_user(reg, (unsigned long *)arg);
 
 
 		/* VITA49_PACK */

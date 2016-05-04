@@ -43,7 +43,8 @@ struct pd_adi2axis_regs
  * 1pps signal (it is free running).  The integer counter is incremented when fractional
  * counter reaches the roll-over register value.  The fractional part of the clock is
  * incremented by the sample rate clock coming from each of the ADI chips.  The output
- * clock value is used as a timestamp for triggering the data streams.  */
+ * clock value is used as a timestamp for triggering the data streams. The counters can be
+ * synchronized by rising edge of a sync signal. */
 struct pd_vita49_clk_regs
 {
 	uint32_t  ctrl;        /* 0x00  RW  bitmap of PD_VITA49_CLK_CTRL_*           */
@@ -57,6 +58,8 @@ struct pd_vita49_clk_regs
 	uint32_t  tsf_1_lo;    /* 0x14  R   channel 1 lsw of fractional counter      */
 	uint32_t  rollover_0;  /* 0x18  RW  channel 0 tsi_0 rollover register        */
 	uint32_t  rollover_1;  /* 0x1C  RW  channel 1 tsi_1 rollover register        */
+    uint32_t  sync_0;      /* 0x20  RW  channel 0 sync value                     */
+    uint32_t  sync_1;      /* 0x24  RW  channel 1 sync value                     */
 };
 
 /* VITA49_PACK - This module packages the incoming data stream into a VITA49 format.  The

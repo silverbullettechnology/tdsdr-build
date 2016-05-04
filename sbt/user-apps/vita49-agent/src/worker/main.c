@@ -70,6 +70,7 @@ unsigned long         worker_tuser;
 time_t                worker_tsi;
 size_t                worker_tsf;
 int                   worker_dma_mode = 4;
+unsigned long         worker_tstamp_report_period;
 
 // globals used for monitoring the burst
 int     worker_run =  0;

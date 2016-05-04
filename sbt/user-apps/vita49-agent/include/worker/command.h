@@ -59,5 +59,11 @@ void worker_command_stop (struct v49_common *req, struct v49_common *rsp);
  */
 void worker_command_close (struct v49_common *req, struct v49_common *rsp);
 
+/** Timestamp Control command
+ *
+ *  \param req Request from client
+ *  \param rsp Response to client
+ */
+void worker_command_tstamp_control (struct v49_common *req, struct v49_common *rsp);
 
 #endif // INCLUDE_WORKER_COMMAND_H

@@ -64,6 +64,7 @@ WORKER_OBJS += \
 	worker/command/start.o \
 	worker/command/stop.o \
 	worker/command/close.o \
+	worker/command/tstamp_control.o \
 	worker/context.o \
 	worker/message.o \
 	worker/main.o

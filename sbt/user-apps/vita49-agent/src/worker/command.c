@@ -74,6 +74,11 @@ void worker_command_recv (struct v49_common *req_v49)
 			worker_command_open(req_v49, &rsp_v49);
 			break;
 
+        case V49_CMD_REQ_TSTAMP_CTL:
+            LOG_DEBUG("%s: got an TIMESTAMP CONTROL request:\n", __func__);
+            worker_command_tstamp_control(req_v49, &rsp_v49);
+            break;
+
 		case V49_CMD_REQ_START:
 			LOG_DEBUG("%s: got a START request:\n", __func__);
 			worker_command_start(req_v49, &rsp_v49);

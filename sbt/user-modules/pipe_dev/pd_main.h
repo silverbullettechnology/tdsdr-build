@@ -38,6 +38,8 @@
 #define PD_VITA49_CLK_CTRL_ZERO_1   0x00000010 /* zero tsf_1 counter */
 #define PD_VITA49_CLK_CTRL_T2R2_0   0x00000020 /* channel 0 sample mode: 0:1t1r, 1:2t2r */
 #define PD_VITA49_CLK_CTRL_T2R2_1   0x00000040 /* channel 1 sample mode: 0:1t1r, 1:2t2r */
+#define PD_VITA49_CLK_CTRL_SYNC_EN  0x00000080 /* enable external HW sync from fpga_sync */
+#define PD_VITA49_CLK_CTRL_SYNC_OR  0x00000100 /* HW sync signals zero both counters */
 
 /* VITA49_PACK bits */
 #define PD_VITA49_PACK_CTRL_ENABLE    0x00000001 /* enable module       */
@@ -172,31 +174,35 @@ struct pd_vita49_unpack
 /* VITA49 CLOCK IOCTLs */
 #define  PD_IOCS_VITA49_CLK_CTRL    _IOW(PD_IOCTL_MAGIC, 20, unsigned long)
 #define  PD_IOCG_VITA49_CLK_CTRL    _IOR(PD_IOCTL_MAGIC, 21, unsigned long *)
-#define  PD_IOCG_VITA49_CLK_STAT    _IOR(PD_IOCTL_MAGIC, 24, unsigned long *)
-#define  PD_IOCS_VITA49_CLK_TSI     _IOW(PD_IOCTL_MAGIC, 25, unsigned long)
-#define  PD_IOCG_VITA49_CLK_TSI     _IOR(PD_IOCTL_MAGIC, 26, unsigned long *)
-#define  PD_IOCG_VITA49_CLK_READ_1  _IOR(PD_IOCTL_MAGIC, 27, struct pd_vita49_ts *)
-#define  PD_IOCG_VITA49_CLK_READ_0  _IOR(PD_IOCTL_MAGIC, 28, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_CLK_STAT    _IOR(PD_IOCTL_MAGIC, 22, unsigned long *)
+#define  PD_IOCS_VITA49_CLK_TSI     _IOW(PD_IOCTL_MAGIC, 23, unsigned long)
+#define  PD_IOCG_VITA49_CLK_TSI     _IOR(PD_IOCTL_MAGIC, 24, unsigned long *)
+#define  PD_IOCG_VITA49_CLK_READ_1  _IOR(PD_IOCTL_MAGIC, 25, struct pd_vita49_ts *)
+#define  PD_IOCG_VITA49_CLK_READ_0  _IOR(PD_IOCTL_MAGIC, 26, struct pd_vita49_ts *)
+#define  PD_IOCS_VITA49_CLK_SYNC_1  _IOW(PD_IOCTL_MAGIC, 27, unsigned long)
+#define  PD_IOCS_VITA49_CLK_SYNC_0  _IOW(PD_IOCTL_MAGIC, 28, unsigned long)
+#define  PD_IOCG_VITA49_CLK_SYNC_1  _IOR(PD_IOCTL_MAGIC, 29, unsigned long *)
+#define  PD_IOCG_VITA49_CLK_SYNC_0  _IOR(PD_IOCTL_MAGIC, 30, unsigned long *)
 
 /* VITA49_PACK IOCTLs */
-#define  PD_IOCS_VITA49_PACK_0_CTRL      _IOW(PD_IOCTL_MAGIC, 30, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_CTRL      _IOW(PD_IOCTL_MAGIC, 31, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_CTRL      _IOR(PD_IOCTL_MAGIC, 32, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_CTRL      _IOR(PD_IOCTL_MAGIC, 33, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_0_STAT      _IOR(PD_IOCTL_MAGIC, 34, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_STAT      _IOR(PD_IOCTL_MAGIC, 35, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_STRM_ID   _IOW(PD_IOCTL_MAGIC, 36, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_STRM_ID   _IOW(PD_IOCTL_MAGIC, 37, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_STRM_ID   _IOR(PD_IOCTL_MAGIC, 38, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_STRM_ID   _IOR(PD_IOCTL_MAGIC, 39, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 40, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 41, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 42, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 43, unsigned long *)
-#define  PD_IOCS_VITA49_PACK_0_TRAILER   _IOW(PD_IOCTL_MAGIC, 44, unsigned long)
-#define  PD_IOCS_VITA49_PACK_1_TRAILER   _IOW(PD_IOCTL_MAGIC, 45, unsigned long)
-#define  PD_IOCG_VITA49_PACK_0_TRAILER   _IOR(PD_IOCTL_MAGIC, 46, unsigned long *)
-#define  PD_IOCG_VITA49_PACK_1_TRAILER   _IOR(PD_IOCTL_MAGIC, 47, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_CTRL      _IOW(PD_IOCTL_MAGIC, 32, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_CTRL      _IOW(PD_IOCTL_MAGIC, 33, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_CTRL      _IOR(PD_IOCTL_MAGIC, 34, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_CTRL      _IOR(PD_IOCTL_MAGIC, 35, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_0_STAT      _IOR(PD_IOCTL_MAGIC, 36, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_STAT      _IOR(PD_IOCTL_MAGIC, 37, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_STRM_ID   _IOW(PD_IOCTL_MAGIC, 38, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_STRM_ID   _IOW(PD_IOCTL_MAGIC, 39, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_STRM_ID   _IOR(PD_IOCTL_MAGIC, 40, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_STRM_ID   _IOR(PD_IOCTL_MAGIC, 41, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 42, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_PKT_SIZE  _IOW(PD_IOCTL_MAGIC, 43, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 44, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_PKT_SIZE  _IOR(PD_IOCTL_MAGIC, 45, unsigned long *)
+#define  PD_IOCS_VITA49_PACK_0_TRAILER   _IOW(PD_IOCTL_MAGIC, 46, unsigned long)
+#define  PD_IOCS_VITA49_PACK_1_TRAILER   _IOW(PD_IOCTL_MAGIC, 47, unsigned long)
+#define  PD_IOCG_VITA49_PACK_0_TRAILER   _IOR(PD_IOCTL_MAGIC, 48, unsigned long *)
+#define  PD_IOCG_VITA49_PACK_1_TRAILER   _IOR(PD_IOCTL_MAGIC, 49, unsigned long *)
 
 /* VITA49_UNPACK IOCTLs */
 #define  PD_IOCS_VITA49_UNPACK_0_CTRL     _IOW(PD_IOCTL_MAGIC, 50, unsigned long)

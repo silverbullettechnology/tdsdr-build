@@ -62,6 +62,12 @@ void v49_command_reset (struct v49_command *cmd)
 
 	cmd->tstamp_int = 0;
 
+	cmd->tstamp_fmt = 0;
+
+	cmd->event_prd  = 0;
+
+	cmd->ctx_ind    = 0;
+
 	RETURN_ERRNO(0);
 }
 
@@ -293,6 +299,24 @@ LOG_DEBUG("%s: start avail %d\n", __func__, mbuf_get_avail(mbuf));
 		}
 	}
 
+    // Check indicator for Event Period
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_EVENT_PRD) )
+    {
+        if ( mbuf_get_be32(mbuf, &cmd->event_prd) != sizeof(cmd->event_prd) )
+            FAIL(V49_ERR_SHORT);
+
+        LOG_DEBUG("  event_prd 0x%08x\n", cmd->event_prd);
+    }
+
+    // Check indicator for Context Indicator Field
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_CTX_IND) )
+    {
+        if ( mbuf_get_be32(mbuf, &cmd->ctx_ind) != sizeof(cmd->ctx_ind) )
+            FAIL(V49_ERR_SHORT);
+
+        LOG_DEBUG("  ctx_ind 0x%08x\n", cmd->ctx_ind);
+    }
+
 	RETURN_ERRNO_VALUE(0, "%d", ret);
 
 fail:
@@ -451,6 +475,30 @@ int v49_command_format (struct v49_common *v49, struct mbuf *mbuf)
 			FAIL(V49_ERR_SPACE);
 	}
 
+    // Check indicator for Timestamp Format
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_TSTAMP_FMT) )
+    {
+        LOG_DEBUG("  tstamp_fmt 0x%08x\n", cmd->tstamp_fmt);
+        if ( mbuf_set_be32(mbuf, cmd->tstamp_fmt) != sizeof(cmd->tstamp_fmt) )
+            FAIL(V49_ERR_SPACE);
+    }
+
+    // Check indicator for Event Period Specifier
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_EVENT_PRD) )
+    {
+        LOG_DEBUG("  event_prd 0x%08x\n", cmd->event_prd);
+        if ( mbuf_set_be32(mbuf, cmd->event_prd) != sizeof(cmd->event_prd) )
+            FAIL(V49_ERR_SPACE);
+    }
+
+    // Check indicator for Context Indicator Field
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_CTX_IND) )
+    {
+        LOG_DEBUG("  ctx_ind 0x%08x\n", cmd->ctx_ind);
+        if ( mbuf_set_be32(mbuf, cmd->ctx_ind) != sizeof(cmd->ctx_ind) )
+            FAIL(V49_ERR_SPACE);
+    }
+
 	RETURN_ERRNO_VALUE(0, "%d", ret);
 
 fail:
@@ -495,15 +543,17 @@ const char *v49_command_request (int request)
 {
 	switch ( request )
 	{
-		case V49_CMD_REQ_DISCO:   return "DISCO";
-		case V49_CMD_REQ_ENUM:    return "ENUM";
-		case V49_CMD_REQ_ACCESS:  return "ACCESS";
-		case V49_CMD_REQ_OPEN:    return "OPEN";
-		case V49_CMD_REQ_CONFIG:  return "CONFIG";
-		case V49_CMD_REQ_START:   return "START";
-		case V49_CMD_REQ_STOP:    return "STOP";
-		case V49_CMD_REQ_CLOSE:   return "CLOSE";
-		case V49_CMD_REQ_RELEASE: return "RELEASE";
+		case V49_CMD_REQ_DISCO:      return "DISCO";
+		case V49_CMD_REQ_ENUM:       return "ENUM";
+		case V49_CMD_REQ_ACCESS:     return "ACCESS";
+		case V49_CMD_REQ_OPEN:       return "OPEN";
+		case V49_CMD_REQ_CONFIG:     return "CONFIG";
+		case V49_CMD_REQ_START:      return "START";
+		case V49_CMD_REQ_STOP:       return "STOP";
+		case V49_CMD_REQ_CLOSE:      return "CLOSE";
+		case V49_CMD_REQ_RELEASE:    return "RELEASE";
+		case V49_CMD_REQ_CTX_REP:    return "CTX_REP";
+		case V49_CMD_REQ_TSTAMP_CTL: return "TST_CTL";
 	}
 
 	static char  buff[64];
@@ -514,14 +564,17 @@ const char *v49_command_indicator (int ind)
 {
 	static char  buff[256];
 
-	snprintf(buff, sizeof(buff), "0x%08x: { %s%s%s%s%s%s%s}", ind,
+	snprintf(buff, sizeof(buff), "0x%08x: { %s%s%s%s%s%s%s%s%s%s}", ind,
 	          ind & (1 << V49_CMD_IND_BIT_PAGING    ) ? "PAGING "     : "",
 	          ind & (1 << V49_CMD_IND_BIT_CID       ) ? "CID "        : "",
 	          ind & (1 << V49_CMD_IND_BIT_PRIORITY  ) ? "PRIORITY "   : "",
 	          ind & (1 << V49_CMD_IND_BIT_RID_LIST  ) ? "RID_LIST "   : "",
 	          ind & (1 << V49_CMD_IND_BIT_RES_INFO  ) ? "RES_INFO "   : "",
 	          ind & (1 << V49_CMD_IND_BIT_SID_ASSIGN) ? "SID_ASSIGN " : "",
-	          ind & (1 << V49_CMD_IND_BIT_TSTAMP_INT) ? "TSTAMP_INT " : "");
+	          ind & (1 << V49_CMD_IND_BIT_TSTAMP_INT) ? "TSTAMP_INT " : "",
+	          ind & (1 << V49_CMD_IND_BIT_TSTAMP_FMT) ? "TSTAMP_FMT " : "",
+	          ind & (1 << V49_CMD_IND_BIT_EVENT_PRD)  ? "EVENT_PRD "  : "",
+	          ind & (1 << V49_CMD_IND_BIT_CTX_IND)    ? "CTX_IND "    : "");
 
 	return buff;
 }
@@ -538,6 +591,46 @@ const char *v49_command_tstamp_int (int tstamp_int)
 	snprintf(buff, sizeof(buff), "Unknown:%d", tstamp_int);
 	return buff;
 }
+const char *v49_command_tstamp_fmt (int tstamp_fmt)
+{
+    static char  buff[64];
+    int len;
+    if ( (tstamp_fmt & TSTAMP_FMT_TSI_UTC) == TSTAMP_FMT_TSI_UTC )
+    {
+        len = snprintf(buff, sizeof(buff), "TSI = UTC, ");
+    }
+    else if ( (tstamp_fmt & TSTAMP_FMT_TSI_GPS) == TSTAMP_FMT_TSI_GPS )
+    {
+        len = snprintf(buff, sizeof(buff), "TSI = GPS, ");
+    }
+    else if ( (tstamp_fmt & TSTAMP_FMT_TSI_OTHER) == TSTAMP_FMT_TSI_OTHER )
+    {
+        len = snprintf(buff, sizeof(buff), "TSI = OTHER, ");
+    }
+    else
+    {
+        len = snprintf(buff, sizeof(buff), "TSI = NONE, ");
+    }
+
+    if ( (tstamp_fmt & TSTAMP_FMT_TSF_SAMP) == TSTAMP_FMT_TSF_SAMP )
+    {
+        snprintf(buff+len, sizeof(buff)-len, "TSF = Sample Count");
+    }
+    else if ( (tstamp_fmt & TSTAMP_FMT_TSF_PICO) == TSTAMP_FMT_TSF_PICO )
+    {
+        snprintf(buff+len, sizeof(buff)-len, "TSF = Real-Time Pico-Seconds");
+    }
+    else if ( (tstamp_fmt & TSTAMP_FMT_TSF_FREE) == TSTAMP_FMT_TSF_FREE )
+    {
+        snprintf(buff+len, sizeof(buff)-len, "TSF = Free Running Count");
+    }
+    else
+    {
+        snprintf(buff+len, sizeof(buff)-len, "TSF = NONE");
+    }
+
+    return buff;
+}
 
 const char *v49_command_return_desc (int err)
 {
@@ -546,6 +639,7 @@ const char *v49_command_return_desc (int err)
 		case V49_ERR_CMD_RANGE:  return "Request/Response field: bad range";
 		case V49_ERR_LIST_SIZE:  return "Packet too short for list";
 		case V49_ERR_TSTAMP_INT: return "Timestamp Interp: bad type";
+		case V49_ERR_TSTAMP_FMT: return "Timestamp Format: bad type";
 	}
 
 	static char buff[32];
@@ -606,6 +700,15 @@ void v49_command_dump (int level, struct v49_command *cmd)
 
 	if ( cmd->indicator & (1 << V49_CMD_IND_BIT_TSTAMP_INT) )
 		LOG_MESSAGE(level, "tstamp_int: %s\n", v49_command_tstamp_int(cmd->tstamp_int));
+
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_TSTAMP_FMT) )
+        LOG_MESSAGE(level, "tstamp_fmt: %s\n", v49_command_tstamp_fmt(cmd->tstamp_fmt));
+
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_EVENT_PRD) )
+        LOG_MESSAGE(level, "event_prd      : 0x%08x\n", cmd->event_prd);
+
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_CTX_IND) )
+        LOG_MESSAGE(level, "ctx_ind      : 0x%08x\n", cmd->ctx_ind);
 }
 
 

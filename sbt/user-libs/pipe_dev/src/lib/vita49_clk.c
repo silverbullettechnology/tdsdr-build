@@ -28,6 +28,8 @@
 
 
 static int VITA49_CLK_READ[2] = { PD_IOCG_VITA49_CLK_READ_0, PD_IOCG_VITA49_CLK_READ_1 };
+static int VITA49_CLK_GET_SYNC[2] = { PD_IOCS_VITA49_CLK_SYNC_0, PD_IOCS_VITA49_CLK_SYNC_1 };
+static int VITA49_CLK_SET_SYNC[2] = { PD_IOCG_VITA49_CLK_SYNC_0, PD_IOCG_VITA49_CLK_SYNC_1 };
 
 int pipe_vita49_clk_set_ctrl (unsigned long reg)
 {
@@ -89,3 +91,22 @@ int pipe_vita49_clk_read (int dev, struct pd_vita49_ts *ts)
 	return ret;
 }
 
+int pipe_vita49_clk_set_sync (int dev, unsigned long  reg)
+{
+    int ret;
+
+    if ( (ret = ioctl(pipe_dev_fd, VITA49_CLK_SET_SYNC[dev], reg)) )
+        ERROR("VITA49_CLK_SET_SYNC[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+
+    return ret;
+}
+
+int pipe_vita49_clk_get_sync (int dev, unsigned long *reg)
+{
+    int ret;
+
+    if ( (ret = ioctl(pipe_dev_fd, VITA49_CLK_GET_SYNC[dev], reg)) )
+        ERROR("VITA49_CLK_GET_SYNC[%d], %08x: %d: %s\n", dev, reg, ret, strerror(errno));
+
+    return ret;
+}

@@ -92,6 +92,8 @@ int pipe_vita49_clk_get_stat (unsigned long *reg);
 int pipe_vita49_clk_set_tsi  (unsigned long  reg);
 int pipe_vita49_clk_get_tsi  (unsigned long *reg);
 int pipe_vita49_clk_read     (int dev, struct pd_vita49_ts *ts);
+int pipe_vita49_clk_set_sync (int dev, unsigned long  reg);
+int pipe_vita49_clk_get_sync (int dev, unsigned long *reg);
 
 
 /******* VITA49_PACK IOCTLs *******/
