@@ -45,7 +45,7 @@ void worker_command_tstamp_control (struct v49_common *req, struct v49_common *r
 	{
         if ( req->command.tstamp_fmt != ( TSTAMP_FMT_TSF_SAMP | TSTAMP_FMT_TSI_NONE ) )
         {
-            LOG_ERROR("Timestamp Control: TSF:Sample, TSI:None Supported\n");
+            LOG_ERROR("Timestamp Control: Suported TSF:Sample, TSI:None, Received tstamp format 0x%x -> adi %d\n", req->command.tstamp_fmt, worker_adi);
             rsp->command.result = V49_CMD_RES_INVAL;
             RETURN_ERRNO(EINVAL);
         }

@@ -299,6 +299,23 @@ LOG_DEBUG("%s: start avail %d\n", __func__, mbuf_get_avail(mbuf));
 		}
 	}
 
+    // Check indicator for Timestamp Format
+    if ( cmd->indicator & (1 << V49_CMD_IND_BIT_TSTAMP_FMT) )
+    {
+        if ( mbuf_get_be32(mbuf, &u32) != sizeof(u32) )
+            FAIL(V49_ERR_SHORT);
+
+        LOG_DEBUG("  tstamp_fmt %s\n", v49_command_tstamp_fmt(u32));
+        if ( u32 != ( TSTAMP_FMT_TSF_SAMP | TSTAMP_FMT_TSI_NONE ) )
+        {
+           FAIL(V49_ERR_TSTAMP_FMT);
+        }
+        else
+        {
+            cmd->tstamp_fmt = u32;
+        }
+    }
+
     // Check indicator for Event Period
     if ( cmd->indicator & (1 << V49_CMD_IND_BIT_EVENT_PRD) )
     {
